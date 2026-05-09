@@ -11,7 +11,7 @@ const ALERTAS = [
   {
     id: 'ALT-002', tipo: 'capacidad', severidad: 'critica',
     titulo: 'Sobrecarga de retornables',
-    desc: 'Ruta R-10 · Palets retornables superan capacidad prevista. Recogida acumulada: 7.2 palé equivalentes vs. 6 disponibles.',
+    desc: 'Ruta R-10 · Pedidos retornables superan capacidad prevista. Recogida acumulada: 7.2 pedido equivalentes vs. 6 disponibles.',
     ruta: 'R-10', conductor: 'R. López', zona: 'ZM040-BCN-10',
     hora: '10:18', activa: true,
   },
@@ -25,7 +25,7 @@ const ALERTAS = [
   {
     id: 'ALT-004', tipo: 'carga', severidad: 'media',
     titulo: 'Conflicto de acceso lateral',
-    desc: 'Ruta R-07 · Parada 12: barril Estrella Damm 50L en posición palé 7 (interior). Requiere mover palé 5 para acceso. Tiempo extra: +8 min.',
+    desc: 'Ruta R-07 · Parada 12: barril Estrella Damm 50L en posición pedido 7 (interior). Requiere mover pedido 5 para acceso. Tiempo extra: +8 min.',
     ruta: 'R-07', conductor: 'M. García', zona: 'ZM040-BCN-07',
     hora: '09:55', activa: true,
   },
@@ -46,7 +46,7 @@ const ALERTAS = [
   {
     id: 'ALT-007', tipo: 'carga', severidad: 'resuelta',
     titulo: 'Desbalance ZCE resuelto',
-    desc: 'Ruta R-03 · Reequilibrio automático aplicado. Se redistribuyeron 18 ZCE de Font d\'Or al palé 3. Eficiencia: 97%.',
+    desc: 'Ruta R-03 · Reequilibrio automático aplicado. Se redistribuyeron 18 ZCE de Font d\'Or al pedido 3. Eficiencia: 97%.',
     ruta: 'R-03', conductor: 'C. Vega', zona: 'ZM040-BCN-03',
     hora: '07:15', activa: false,
   },
@@ -133,7 +133,7 @@ export function AlertasView() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexShrink: 0 }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 3 }}>Centro de Alertas</div>
-          <div style={{ fontSize: 13, color: 'rgba(160,170,200,.6)' }}>Ventanas horarias · Capacidad palés · Acceso lona · Retornables</div>
+          <div style={{ fontSize: 13, color: 'rgba(160,170,200,.6)' }}>Ventanas horarias · Capacidad pedidos · Acceso lona · Retornables</div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           {stats.map(s => (

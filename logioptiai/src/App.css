@@ -237,6 +237,7 @@
   width: 42px; height: 42px; border-radius: 50%;
   background: linear-gradient(135deg,#7c6cff,#5b8cff);
   display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
   color: white; cursor: pointer;
   box-shadow: 0 8px 18px rgba(124,108,255,.45);
   border: none;
