@@ -2,7 +2,7 @@
 const KPI_CARDS = [
   { label: 'Entregas completadas hoy', value: '127', sub: 'de 167 planificadas', color: '#22c55e', pct: 76 },
   { label: 'Tiempo medio por parada', value: '11.4 min', sub: '−2.1 min vs. ayer', color: '#3b82f6', pct: 68 },
-  { label: 'Ocupación media palés', value: '87%', sub: '52.4 ZCE / 60 ZCE', color: '#a78bfa', pct: 87 },
+  { label: 'Ocupación media pedidos', value: '87%', sub: '52.4 ZCE / 60 ZCE', color: '#a78bfa', pct: 87 },
   { label: 'Ventanas horarias ok', value: '91.3%', sub: '142 / 156 clientes', color: '#f59e0b', pct: 91 },
   { label: 'Km totales recorridos', value: '823 km', sub: '−47 km vs. sin optimizar', color: '#38bdf8', pct: 60 },
   { label: 'Retornables recogidos', value: '62%', sub: '~60% objetivo Damm', color: '#fb923c', pct: 62 },
@@ -166,7 +166,7 @@ export function AnalyticsView() {
               </div>
             </div>
             <BarChart data={ZCE_POR_RUTA} />
-            <div style={{ fontSize: 10, color: 'rgba(160,170,200,.35)', marginTop: 8 }}>1 palé = 60 ZCE (caja estadística) · Línea punteada = capacidad máxima del vehículo</div>
+            <div style={{ fontSize: 10, color: 'rgba(160,170,200,.35)', marginTop: 8 }}>1 pedido = 60 ZCE (caja estadística) · Línea punteada = capacidad máxima del vehículo</div>
           </div>
 
           {/* Tendencia ventanas */}
@@ -204,7 +204,7 @@ export function AnalyticsView() {
         <div style={{ background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: 10, padding: '14px 16px' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#cfd5e6', marginBottom: 14 }}>Rendimiento por zona de transporte (ZM040)</div>
           <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr 1fr', gap: 0 }}>
-            {['Zona', 'Ventanas cumplidas', 'Km recorridos', 'Eficiencia palés (%)'].map(h => (
+            {['Zona', 'Ventanas cumplidas', 'Km recorridos', 'Eficiencia pedidos (%)'].map(h => (
               <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'rgba(160,170,200,.45)', textTransform: 'uppercase', letterSpacing: .5, padding: '0 0 8px 0' }}>{h}</span>
             ))}
             {ZONAS_PERF.map((z, i) => {

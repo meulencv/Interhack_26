@@ -20,7 +20,7 @@ class PaquetesScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Paquetes / Palés',
+                'Pedidos de la ruta',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 28,
@@ -34,19 +34,19 @@ class PaquetesScreen extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _MiniStat(
-                      icon: Icons.grid_view,
+                      icon: Icons.local_shipping,
                       iconColor: AppColors.purple,
-                      value: '${provider.totalPales}',
-                      label: 'Palés',
+                      value: '${provider.totalPedidos}',
+                      label: 'Pedidos',
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: _MiniStat(
-                      icon: Icons.inventory_2,
+                      icon: Icons.access_time,
                       iconColor: AppColors.orange,
-                      value: '${provider.totalPaquetes}',
-                      label: 'Paquetes',
+                      value: '${provider.pedidosPendientes}',
+                      label: 'Pendientes',
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -54,7 +54,7 @@ class PaquetesScreen extends StatelessWidget {
                     child: _MiniStat(
                       icon: Icons.check_circle,
                       iconColor: AppColors.green,
-                      value: '${provider.itemsEntregados}',
+                      value: '${provider.pedidosEntregados}',
                       label: 'Entregados',
                     ),
                   ),
@@ -81,24 +81,19 @@ class PaquetesScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     _ResumenRow(
-                      label: 'Palés',
-                      value: '${provider.totalPales}',
+                      label: 'Total pedidos',
+                      value: '${provider.totalPedidos}',
                       color: AppColors.purple,
                       isFirst: true,
                     ),
                     _ResumenRow(
-                      label: 'Paquetes',
-                      value: '${provider.totalPaquetes}',
+                      label: 'Pendientes',
+                      value: '${provider.pedidosPendientes}',
                       color: AppColors.orange,
                     ),
                     _ResumenRow(
-                      label: 'Pendientes',
-                      value: '${provider.itemsPendientes}',
-                      color: AppColors.textSecondary,
-                    ),
-                    _ResumenRow(
                       label: 'Entregados',
-                      value: '${provider.itemsEntregados}',
+                      value: '${provider.pedidosEntregados}',
                       color: AppColors.green,
                       isLast: true,
                     ),
@@ -174,7 +169,7 @@ class PaquetesScreen extends StatelessWidget {
 
               // Items list
               const Text(
-                'Todos los artículos',
+                'Todos los pedidos',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 18,
@@ -182,7 +177,7 @@ class PaquetesScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              ...provider.items.map((item) => Padding(
+              ...provider.pedidos.map((pedido) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Container(
                       decoration: BoxDecoration(
@@ -197,19 +192,19 @@ class PaquetesScreen extends StatelessWidget {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: (item.esPale
-                                      ? AppColors.purple
-                                      : AppColors.orange)
+                              color: (pedido.entregado
+                                      ? AppColors.green
+                                      : AppColors.blue)
                                   .withOpacity(0.15),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Icon(
-                              item.esPale
-                                  ? Icons.grid_view
-                                  : Icons.inventory_2,
-                              color: item.esPale
-                                  ? AppColors.purple
-                                  : AppColors.orange,
+                              pedido.entregado
+                                  ? Icons.check_circle
+                                  : Icons.local_shipping,
+                              color: pedido.entregado
+                                  ? AppColors.green
+                                  : AppColors.blue,
                               size: 22,
                             ),
                           ),
@@ -219,7 +214,7 @@ class PaquetesScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  item.id,
+                                  pedido.id,
                                   style: const TextStyle(
                                     color: AppColors.textPrimary,
                                     fontSize: 15,
@@ -227,7 +222,7 @@ class PaquetesScreen extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  item.contenido,
+                                  pedido.cliente,
                                   style: const TextStyle(
                                     color: AppColors.textSecondary,
                                     fontSize: 13,
@@ -240,16 +235,16 @@ class PaquetesScreen extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: (item.entregado
+                              color: (pedido.entregado
                                       ? AppColors.green
                                       : AppColors.blue)
                                   .withOpacity(0.15),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              item.estadoLabel,
+                              pedido.entregado ? 'Entregado' : 'Pendiente',
                               style: TextStyle(
-                                color: item.entregado
+                                color: pedido.entregado
                                     ? AppColors.green
                                     : AppColors.blue,
                                 fontSize: 12,

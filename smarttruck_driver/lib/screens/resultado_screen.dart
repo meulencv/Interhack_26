@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/models.dart';
+import '../providers/app_provider.dart';
 import 'detalle_screen.dart';
 
 class ResultadoScreen extends StatelessWidget {
-  final Item item;
+  final dynamic item; // Pedido o Pale
 
   const ResultadoScreen({super.key, required this.item});
 
   @override
   Widget build(BuildContext context) {
-    final itemColor = item.esPale ? AppColors.purple : AppColors.orange;
-
+    if (item is Pedido) {
+      return DetalleScreen(pedido: item as Pedido);
+    }
+    
+    final pale = item as Pale;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -20,14 +25,13 @@ class ResultadoScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Resultado'),
+        title: const Text('Detalle de Palé'),
         elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // Item card
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
@@ -42,119 +46,37 @@ class ResultadoScreen extends StatelessWidget {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: itemColor.withOpacity(0.15),
+                      color: AppColors.purple.withOpacity(0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      item.esPale ? Icons.grid_view : Icons.inventory_2,
-                      color: itemColor,
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    item.id,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.tipoLabel,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 16,
-                    ),
+                    child: const Icon(Icons.grid_view, color: AppColors.purple, size: 32),
                   ),
                   const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: (item.entregado
-                              ? AppColors.green
-                              : AppColors.blue)
-                          .withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      item.estadoLabel,
-                      style: TextStyle(
-                        color: item.entregado
-                            ? AppColors.green
-                            : AppColors.blue,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  Text(
+                    pale.id,
+                    style: const TextStyle(color: AppColors.textPrimary, fontSize: 24, fontWeight: FontWeight.bold),
                   ),
+                  const SizedBox(height: 4),
+                  const Text('Palé', style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
                 ],
               ),
             ),
             const SizedBox(height: 20),
-
-            // Location in truck
-            if (item.fila != null) ...[
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                ),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Ubicación en el camión',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Mini truck grid
-                    _MiniTruckGrid(highlightFila: item.fila!, highlightCol: item.columna!),
-                    const SizedBox(height: 14),
-
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on,
-                            color: AppColors.blue, size: 18),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            item.ubicacionLabel,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
               ),
-              const SizedBox(height: 20),
-            ],
-
-            // CTA button
-            AppWidgets.primaryButton(
-              label: 'VER EN EL MAPA DEL CAMIÓN',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => DetalleScreen(item: item),
-                  ),
-                );
-              },
+              child: Column(
+                children: [
+                  _InfoRow(label: 'Contenido', value: pale.contenido, isFirst: true),
+                  _InfoRow(label: 'Peso', value: pale.peso),
+                  _InfoRow(label: 'Volumen', value: pale.volumen),
+                  _InfoRow(label: 'Elementos Restantes', value: '${pale.elementosRestantes} / ${pale.elementosTotales}'),
+                  _InfoRow(label: 'Ubicación', value: pale.ubicacionLabel, isLast: true),
+                ],
+              ),
             ),
           ],
         ),
@@ -163,50 +85,30 @@ class ResultadoScreen extends StatelessWidget {
   }
 }
 
-class _MiniTruckGrid extends StatelessWidget {
-  final int highlightFila;
-  final int highlightCol;
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isFirst;
+  final bool isLast;
 
-  const _MiniTruckGrid(
-      {required this.highlightFila, required this.highlightCol});
+  const _InfoRow({required this.label, required this.value, this.isFirst = false, this.isLast = false});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: List.generate(2, (col) => Expanded(
-        child: Padding(
-          padding: EdgeInsets.only(
-              left: col == 1 ? 4 : 0, right: col == 0 ? 4 : 0),
-          child: Column(
-            children: List.generate(3, (fila) {
-              final isHighlight =
-                  fila == highlightFila && col == highlightCol;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Container(
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: isHighlight
-                        ? AppColors.primaryYellow.withOpacity(0.3)
-                        : AppColors.border.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: isHighlight
-                          ? AppColors.primaryYellow
-                          : AppColors.border,
-                      width: isHighlight ? 2 : 1,
-                    ),
-                  ),
-                  child: isHighlight
-                      ? const Icon(Icons.location_on,
-                          color: AppColors.primaryYellow, size: 16)
-                      : null,
-                ),
-              );
-            }),
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: isLast ? BorderSide.none : const BorderSide(color: AppColors.border, width: 0.5),
         ),
-      )),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+          Text(value, style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500)),
+        ],
+      ),
     );
   }
 }

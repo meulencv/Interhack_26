@@ -89,16 +89,16 @@ function bundleToMapData(bundle) {
     const firstStop = (r.stops || []).find(s => s.latitude !== 0 && s.longitude !== 0)
     if (!firstStop) return null
     const tipo   = TIPOS_BY_IDX[i] || '6P'
-    const palets = tipo === '8P' ? 8 : tipo === 'FURGO' ? 3 : 6
+    const pedidos = tipo === '8P' ? 8 : tipo === 'FURGO' ? 3 : 6
     return {
       pos: [firstStop.latitude, firstStop.longitude],
       ruta: {
         id: `R-${String(i + 1).padStart(2, '0')}`,
         conductor: CONDUCTORES[i] || `Conductor ${i + 1}`,
         tipo,
-        palets,
-        zce: palets * 60,
-        retornables: Math.round(palets * 60 * 0.6),
+        pedidos,
+        zce: pedidos * 60,
+        retornables: Math.round(pedidos * 60 * 0.6),
         estado: 'en-ruta',
       },
     }
@@ -298,7 +298,7 @@ export default function App() {
               <div className="fleet-list">
                 <div className="fleet-row"><div className="fleet-left"><span className="dot b"/>Rutas</div><div className="fleet-num">{bundleOverview?.routes ?? '—'}</div></div>
                 <div className="fleet-row"><div className="fleet-left"><span className="dot g"/>Km totales</div><div className="fleet-num">{bundleOverview?.distance_km ?? '—'}</div></div>
-                <div className="fleet-row"><div className="fleet-left"><span className="dot y"/>Palés</div><div className="fleet-num">{bundleOverview?.pallet_load ?? '—'}</div></div>
+                <div className="fleet-row"><div className="fleet-left"><span className="dot y"/>Pedidos</div><div className="fleet-num">{bundleOverview?.pallet_load ?? '—'}</div></div>
                 <div className="fleet-row"><div className="fleet-left"><span className="dot r"/>Alertas</div><div className="fleet-num">{bundleOverview?.alerts ?? '—'}</div></div>
               </div>
             </div>
@@ -325,7 +325,7 @@ export default function App() {
                   <div className="params-title">Resultado del modelo</div>
                   <div className="param-row"><span className="param-name">Rutas planificadas</span><span className="param-val">{bundleOverview?.routes ?? '—'}</span></div>
                   <div className="param-row"><span className="param-name">Distancia total</span><span className="param-val">{bundleOverview ? `${bundleOverview.distance_km} km` : '—'}</span></div>
-                  <div className="param-row"><span className="param-name">Palés cargados</span><span className="param-val">{bundleOverview?.pallet_load ?? '—'}</span></div>
+                  <div className="param-row"><span className="param-name">Pedidos cargados</span><span className="param-val">{bundleOverview?.pallet_load ?? '—'}</span></div>
                   <div className="param-row"><span className="param-name">Retornables pico</span><span className="param-val">{bundleOverview?.return_peak ?? '—'}</span></div>
                   <div className="param-row"><span className="param-name">Modo geocoding</span><span className="param-val">{bundleOverview?.ors_mode ?? '—'}</span></div>
                 </div>

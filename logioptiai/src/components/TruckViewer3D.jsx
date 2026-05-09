@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 
-function buildPallets(ruta) {
-  const n = ruta.palets
+function buildPedidos(ruta) {
+  const n = ruta.pedidos
   const zceEach = Math.round(ruta.zce / n)
   const retEach  = Math.round(ruta.retornables / n)
   const baseKg   = Math.round(zceEach * 0.55 + retEach * 0.28 + 75)
@@ -13,8 +13,8 @@ function buildPallets(ruta) {
   }))
 }
 
-function html6P(pallets) {
-  const data = JSON.stringify(pallets)
+function html6P(pedidos) {
+  const data = JSON.stringify(pedidos)
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <style>
   body{margin:0;overflow:hidden;background:#050505;font-family:'Segoe UI',sans-serif;}
@@ -28,10 +28,10 @@ function html6P(pallets) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head><body>
-<div id="info"><h3 id="it">Palet #</h3><p id="ic"></p><p id="iw" style="color:#8ac926;margin-top:5px;font-weight:700;"></p></div>
-<div id="title"><h2>CAMIÓN MEDIANO · 6 PALETS</h2><p>Arrastra para rotar · Clic en los palets</p></div>
+<div id="info"><h3 id="it">Pedido #</h3><p id="ic"></p><p id="iw" style="color:#8ac926;margin-top:5px;font-weight:700;"></p></div>
+<div id="title"><h2>CAMIÓN MEDIANO · 6 PALETS</h2><p>Arrastra para rotar · Clic en los pedidos</p></div>
 <script>
-const palletData=${data};
+const pedidoData=${data};
 const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x050505,.03);
 const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.1,1000);
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
@@ -49,37 +49,37 @@ ep(new THREE.BoxGeometry(2.6,.8,1.4),lm,0,2.3,3.5);
 const wg=new THREE.CylinderGeometry(.45,.45,.6,16);
 [[1.3,.45,3.8],[-1.3,.45,3.8],[1.3,.45,-1.0],[-1.3,.45,-1.0]].forEach(p=>{const w=new THREE.LineSegments(new THREE.EdgesGeometry(wg),hm);w.rotation.z=Math.PI/2;w.position.set(p[0],p[1],p[2]);g.add(w);});
 scene.add(new THREE.GridHelper(20,20,0x444444,0x222222));
-const pallets=[];const bx=new THREE.BoxGeometry(.95,.95,.95);
+const pedidos=[];const bx=new THREE.BoxGeometry(.95,.95,.95);
 const colors=[0xff595e,0xffca3a,0x8ac926,0x1982c4,0x6a4c93,0xe07a5f];
 let id=0;for(let r=0;r<3;r++){for(let c=0;c<2;c++){
   const mat=new THREE.MeshBasicMaterial({color:colors[id],transparent:true,opacity:.9});
   const box=new THREE.Mesh(bx,mat);
   box.add(new THREE.LineSegments(new THREE.EdgesGeometry(bx),new THREE.LineBasicMaterial({color:0xffffff})));
   box.position.set(c===0?-.6:.6,1.3,(r*1.2)-.7);
-  box.userData={id:id+1,content:palletData[id]?.content||'Carga',weight:palletData[id]?.weight||'—'};
-  g.add(box);pallets.push(box);id++;}}
+  box.userData={id:id+1,content:pedidoData[id]?.content||'Carga',weight:pedidoData[id]?.weight||'—'};
+  g.add(box);pedidos.push(box);id++;}}
 camera.position.set(-6,4,7);
 const rc=new THREE.Raycaster();const mouse=new THREE.Vector2();
 window.addEventListener('click',e=>{
   mouse.x=(e.clientX/innerWidth)*2-1;mouse.y=-(e.clientY/innerHeight)*2+1;
   rc.setFromCamera(mouse,camera);
-  const ix=rc.intersectObjects(pallets);
+  const ix=rc.intersectObjects(pedidos);
   if(ix.length>0){const s=ix[0].object;
-    document.getElementById('it').innerText='Palet #'+s.userData.id;
+    document.getElementById('it').innerText='Pedido #'+s.userData.id;
     document.getElementById('ic').innerText='Contenido: '+s.userData.content;
     document.getElementById('iw').innerText='Peso: '+s.userData.weight;
-    pallets.forEach(p=>{p.material.opacity=.15;p.scale.set(1,1,1);});
+    pedidos.forEach(p=>{p.material.opacity=.15;p.scale.set(1,1,1);});
     s.material.opacity=1;s.scale.set(1.07,1.07,1.07);
     document.getElementById('info').style.display='block';
-  } else {pallets.forEach(p=>{p.material.opacity=.9;p.scale.set(1,1,1);});document.getElementById('info').style.display='none';}
+  } else {pedidos.forEach(p=>{p.material.opacity=.9;p.scale.set(1,1,1);});document.getElementById('info').style.display='none';}
 });
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera);}animate();
 </script></body></html>`
 }
 
-function html8P(pallets) {
-  const data = JSON.stringify(pallets)
+function html8P(pedidos) {
+  const data = JSON.stringify(pedidos)
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <style>
   body{margin:0;overflow:hidden;background:#050505;font-family:'Segoe UI',sans-serif;}
@@ -93,10 +93,10 @@ function html8P(pallets) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head><body>
-<div id="info"><h3 id="it">Palet #</h3><p id="ic"></p><p id="iw" style="color:#8ac926;margin-top:5px;font-weight:700;"></p></div>
-<div id="title"><h2>CAMIÓN GRANDE · 8 PALETS</h2><p>Arrastra para rotar · Clic en los palets</p></div>
+<div id="info"><h3 id="it">Pedido #</h3><p id="ic"></p><p id="iw" style="color:#8ac926;margin-top:5px;font-weight:700;"></p></div>
+<div id="title"><h2>CAMIÓN GRANDE · 8 PALETS</h2><p>Arrastra para rotar · Clic en los pedidos</p></div>
 <script>
-const palletData=${data};
+const pedidoData=${data};
 const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x050505,.03);
 const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.1,1000);
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
@@ -114,37 +114,37 @@ ep(new THREE.BoxGeometry(2.6,.8,1.4),lm,0,2.3,3.5);
 const wg=new THREE.CylinderGeometry(.45,.45,.6,16);
 [[1.3,.45,3.8],[-1.3,.45,3.8],[1.3,.45,-1.2],[-1.3,.45,-1.2],[1.3,.45,-2.4],[-1.3,.45,-2.4]].forEach(p=>{const w=new THREE.LineSegments(new THREE.EdgesGeometry(wg),hm);w.rotation.z=Math.PI/2;w.position.set(p[0],p[1],p[2]);g.add(w);});
 scene.add(new THREE.GridHelper(20,20,0x444444,0x222222));
-const pallets=[];const bx=new THREE.BoxGeometry(.95,.95,.95);
+const pedidos=[];const bx=new THREE.BoxGeometry(.95,.95,.95);
 const colors=[0xff595e,0xffca3a,0x8ac926,0x1982c4,0x6a4c93,0xe07a5f,0x3d405b,0x81b29a];
 let id=0;for(let r=0;r<4;r++){for(let c=0;c<2;c++){
   const mat=new THREE.MeshBasicMaterial({color:colors[id],transparent:true,opacity:.9});
   const box=new THREE.Mesh(bx,mat);
   box.add(new THREE.LineSegments(new THREE.EdgesGeometry(bx),new THREE.LineBasicMaterial({color:0xffffff,linewidth:2})));
   box.position.set(c===0?-.6:.6,1.3,(r*1.2)-2.0);
-  box.userData={id:id+1,content:palletData[id]?.content||'Carga',weight:palletData[id]?.weight||'—'};
-  g.add(box);pallets.push(box);id++;}}
+  box.userData={id:id+1,content:pedidoData[id]?.content||'Carga',weight:pedidoData[id]?.weight||'—'};
+  g.add(box);pedidos.push(box);id++;}}
 camera.position.set(-7,5,8);
 const rc=new THREE.Raycaster();const mouse=new THREE.Vector2();
 window.addEventListener('click',e=>{
   mouse.x=(e.clientX/innerWidth)*2-1;mouse.y=-(e.clientY/innerHeight)*2+1;
   rc.setFromCamera(mouse,camera);
-  const ix=rc.intersectObjects(pallets);
+  const ix=rc.intersectObjects(pedidos);
   if(ix.length>0){const s=ix[0].object;
-    document.getElementById('it').innerText='Palet #'+s.userData.id;
+    document.getElementById('it').innerText='Pedido #'+s.userData.id;
     document.getElementById('ic').innerText='Contenido: '+s.userData.content;
     document.getElementById('iw').innerText='Peso: '+s.userData.weight;
-    pallets.forEach(p=>{p.material.opacity=.15;p.scale.set(1,1,1);});
+    pedidos.forEach(p=>{p.material.opacity=.15;p.scale.set(1,1,1);});
     s.material.opacity=1;s.scale.set(1.07,1.07,1.07);
     document.getElementById('info').style.display='block';
-  } else {pallets.forEach(p=>{p.material.opacity=.9;p.scale.set(1,1,1);});document.getElementById('info').style.display='none';}
+  } else {pedidos.forEach(p=>{p.material.opacity=.9;p.scale.set(1,1,1);});document.getElementById('info').style.display='none';}
 });
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera);}animate();
 </script></body></html>`
 }
 
-function htmlFurgo(pallets) {
-  const data = JSON.stringify(pallets)
+function htmlFurgo(pedidos) {
+  const data = JSON.stringify(pedidos)
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <style>
   body{margin:0;overflow:hidden;background:#050505;font-family:'Segoe UI',sans-serif;}
@@ -158,10 +158,10 @@ function htmlFurgo(pallets) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head><body>
-<div id="info"><h3 id="it">Palet #</h3><p id="ic"></p><p id="iw" style="color:#8ac926;margin-top:5px;font-weight:700;"></p></div>
-<div id="title"><h2>FURGONETA · 3 PALETS</h2><p>Arrastra para rotar · Clic en los palets</p></div>
+<div id="info"><h3 id="it">Pedido #</h3><p id="ic"></p><p id="iw" style="color:#8ac926;margin-top:5px;font-weight:700;"></p></div>
+<div id="title"><h2>FURGONETA · 3 PALETS</h2><p>Arrastra para rotar · Clic en los pedidos</p></div>
 <script>
-const palletData=${data};
+const pedidoData=${data};
 const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x050505,.03);
 const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.1,1000);
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
@@ -179,29 +179,29 @@ ep(new THREE.BoxGeometry(1.6,.8,1.0),lm,0,2.0,2.7);
 const wg=new THREE.CylinderGeometry(.35,.35,.4,16);
 [[.8,.35,2.95],[-.8,.35,2.95],[.8,.35,-.8],[-.8,.35,-.8]].forEach(p=>{const w=new THREE.LineSegments(new THREE.EdgesGeometry(wg),hm);w.rotation.z=Math.PI/2;w.position.set(p[0],p[1],p[2]);g.add(w);});
 scene.add(new THREE.GridHelper(20,20,0x444444,0x222222));
-const pallets=[];const bx=new THREE.BoxGeometry(.95,.95,.95);
+const pedidos=[];const bx=new THREE.BoxGeometry(.95,.95,.95);
 const colors=[0xff595e,0xffca3a,0x1982c4];
 for(let r=0;r<3;r++){
   const mat=new THREE.MeshBasicMaterial({color:colors[r],transparent:true,opacity:.9});
   const box=new THREE.Mesh(bx,mat);
   box.add(new THREE.LineSegments(new THREE.EdgesGeometry(bx),new THREE.LineBasicMaterial({color:0xffffff})));
   box.position.set(0,1.1,(r*1.2)-.8);
-  box.userData={id:r+1,content:palletData[r]?.content||'Carga',weight:palletData[r]?.weight||'—'};
-  g.add(box);pallets.push(box);}
+  box.userData={id:r+1,content:pedidoData[r]?.content||'Carga',weight:pedidoData[r]?.weight||'—'};
+  g.add(box);pedidos.push(box);}
 camera.position.set(-5,3,6);
 const rc=new THREE.Raycaster();const mouse=new THREE.Vector2();
 window.addEventListener('click',e=>{
   mouse.x=(e.clientX/innerWidth)*2-1;mouse.y=-(e.clientY/innerHeight)*2+1;
   rc.setFromCamera(mouse,camera);
-  const ix=rc.intersectObjects(pallets);
+  const ix=rc.intersectObjects(pedidos);
   if(ix.length>0){const s=ix[0].object;
-    document.getElementById('it').innerText='Palet #'+s.userData.id;
+    document.getElementById('it').innerText='Pedido #'+s.userData.id;
     document.getElementById('ic').innerText='Contenido: '+s.userData.content;
     document.getElementById('iw').innerText='Peso: '+s.userData.weight;
-    pallets.forEach(p=>{p.material.opacity=.15;p.scale.set(1,1,1);});
+    pedidos.forEach(p=>{p.material.opacity=.15;p.scale.set(1,1,1);});
     s.material.opacity=1;s.scale.set(1.07,1.07,1.07);
     document.getElementById('info').style.display='block';
-  } else {pallets.forEach(p=>{p.material.opacity=.9;p.scale.set(1,1,1);});document.getElementById('info').style.display='none';}
+  } else {pedidos.forEach(p=>{p.material.opacity=.9;p.scale.set(1,1,1);});document.getElementById('info').style.display='none';}
 });
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera);}animate();
@@ -209,10 +209,10 @@ function animate(){requestAnimationFrame(animate);controls.update();renderer.ren
 }
 
 function getHtml(ruta) {
-  const pallets = buildPallets(ruta)
-  if (ruta.tipo === '8P') return html8P(pallets)
-  if (ruta.tipo === 'FURGO') return htmlFurgo(pallets)
-  return html6P(pallets)
+  const pedidos = buildPedidos(ruta)
+  if (ruta.tipo === '8P') return html8P(pedidos)
+  if (ruta.tipo === 'FURGO') return htmlFurgo(pedidos)
+  return html6P(pedidos)
 }
 
 const TIPO_LABEL = { '6P': 'Camión Mediano', '8P': 'Camión Grande', 'FURGO': 'Furgoneta' }
@@ -265,7 +265,7 @@ export function TruckViewer3D({ ruta, onClose }) {
               {TIPO_LABEL[ruta.tipo]} · {ruta.id}
             </span>
             <span style={{ fontSize: 12, color: 'rgba(160,170,200,.5)' }}>
-              {ruta.conductor} · {ruta.palets} palés · {ruta.zce} ZCE
+              {ruta.conductor} · {ruta.pedidos} pedidos · {ruta.zce} ZCE
             </span>
           </div>
           <button onClick={onClose} style={{

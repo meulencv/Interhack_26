@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
-import 'detalle_screen.dart';
+import 'resultado_screen.dart';
 
 class CamionScreen extends StatelessWidget {
   const CamionScreen({super.key});
@@ -66,23 +66,22 @@ class CamionScreen extends StatelessWidget {
                         ),
                         Expanded(
                           child: _LegendItem(
-                            color: AppColors.orange,
-                            label: 'Paquetes',
-                            value: '${provider.totalPaquetes}',
-                          ),
-                        ),
+                      color: AppColors.orange,
+                      value: '${provider.totalPedidos}',
+                      label: 'Pedidos',
+                    ),    ),
                         Expanded(
                           child: _LegendItem(
                             color: AppColors.green,
                             label: 'Entregados',
-                            value: '${provider.itemsEntregados}',
+                            value: '${provider.pedidosEntregados}',
                           ),
                         ),
                         Expanded(
                           child: _LegendItem(
                             color: AppColors.textMuted,
                             label: 'Pendientes',
-                            value: '${provider.itemsPendientes}',
+                            value: '${provider.pedidosPendientes}',
                           ),
                         ),
                       ],
@@ -290,7 +289,7 @@ class InteriorCamionScreen extends StatelessWidget {
     // fila 0=delantera, 1=centro, 2=trasera; columna 0=izq, 1=der
     final grid = List.generate(3, (f) => List.generate(2, (c) {
       try {
-        return provider.items.firstWhere((i) => i.fila == f && i.columna == c);
+        return provider.pales.firstWhere((i) => i.fila == f && i.columna == c);
       } catch (_) {
         return null;
       }
@@ -368,8 +367,7 @@ class InteriorCamionScreen extends StatelessWidget {
                             ? () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) =>
-                                        DetalleScreen(item: item),
+                                    builder: (_) => ResultadoScreen(item: item),
                                   ),
                                 )
                             : null,
@@ -438,14 +436,14 @@ class InteriorCamionScreen extends StatelessWidget {
 }
 
 class _GridCell extends StatelessWidget {
-  final Item? item;
+  final Pale? item;
 
   const _GridCell({this.item});
 
   Color get _cellColor {
     if (item == null) return AppColors.border;
-    if (item!.entregado) return AppColors.green;
-    return item!.esPale ? AppColors.purple : AppColors.orange;
+    if (item!.vacio) return AppColors.green;
+    return AppColors.purple;
   }
 
   @override
@@ -468,8 +466,8 @@ class _GridCell extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  item!.esPale ? Icons.grid_view : Icons.inventory_2,
-                  color: _cellColor,
+                  Icons.grid_view,
+                  color: AppColors.purple,
                   size: 28,
                 ),
                 const SizedBox(height: 6),
@@ -481,7 +479,7 @@ class _GridCell extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (item!.entregado)
+                if (item!.vacio)
                   const Text(
                     'Entregado',
                     style: TextStyle(

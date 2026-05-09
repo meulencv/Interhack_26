@@ -5,9 +5,9 @@ import '../models/models.dart';
 import '../providers/app_provider.dart';
 
 class DetalleScreen extends StatefulWidget {
-  final Item item;
+  final Pedido pedido;
 
-  const DetalleScreen({super.key, required this.item});
+  const DetalleScreen({super.key, required this.pedido});
 
   @override
   State<DetalleScreen> createState() => _DetalleScreenState();
@@ -19,28 +19,25 @@ class _DetalleScreenState extends State<DetalleScreen> {
   @override
   void initState() {
     super.initState();
-    _entregado = widget.item.entregado;
+    _entregado = widget.pedido.entregado;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_entregado && widget.item.entregado) {
+    if (_entregado && widget.pedido.entregado) {
       return _buildSuccessScreen(context);
     }
     return _buildDetalleScreen(context);
   }
 
   Widget _buildDetalleScreen(BuildContext context) {
-    final item = widget.item;
-    final itemColor = item.esPale ? AppColors.purple : AppColors.orange;
+    final pedido = widget.pedido;
+    final itemColor = AppColors.orange;
     final provider = context.read<AppProvider>();
 
-    // Find destination parada name
     String destino;
     try {
-      destino = provider.paradas
-          .firstWhere((p) => p.num == item.paradaNum)
-          .nombre;
+      destino = provider.paradas.firstWhere((p) => p.num == pedido.paradaNum).nombre;
     } catch (_) {
       destino = 'Desconocido';
     }
@@ -53,12 +50,13 @@ class _DetalleScreenState extends State<DetalleScreen> {
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Detalle'),
+        title: const Text('Detalle del Pedido'),
         elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header card
             Container(
@@ -79,14 +77,14 @@ class _DetalleScreenState extends State<DetalleScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      item.esPale ? Icons.grid_view : Icons.inventory_2,
+                      Icons.local_shipping,
                       color: itemColor,
                       size: 32,
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    item.id,
+                    pedido.id,
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 24,
@@ -95,7 +93,7 @@ class _DetalleScreenState extends State<DetalleScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    item.tipoLabel,
+                    pedido.cliente,
                     style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 15,
@@ -103,21 +101,15 @@ class _DetalleScreenState extends State<DetalleScreen> {
                   ),
                   const SizedBox(height: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
-                      color: (item.entregado
-                              ? AppColors.green
-                              : AppColors.blue)
-                          .withOpacity(0.15),
+                      color: (pedido.entregado ? AppColors.green : AppColors.blue).withOpacity(0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      item.estadoLabel,
+                      pedido.entregado ? 'Entregado' : 'Pendiente',
                       style: TextStyle(
-                        color: item.entregado
-                            ? AppColors.green
-                            : AppColors.blue,
+                        color: pedido.entregado ? AppColors.green : AppColors.blue,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -137,22 +129,74 @@ class _DetalleScreenState extends State<DetalleScreen> {
               ),
               child: Column(
                 children: [
-                  _InfoRow(label: 'Contenido', value: item.contenido, isFirst: true),
-                  _InfoRow(label: 'Peso', value: item.peso),
-                  _InfoRow(label: 'Volumen', value: item.volumen),
-                  _InfoRow(label: 'Destino', value: destino),
-                  _InfoRow(label: 'Referencia', value: item.referencia, isLast: true),
+                  _InfoRow(label: 'Destino', value: destino, isFirst: true),
+                  _InfoRow(label: 'Referencia', value: pedido.referencia, isLast: true),
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+
+            const Text(
+              'Productos del pedido',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            ...pedido.productos.map((prod) => Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.purple.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.grid_view, color: AppColors.purple),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              prod.descripcion,
+                              style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Tomar de: ${prod.paleId}',
+                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        'x${prod.cantidad}',
+                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                )),
             const SizedBox(height: 28),
 
             // Action button
-            if (!item.entregado)
+            if (!pedido.entregado)
               AppWidgets.primaryButton(
-                label: 'MARCAR COMO ENTREGADO',
+                label: 'ENTREGAR PEDIDO',
                 onTap: () {
-                  provider.marcarEntregado(item.id);
+                  provider.entregarPedido(pedido.id);
                   setState(() => _entregado = true);
                 },
               )
@@ -163,23 +207,17 @@ class _DetalleScreenState extends State<DetalleScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.green.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: AppColors.green.withOpacity(0.4), width: 1.5),
+                  border: Border.all(color: AppColors.green.withOpacity(0.4), width: 1.5),
                 ),
                 child: const Center(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.check_circle,
-                          color: AppColors.green, size: 22),
+                      Icon(Icons.check_circle, color: AppColors.green, size: 22),
                       SizedBox(width: 8),
                       Text(
                         'YA ENTREGADO',
-                        style: TextStyle(
-                          color: AppColors.green,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(color: AppColors.green, fontSize: 15, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -200,15 +238,13 @@ class _DetalleScreenState extends State<DetalleScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Big green circle checkmark
               Container(
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
                   color: AppColors.green.withOpacity(0.15),
                   shape: BoxShape.circle,
-                  border: Border.all(
-                      color: AppColors.green.withOpacity(0.4), width: 2),
+                  border: Border.all(color: AppColors.green.withOpacity(0.4), width: 2),
                 ),
                 child: const Icon(
                   Icons.check_circle,
@@ -217,7 +253,6 @@ class _DetalleScreenState extends State<DetalleScreen> {
                 ),
               ),
               const SizedBox(height: 28),
-
               const Text(
                 '¡Entregado!',
                 style: TextStyle(
@@ -227,9 +262,8 @@ class _DetalleScreenState extends State<DetalleScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-
               Text(
-                widget.item.id,
+                widget.pedido.id,
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 20,
@@ -237,9 +271,8 @@ class _DetalleScreenState extends State<DetalleScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-
               const Text(
-                'se ha marcado como entregado.',
+                'El pedido y sus elementos se han descontado del palé.',
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 15,
@@ -247,18 +280,14 @@ class _DetalleScreenState extends State<DetalleScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 48),
-
-              // Ver siguiente entrega
               AppWidgets.primaryButton(
                 label: 'VER SIGUIENTE ENTREGA',
                 onTap: () {
-                  // Pop back to main and navigate to entregas
                   Navigator.of(context).popUntil((r) => r.isFirst);
                   context.read<AppProvider>().setTab(1);
                 },
               ),
               const SizedBox(height: 14),
-
               AppWidgets.outlinedButton(
                 label: 'VOLVER A ENTREGAS',
                 onTap: () {
@@ -280,42 +309,22 @@ class _InfoRow extends StatelessWidget {
   final bool isFirst;
   final bool isLast;
 
-  const _InfoRow({
-    required this.label,
-    required this.value,
-    this.isFirst = false,
-    this.isLast = false,
-  });
+  const _InfoRow({required this.label, required this.value, this.isFirst = false, this.isLast = false});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          bottom: isLast
-              ? BorderSide.none
-              : const BorderSide(color: AppColors.border, width: 0.5),
+          bottom: isLast ? BorderSide.none : const BorderSide(color: AppColors.border, width: 0.5),
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 15,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+          Text(value, style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500)),
         ],
       ),
     );

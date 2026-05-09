@@ -14,7 +14,7 @@ class BuscarScreen extends StatefulWidget {
 
 class _BuscarScreenState extends State<BuscarScreen> {
   final _controller = TextEditingController();
-  List<Item> _results = [];
+  List<dynamic> _results = [];
   bool _searched = false;
 
   void _search(String query) {
@@ -186,7 +186,7 @@ class _BuscarScreenState extends State<BuscarScreen> {
 }
 
 class _SuggestionTile extends StatelessWidget {
-  final Item item;
+  final dynamic item;
   final VoidCallback onTap;
 
   const _SuggestionTile({required this.item, required this.onTap});
@@ -210,14 +210,14 @@ class _SuggestionTile extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: (item.esPale ? AppColors.purple : AppColors.orange)
+                  color: (item is Pale ? AppColors.purple : AppColors.orange)
                       .withOpacity(0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
-                  item.esPale ? Icons.grid_view : Icons.inventory_2,
+                  item is Pale ? Icons.grid_view : Icons.local_shipping,
                   color:
-                      item.esPale ? AppColors.purple : AppColors.orange,
+                      item is Pale ? AppColors.purple : AppColors.orange,
                   size: 20,
                 ),
               ),
@@ -235,7 +235,7 @@ class _SuggestionTile extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      item.tipoLabel,
+                      item is Pale ? 'Palé' : 'Pedido',
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 13,
