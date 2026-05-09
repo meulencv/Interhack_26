@@ -1,6 +1,53 @@
 import { useEffect, useRef } from 'react'
 
+function unitLabel(unit, quantity) {
+  const singular = Number(quantity) === 1
+  const labels = {
+    CAJ: singular ? 'caja' : 'cajas',
+    BRL: singular ? 'bidón' : 'bidones',
+    BID: singular ? 'bidón' : 'bidones',
+    BOT: singular ? 'botella' : 'botellas',
+    PAK: singular ? 'pack' : 'packs',
+    ZPR: singular ? 'pack' : 'packs',
+    PQ: singular ? 'paquete' : 'paquetes',
+    EST: singular ? 'estuche' : 'estuches',
+    UN: singular ? 'unidad' : 'unidades',
+    TB: singular ? 'bandeja' : 'bandejas',
+    ZCE: singular ? 'caja estadística' : 'cajas estadísticas',
+  }
+  return labels[String(unit || '').toUpperCase()] || String(unit || 'uds.').toLowerCase()
+}
+
 function buildPedidos(ruta) {
+  const cargoBoxes = ruta.cargoBoxes || ruta.cargo_boxes || []
+  if (cargoBoxes.length) {
+    const n = Math.max(Number(ruta.pedidos) || cargoBoxes.length, cargoBoxes.length)
+    return Array.from({ length: n }, (_, i) => {
+      const box = cargoBoxes[i] || {}
+      const items = box.items || []
+      const itemLines = items.slice(0, 10).map(item => {
+        const qty = Number(item.quantity || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })
+        const unit = item.saleUnit || item.sale_unit || ''
+        const description = item.description || item.material_description || 'Referencia sin descripcion'
+        const zce = Number(item.statisticalBoxes ?? item.statistical_boxes ?? 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })
+        return `- ${qty} ${unitLabel(unit, item.quantity)} · ${description} · ${zce} ZCE`
+      })
+      const clients = box.clientNames || box.client_names || []
+      const rationale = box.rationale || []
+      const totalZce = Number(box.totalZce ?? box.total_zce ?? 0)
+      const header = [
+        `Clientes: ${clients.length ? clients.join(', ') : 'sin cliente asignado'}`,
+        `Carga: ${totalZce.toFixed(2)} ZCE · ${items.length} objetos`,
+      ]
+      if (rationale[0]) header.push(`Motivo: ${rationale[0]}`)
+      return {
+        id: box.boxId || box.box_id || i + 1,
+        content: `${header.join('\n')}\n\nObjetos:\n${itemLines.length ? itemLines.join('\n') : '- Caja libre/reserva operativa'}`,
+        weight: totalZce > 0 ? `${totalZce.toFixed(2)} ZCE` : '—',
+      }
+    })
+  }
+
   const n = ruta.pedidos
   const zceEach = Math.round(ruta.zce / n)
   const retEach  = Math.round(ruta.retornables / n)
@@ -18,9 +65,9 @@ function html6P(pedidos) {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <style>
   body{margin:0;overflow:hidden;background:#050505;font-family:'Segoe UI',sans-serif;}
-  #info{position:absolute;top:20px;left:20px;color:#fff;background:rgba(10,15,20,.85);padding:20px 24px;border:1px solid #4a90e2;border-radius:4px;display:none;pointer-events:none;z-index:10;box-shadow:0 0 15px rgba(74,144,226,.3);backdrop-filter:blur(4px);}
+  #info{position:absolute;top:20px;left:20px;color:#fff;background:rgba(10,15,20,.88);padding:18px 22px;border:1px solid #4a90e2;border-radius:4px;display:none;pointer-events:none;z-index:10;box-shadow:0 0 15px rgba(74,144,226,.3);backdrop-filter:blur(4px);max-width:430px;max-height:70vh;overflow:auto;}
   #info h3{margin:0 0 8px;color:#4a90e2;border-bottom:1px solid #4a90e2;padding-bottom:7px;font-size:13px;letter-spacing:.5px;}
-  #info p{margin:0;font-size:13px;line-height:1.5;color:#ddd;}
+  #info p{margin:0;font-size:12px;line-height:1.45;color:#ddd;white-space:pre-line;}
   #title{position:absolute;bottom:24px;width:100%;text-align:center;color:#fff;pointer-events:none;}
   #title h2{margin:0 0 4px;letter-spacing:4px;font-weight:300;font-size:14px;}
   #title p{color:#666;font-size:12px;}
@@ -28,8 +75,8 @@ function html6P(pedidos) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head><body>
-<div id="info"><h3 id="it">Pedido #</h3><p id="ic"></p><p id="iw" style="color:#8ac926;margin-top:5px;font-weight:700;"></p></div>
-<div id="title"><h2>CAMIÓN MEDIANO · 6 PALETS</h2><p>Arrastra para rotar · Clic en los pedidos</p></div>
+<div id="info"><h3 id="it">Caja</h3><p id="ic"></p><p id="iw" style="color:#8ac926;margin-top:5px;font-weight:700;"></p></div>
+<div id="title"><h2>CAMIÓN MEDIANO · 6 PALETS</h2><p>Arrastra para rotar · Clic en las cajas</p></div>
 <script>
 const pedidoData=${data};
 const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x050505,.03);
@@ -56,7 +103,7 @@ let id=0;for(let r=0;r<3;r++){for(let c=0;c<2;c++){
   const box=new THREE.Mesh(bx,mat);
   box.add(new THREE.LineSegments(new THREE.EdgesGeometry(bx),new THREE.LineBasicMaterial({color:0xffffff})));
   box.position.set(c===0?-.6:.6,1.3,(r*1.2)-.7);
-  box.userData={id:id+1,content:pedidoData[id]?.content||'Carga',weight:pedidoData[id]?.weight||'—'};
+  box.userData={id:pedidoData[id]?.id||id+1,content:pedidoData[id]?.content||'Carga',weight:pedidoData[id]?.weight||'—'};
   g.add(box);pedidos.push(box);id++;}}
 camera.position.set(-6,4,7);
 const rc=new THREE.Raycaster();const mouse=new THREE.Vector2();
@@ -65,9 +112,9 @@ window.addEventListener('click',e=>{
   rc.setFromCamera(mouse,camera);
   const ix=rc.intersectObjects(pedidos);
   if(ix.length>0){const s=ix[0].object;
-    document.getElementById('it').innerText='Pedido #'+s.userData.id;
-    document.getElementById('ic').innerText='Contenido: '+s.userData.content;
-    document.getElementById('iw').innerText='Peso: '+s.userData.weight;
+    document.getElementById('it').innerText='Caja '+s.userData.id;
+    document.getElementById('ic').innerText=s.userData.content;
+    document.getElementById('iw').innerText='Equivalente: '+s.userData.weight;
     pedidos.forEach(p=>{p.material.opacity=.15;p.scale.set(1,1,1);});
     s.material.opacity=1;s.scale.set(1.07,1.07,1.07);
     document.getElementById('info').style.display='block';
@@ -83,9 +130,9 @@ function html8P(pedidos) {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <style>
   body{margin:0;overflow:hidden;background:#050505;font-family:'Segoe UI',sans-serif;}
-  #info{position:absolute;top:20px;left:20px;color:#fff;background:rgba(10,15,20,.85);padding:20px 24px;border:1px solid #4a90e2;border-radius:4px;display:none;pointer-events:none;z-index:10;box-shadow:0 0 15px rgba(74,144,226,.3);backdrop-filter:blur(4px);}
+  #info{position:absolute;top:20px;left:20px;color:#fff;background:rgba(10,15,20,.88);padding:18px 22px;border:1px solid #4a90e2;border-radius:4px;display:none;pointer-events:none;z-index:10;box-shadow:0 0 15px rgba(74,144,226,.3);backdrop-filter:blur(4px);max-width:430px;max-height:70vh;overflow:auto;}
   #info h3{margin:0 0 8px;color:#4a90e2;border-bottom:1px solid #4a90e2;padding-bottom:7px;font-size:13px;letter-spacing:.5px;text-transform:uppercase;}
-  #info p{margin:0;font-size:13px;line-height:1.5;color:#ddd;}
+  #info p{margin:0;font-size:12px;line-height:1.45;color:#ddd;white-space:pre-line;}
   #title{position:absolute;bottom:24px;width:100%;text-align:center;color:#fff;pointer-events:none;}
   #title h2{margin:0 0 4px;letter-spacing:4px;font-weight:300;font-size:14px;text-shadow:0 0 10px rgba(255,255,255,.4);}
   #title p{color:#666;font-size:12px;letter-spacing:1px;}
@@ -93,8 +140,8 @@ function html8P(pedidos) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head><body>
-<div id="info"><h3 id="it">Pedido #</h3><p id="ic"></p><p id="iw" style="color:#8ac926;margin-top:5px;font-weight:700;"></p></div>
-<div id="title"><h2>CAMIÓN GRANDE · 8 PALETS</h2><p>Arrastra para rotar · Clic en los pedidos</p></div>
+<div id="info"><h3 id="it">Caja</h3><p id="ic"></p><p id="iw" style="color:#8ac926;margin-top:5px;font-weight:700;"></p></div>
+<div id="title"><h2>CAMIÓN GRANDE · 8 PALETS</h2><p>Arrastra para rotar · Clic en las cajas</p></div>
 <script>
 const pedidoData=${data};
 const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x050505,.03);
@@ -121,7 +168,7 @@ let id=0;for(let r=0;r<4;r++){for(let c=0;c<2;c++){
   const box=new THREE.Mesh(bx,mat);
   box.add(new THREE.LineSegments(new THREE.EdgesGeometry(bx),new THREE.LineBasicMaterial({color:0xffffff,linewidth:2})));
   box.position.set(c===0?-.6:.6,1.3,(r*1.2)-2.0);
-  box.userData={id:id+1,content:pedidoData[id]?.content||'Carga',weight:pedidoData[id]?.weight||'—'};
+  box.userData={id:pedidoData[id]?.id||id+1,content:pedidoData[id]?.content||'Carga',weight:pedidoData[id]?.weight||'—'};
   g.add(box);pedidos.push(box);id++;}}
 camera.position.set(-7,5,8);
 const rc=new THREE.Raycaster();const mouse=new THREE.Vector2();
@@ -130,9 +177,9 @@ window.addEventListener('click',e=>{
   rc.setFromCamera(mouse,camera);
   const ix=rc.intersectObjects(pedidos);
   if(ix.length>0){const s=ix[0].object;
-    document.getElementById('it').innerText='Pedido #'+s.userData.id;
-    document.getElementById('ic').innerText='Contenido: '+s.userData.content;
-    document.getElementById('iw').innerText='Peso: '+s.userData.weight;
+    document.getElementById('it').innerText='Caja '+s.userData.id;
+    document.getElementById('ic').innerText=s.userData.content;
+    document.getElementById('iw').innerText='Equivalente: '+s.userData.weight;
     pedidos.forEach(p=>{p.material.opacity=.15;p.scale.set(1,1,1);});
     s.material.opacity=1;s.scale.set(1.07,1.07,1.07);
     document.getElementById('info').style.display='block';
@@ -148,9 +195,9 @@ function htmlFurgo(pedidos) {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <style>
   body{margin:0;overflow:hidden;background:#050505;font-family:'Segoe UI',sans-serif;}
-  #info{position:absolute;top:20px;left:20px;color:#fff;background:rgba(10,15,20,.85);padding:20px 24px;border:1px solid #4a90e2;border-radius:4px;display:none;pointer-events:none;z-index:10;box-shadow:0 0 15px rgba(74,144,226,.3);backdrop-filter:blur(4px);}
+  #info{position:absolute;top:20px;left:20px;color:#fff;background:rgba(10,15,20,.88);padding:18px 22px;border:1px solid #4a90e2;border-radius:4px;display:none;pointer-events:none;z-index:10;box-shadow:0 0 15px rgba(74,144,226,.3);backdrop-filter:blur(4px);max-width:430px;max-height:70vh;overflow:auto;}
   #info h3{margin:0 0 8px;color:#4a90e2;border-bottom:1px solid #4a90e2;padding-bottom:7px;font-size:13px;letter-spacing:.5px;}
-  #info p{margin:0;font-size:13px;line-height:1.5;color:#ddd;}
+  #info p{margin:0;font-size:12px;line-height:1.45;color:#ddd;white-space:pre-line;}
   #title{position:absolute;bottom:24px;width:100%;text-align:center;color:#fff;pointer-events:none;}
   #title h2{margin:0 0 4px;letter-spacing:4px;font-weight:300;font-size:14px;}
   #title p{color:#666;font-size:12px;}
@@ -158,8 +205,8 @@ function htmlFurgo(pedidos) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head><body>
-<div id="info"><h3 id="it">Pedido #</h3><p id="ic"></p><p id="iw" style="color:#8ac926;margin-top:5px;font-weight:700;"></p></div>
-<div id="title"><h2>FURGONETA · 3 PALETS</h2><p>Arrastra para rotar · Clic en los pedidos</p></div>
+<div id="info"><h3 id="it">Caja</h3><p id="ic"></p><p id="iw" style="color:#8ac926;margin-top:5px;font-weight:700;"></p></div>
+<div id="title"><h2>FURGONETA · 3 PALETS</h2><p>Arrastra para rotar · Clic en las cajas</p></div>
 <script>
 const pedidoData=${data};
 const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x050505,.03);
@@ -186,7 +233,7 @@ for(let r=0;r<3;r++){
   const box=new THREE.Mesh(bx,mat);
   box.add(new THREE.LineSegments(new THREE.EdgesGeometry(bx),new THREE.LineBasicMaterial({color:0xffffff})));
   box.position.set(0,1.1,(r*1.2)-.8);
-  box.userData={id:r+1,content:pedidoData[r]?.content||'Carga',weight:pedidoData[r]?.weight||'—'};
+  box.userData={id:pedidoData[r]?.id||r+1,content:pedidoData[r]?.content||'Carga',weight:pedidoData[r]?.weight||'—'};
   g.add(box);pedidos.push(box);}
 camera.position.set(-5,3,6);
 const rc=new THREE.Raycaster();const mouse=new THREE.Vector2();
@@ -195,9 +242,9 @@ window.addEventListener('click',e=>{
   rc.setFromCamera(mouse,camera);
   const ix=rc.intersectObjects(pedidos);
   if(ix.length>0){const s=ix[0].object;
-    document.getElementById('it').innerText='Pedido #'+s.userData.id;
-    document.getElementById('ic').innerText='Contenido: '+s.userData.content;
-    document.getElementById('iw').innerText='Peso: '+s.userData.weight;
+    document.getElementById('it').innerText='Caja '+s.userData.id;
+    document.getElementById('ic').innerText=s.userData.content;
+    document.getElementById('iw').innerText='Equivalente: '+s.userData.weight;
     pedidos.forEach(p=>{p.material.opacity=.15;p.scale.set(1,1,1);});
     s.material.opacity=1;s.scale.set(1.07,1.07,1.07);
     document.getElementById('info').style.display='block';
@@ -265,7 +312,7 @@ export function TruckViewer3D({ ruta, onClose }) {
               {TIPO_LABEL[ruta.tipo]} · {ruta.id}
             </span>
             <span style={{ fontSize: 12, color: 'rgba(160,170,200,.5)' }}>
-              {ruta.conductor} · {ruta.pedidos} pedidos · {ruta.zce} ZCE
+              {ruta.conductor} · {ruta.cargoSummary?.loadedBoxes ?? ruta.pedidos} cajas · {ruta.cargoSummary?.references ?? ruta.zce} refs
             </span>
           </div>
           <button onClick={onClose} style={{

@@ -36,6 +36,139 @@ const TIPO_COLOR = {
   'FURGO': { color: '#fb923c', bg: 'rgba(251,146,60,.12)'  },
 }
 
+function formatNumber(value, digits = 0) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '0'
+  return number.toLocaleString('es-ES', { maximumFractionDigits: digits })
+}
+
+function shortText(value, max = 42) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text
+}
+
+function unitLabel(unit, quantity) {
+  const singular = Number(quantity) === 1
+  const labels = {
+    CAJ: singular ? 'caja' : 'cajas',
+    BRL: singular ? 'bidón' : 'bidones',
+    BID: singular ? 'bidón' : 'bidones',
+    BOT: singular ? 'botella' : 'botellas',
+    PAK: singular ? 'pack' : 'packs',
+    ZPR: singular ? 'pack' : 'packs',
+    PQ: singular ? 'paquete' : 'paquetes',
+    EST: singular ? 'estuche' : 'estuches',
+    UN: singular ? 'unidad' : 'unidades',
+    TB: singular ? 'bandeja' : 'bandejas',
+    ZCE: singular ? 'caja estadística' : 'cajas estadísticas',
+  }
+  return labels[String(unit || '').toUpperCase()] || String(unit || 'uds.').toLowerCase()
+}
+
+function cargoLine(item) {
+  return `${formatNumber(item.quantity, 2)} ${unitLabel(item.saleUnit, item.quantity)} · ${shortText(item.description, 54)} · ${formatNumber(item.statisticalBoxes, 2)} ZCE`
+}
+
+function routeCargoLabel(route) {
+  const summary = route.cargoSummary || {}
+  if (!summary.boxes) return 'Sin cajas'
+  return `${summary.loadedBoxes || 0}/${summary.boxes} cajas · ${summary.references || 0} refs`
+}
+
+function csvEscape(value) {
+  const text = String(value ?? '')
+  return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+}
+
+function exportCargoCsv(route) {
+  const rows = (route.cargoBoxes || []).flatMap(box =>
+    (box.items || []).map(item => ({
+      ruta: route.id,
+      caja: box.boxId,
+      posicion: box.positionLabel,
+      motivo: (box.rationale || []).join(' | '),
+      entrega: item.deliveryId,
+      parada: item.stopIndex,
+      cliente: item.clientName,
+      material: item.materialId,
+      descripcion: item.description,
+      cantidad: item.quantity,
+      unidad: item.saleUnit,
+      cajas_estadisticas_zce: item.statisticalBoxes,
+      ubicacion_almacen: item.warehouseLocation,
+    }))
+  )
+  const headers = ['ruta', 'caja', 'posicion', 'motivo', 'entrega', 'parada', 'cliente', 'material', 'descripcion', 'cantidad', 'unidad', 'cajas_estadisticas_zce', 'ubicacion_almacen']
+  const csv = [
+    headers.join(','),
+    ...rows.map(row => headers.map(header => csvEscape(row[header])).join(',')),
+  ].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${route.id}_objetos_por_caja.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function CargoBoxMini({ box, accent }) {
+  const clients = box.clientNames?.length ? box.clientNames.map(name => shortText(name, 24)).join(', ') : 'Sin cliente asignado'
+  return (
+    <div style={{ border: `1px solid ${accent}33`, background: 'rgba(255,255,255,.035)', borderRadius: 8, padding: 10, minHeight: 128 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ fontSize: 13, color: accent, fontWeight: 800 }}>{box.boxId}</div>
+        <div style={{ fontSize: 10, color: 'rgba(184,194,219,.65)' }}>{box.positionLabel}</div>
+      </div>
+      <div style={{ fontSize: 11, color: 'rgba(232,238,252,.86)', lineHeight: 1.35, marginBottom: 7 }}>
+        {clients}
+      </div>
+      <div style={{ fontSize: 10, color: 'rgba(184,194,219,.62)', marginBottom: 7 }}>
+        {formatNumber(box.totalZce, 2)} ZCE · {box.items?.length || 0} objetos
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {(box.topItems || box.items || []).slice(0, 3).map((item, index) => (
+          <div key={`${box.boxId}-${item.materialId}-${index}`} style={{ fontSize: 10, color: 'rgba(214,222,243,.72)', lineHeight: 1.3 }}>
+            {cargoLine(item)}
+          </div>
+        ))}
+        {(box.items?.length || 0) > 3 && (
+          <div style={{ fontSize: 10, color: accent, fontWeight: 700 }}>+{box.items.length - 3} referencias más</div>
+        )}
+      </div>
+      {box.rationale?.[0] && (
+        <div style={{ marginTop: 8, paddingTop: 7, borderTop: '1px solid rgba(255,255,255,.06)', fontSize: 10, color: 'rgba(184,194,219,.62)', lineHeight: 1.35 }}>
+          {box.rationale[0]}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DeliveryMini({ delivery, accent }) {
+  return (
+    <div style={{ border: '1px solid rgba(255,255,255,.06)', background: 'rgba(255,255,255,.03)', borderRadius: 8, padding: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+        <div style={{ fontSize: 12, color: '#e8eefc', fontWeight: 700 }}>{delivery.stopIndex}. {shortText(delivery.clientName, 32)}</div>
+        <div style={{ fontSize: 10, color: accent, fontWeight: 800 }}>{delivery.boxIds?.join(', ') || 'sin caja'}</div>
+      </div>
+      <div style={{ fontSize: 10, color: 'rgba(184,194,219,.62)', marginBottom: 7 }}>
+        {formatNumber(delivery.totalZce, 2)} ZCE · {delivery.references?.length || 0} objetos · entrega {delivery.deliveryIds?.[0] || '—'}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {(delivery.topItems || []).slice(0, 4).map((item, index) => (
+          <div key={`${delivery.stopId}-${item.materialId}-${index}`} style={{ fontSize: 10, color: 'rgba(214,222,243,.72)', lineHeight: 1.3 }}>
+            {cargoLine(item)}
+          </div>
+        ))}
+        {(delivery.references?.length || 0) > 4 && (
+          <div style={{ fontSize: 10, color: accent, fontWeight: 700 }}>+{delivery.references.length - 4} objetos en esta entrega</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function VentanaBar({ cumplidas, total }) {
   const pct = total === 0 ? 100 : Math.round((cumplidas / total) * 100)
   const color = pct >= 90 ? '#22c55e' : pct >= 70 ? '#f59e0b' : '#ef4444'
@@ -49,12 +182,14 @@ function VentanaBar({ cumplidas, total }) {
   )
 }
 
-const COLS  = '60px 120px 150px 70px 65px 75px 85px 80px 110px 100px'
-const HEADS = ['Ruta', 'Conductor', 'Zona', 'Tipo', 'Clientes', 'Pedidos', 'ZCE', 'Retornos', 'Estado', 'Ventanas']
+const COLS  = '72px 150px 130px 70px 65px 75px 85px 80px 110px 110px minmax(150px, 1fr)'
+const HEADS = ['Ruta', 'Conductor', 'Zona', 'Tipo', 'Clientes', 'Pedidos', 'ZCE', 'Retornos', 'Estado', 'Ventanas', 'Cajas']
 
 export function EntregasView({ routes }) {
   const data = routes ?? RUTAS
   const [selectedRuta, setSelectedRuta] = useState(null)
+  const [selectedDetail, setSelectedDetail] = useState(null)
+  const activeRuta = selectedDetail || data[0]
 
   const total       = data.length
   const enRuta      = data.filter(r => r.estado === 'en-ruta').length
@@ -102,7 +237,7 @@ export function EntregasView({ routes }) {
           </div>
         ))}
         <div style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(160,170,200,.4)', fontStyle: 'italic' }}>
-          Clic en tipo para ver render 3D · 1 pedido = 60 ZCE · ~60% retornable
+          Clic en tipo para ver render 3D · ZCE = cajas estadísticas · ~60% retornable
         </div>
       </div>
 
@@ -114,22 +249,24 @@ export function EntregasView({ routes }) {
       </div>
 
       {/* Rows */}
-      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid rgba(255,255,255,.07)', borderRadius: '0 0 8px 8px' }}>
+      <div style={{ flex: 1, minHeight: 210, overflowY: 'auto', border: '1px solid rgba(255,255,255,.07)', borderRadius: '0 0 8px 8px' }}>
         {data.map((r, i) => {
           const est = ESTADO_META[r.estado]
           const tip = TIPO_COLOR[r.tipo]
+          const selected = activeRuta?.id === r.id
           return (
             <div
               key={r.id}
-              style={{ display: 'grid', gridTemplateColumns: COLS, gap: 0, padding: '11px 14px', alignItems: 'center', background: i % 2 === 1 ? 'rgba(255,255,255,.015)' : 'transparent', borderBottom: i < RUTAS.length - 1 ? '1px solid rgba(255,255,255,.04)' : 'none', cursor: 'default', transition: 'background .15s' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.04)'}
-              onMouseLeave={e => e.currentTarget.style.background = i % 2 === 1 ? 'rgba(255,255,255,.015)' : 'transparent'}
+              style={{ display: 'grid', gridTemplateColumns: COLS, gap: 0, padding: '11px 14px', alignItems: 'center', background: selected ? 'rgba(56,189,248,.08)' : i % 2 === 1 ? 'rgba(255,255,255,.015)' : 'transparent', borderBottom: i < data.length - 1 ? '1px solid rgba(255,255,255,.04)' : 'none', cursor: 'pointer', transition: 'background .15s' }}
+              onClick={() => setSelectedDetail(r)}
+              onMouseEnter={e => e.currentTarget.style.background = selected ? 'rgba(56,189,248,.1)' : 'rgba(255,255,255,.04)'}
+              onMouseLeave={e => e.currentTarget.style.background = selected ? 'rgba(56,189,248,.08)' : i % 2 === 1 ? 'rgba(255,255,255,.015)' : 'transparent'}
             >
               <span style={{ fontFamily: 'monospace', fontSize: 13, color: '#7c6cff', fontWeight: 700 }}>{r.id}</span>
               <span style={{ fontSize: 13, color: '#cfd5e6', fontWeight: 500 }}>{r.conductor}</span>
               <span style={{ fontSize: 11, color: 'rgba(160,170,200,.7)', fontFamily: 'monospace' }}>{r.zona}</span>
               <span
-                onClick={() => setSelectedRuta(r)}
+                onClick={(event) => { event.stopPropagation(); setSelectedRuta(r) }}
                 style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: tip.bg, color: tip.color, width: 'fit-content', cursor: 'pointer', transition: 'opacity .15s' }}
                 onMouseEnter={e => e.currentTarget.style.opacity = '.75'}
                 onMouseLeave={e => e.currentTarget.style.opacity = '1'}
@@ -144,10 +281,62 @@ export function EntregasView({ routes }) {
                 {est.label}
               </span>
               <VentanaBar cumplidas={r.cumplidas} total={r.ventanas} />
+              <span style={{ fontSize: 11, color: 'rgba(214,222,243,.78)', lineHeight: 1.3 }}>{routeCargoLabel(r)}</span>
             </div>
           )
         })}
       </div>
+
+      {activeRuta && (
+        <div style={{
+          marginTop: 12,
+          flexShrink: 0,
+          height: 260,
+          display: 'grid',
+          gridTemplateRows: 'auto 1fr',
+          gap: 10,
+          background: 'rgba(255,255,255,.025)',
+          border: '1px solid rgba(255,255,255,.07)',
+          borderRadius: 10,
+          padding: 12,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#eef2ff' }}>Distribución de objetos · {activeRuta.id}</div>
+              <div style={{ fontSize: 11, color: 'rgba(160,170,200,.58)', marginTop: 3 }}>
+                {activeRuta.cargoSummary?.loadedBoxes || 0} cajas cargadas · {formatNumber(activeRuta.cargoSummary?.zce, 2)} ZCE · {activeRuta.cargoSummary?.references || 0} referencias · {activeRuta.deliveries?.length || 0} entregas
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                onClick={() => exportCargoCsv(activeRuta)}
+                style={{ height: 30, padding: '0 11px', borderRadius: 8, border: '1px solid rgba(74,222,128,.28)', background: 'rgba(74,222,128,.1)', color: '#86efac', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+              >
+                CSV objetos
+              </button>
+              <button
+                onClick={() => setSelectedRuta(activeRuta)}
+                style={{ height: 30, padding: '0 11px', borderRadius: 8, border: `1px solid ${TIPO_COLOR[activeRuta.tipo]?.color || '#38bdf8'}55`, background: `${TIPO_COLOR[activeRuta.tipo]?.bg || 'rgba(56,189,248,.12)'}`, color: TIPO_COLOR[activeRuta.tipo]?.color || '#38bdf8', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+              >
+                Ver 3D
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr .9fr', gap: 12, minHeight: 0 }}>
+            <div style={{ minHeight: 0, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 8, alignContent: 'start', paddingRight: 2 }}>
+              {(activeRuta.cargoBoxes || []).map(box => (
+                <CargoBoxMini key={box.boxId} box={box} accent={TIPO_COLOR[activeRuta.tipo]?.color || '#38bdf8'} />
+              ))}
+            </div>
+            <div style={{ minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 2 }}>
+              {(activeRuta.deliveries || []).slice(0, 10).map(delivery => (
+                <DeliveryMini key={delivery.stopId} delivery={delivery} accent={TIPO_COLOR[activeRuta.tipo]?.color || '#38bdf8'} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedRuta && (
         <TruckViewer3D ruta={selectedRuta} onClose={() => setSelectedRuta(null)} />

@@ -77,6 +77,7 @@ class MaterialProfile:
     pallet_volume_m3: float | None
     unit_volume_m3: float | None
     gross_weight_kg: float | None
+    zce_per_unit_by_unit: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -140,6 +141,46 @@ class SlotAllocation:
     pallet_equivalent: float
     return_reserve: float
     blocking_risk: float
+
+
+@dataclass
+class CargoItem:
+    material_id: str
+    material_description: str
+    quantity: float
+    sale_unit: str
+    delivery_id: str
+    stop_id: str
+    stop_index: int
+    client_name: str
+    pallet_equivalent: float
+    statistical_boxes: float
+    volume_m3: float
+    weight_kg: float
+    stack_class: str
+    returnable: bool
+    warehouse_location: str
+
+
+@dataclass
+class CargoBox:
+    box_id: str
+    slot_name: str
+    position_label: str
+    mode: str
+    accessibility_rank: int
+    client_names: list[str]
+    stop_ids: list[str]
+    stop_indexes: list[int]
+    total_quantity: float
+    total_pallet_equivalent: float
+    total_zce: float
+    total_volume_m3: float
+    total_weight_kg: float
+    returnable_quantity: float
+    blocking_risk: float
+    rationale: list[str]
+    items: list[CargoItem]
 
 
 @dataclass
@@ -208,6 +249,7 @@ class RoutePlan:
     stop_insights: list[StopInsight]
     live_metrics: dict[str, float]
     slot_allocations: list[SlotAllocation]
+    cargo_boxes: list[CargoBox]
     route_legs: list[RouteLeg]
     alerts: list[str]
     rationale: list[str]

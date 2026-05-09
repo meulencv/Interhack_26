@@ -8,7 +8,7 @@ from pathlib import Path
 from statistics import mean
 
 from .config import AppConfig, VehicleTemplate
-from .models import RouteLeg, RoutePlan, SlotAllocation, Stop, StopInsight, Vehicle
+from .models import CargoBox, CargoItem, RouteLeg, RoutePlan, SlotAllocation, Stop, StopInsight, Vehicle
 from .normalize import CanonicalDataset
 from .routing import ORSClient, haversine_km
 
@@ -568,6 +568,248 @@ def _estimate_return_pickup(config: AppConfig, dataset: CanonicalDataset, stop: 
     returnable_share = returnable_lines / max(len(stop.delivery_lines), 1)
     base_ratio = 0.45 + returnable_share * 0.55
     return round(stop.total_pallet_equivalent * config.reverse_logistics_ratio * base_ratio, 3)
+
+
+def _slot_position_label(slot_name: str) -> str:
+    labels = {
+        "left_front": "Izquierda frontal",
+        "right_front": "Derecha frontal",
+        "center_front": "Centro frontal",
+        "left_mid": "Izquierda media",
+        "right_mid": "Derecha media",
+        "center_mid": "Centro medio",
+        "left_rear": "Izquierda trasera",
+        "right_rear": "Derecha trasera",
+        "front": "Frontal",
+        "mid": "Central",
+        "rear": "Trasera",
+    }
+    return labels.get(slot_name, slot_name.replace("_", " "))
+
+
+def _box_id_for_slot(slot_name: str, accessibility_rank: int) -> str:
+    labels = {
+        "left_front": "L1",
+        "right_front": "R1",
+        "center_front": "C1",
+        "left_mid": "L2",
+        "right_mid": "R2",
+        "center_mid": "C2",
+        "left_rear": "L3",
+        "right_rear": "R3",
+        "front": "F1",
+        "mid": "F2",
+        "rear": "F3",
+    }
+    return labels.get(slot_name, f"B{accessibility_rank}")
+
+
+def _cargo_mode(config: AppConfig, accessibility_rank: int, total_slots: int) -> str:
+    return (
+        "client_priority"
+        if config.client_priority_factor >= 0.5 and accessibility_rank <= max(2, total_slots // 3)
+        else "hybrid_reference"
+    )
+
+
+def _line_weight_kg(dataset: CanonicalDataset, line) -> float:
+    material = dataset.materials.get(line.material_id)
+    if material and material.gross_weight_kg and material.pallet_units and material.pallet_units > 0:
+        return round((line.quantity / material.pallet_units) * material.gross_weight_kg, 3)
+    if material and material.gross_weight_kg:
+        return round(line.pallet_equivalent * material.gross_weight_kg, 3)
+    return round(line.pallet_equivalent * 650.0, 3)
+
+
+def _line_statistical_boxes(dataset: CanonicalDataset, line) -> float:
+    material = dataset.materials.get(line.material_id)
+    sale_unit = (line.sale_unit or (material.sale_unit if material else "") or "").upper()
+    if material:
+        zce_per_unit = material.zce_per_unit_by_unit.get(sale_unit)
+        if zce_per_unit is None and material.sale_unit:
+            zce_per_unit = material.zce_per_unit_by_unit.get(material.sale_unit.upper())
+        if zce_per_unit is not None:
+            return round(line.quantity * zce_per_unit, 3)
+    if sale_unit in {"CAJ", "ZCE", "ZPR", "UN", "PAK", "PQ", "EST"}:
+        return round(line.quantity, 3)
+    return round(line.pallet_equivalent * 60.0, 3)
+
+
+def _cargo_item_from_line(dataset: CanonicalDataset, line, stop: Stop, stop_index: int) -> CargoItem:
+    material = dataset.materials.get(line.material_id)
+    return CargoItem(
+        material_id=line.material_id,
+        material_description=line.material_description,
+        quantity=round(line.quantity, 3),
+        sale_unit=line.sale_unit,
+        delivery_id=line.delivery_id,
+        stop_id=stop.stop_id,
+        stop_index=stop_index,
+        client_name=stop.client_names[0] if stop.client_names else line.client_name,
+        pallet_equivalent=round(line.pallet_equivalent, 4),
+        statistical_boxes=_line_statistical_boxes(dataset, line),
+        volume_m3=_line_volume_m3(dataset, line),
+        weight_kg=_line_weight_kg(dataset, line),
+        stack_class=material.stack_class if material else "mixed",
+        returnable=bool(material.returnable) if material else False,
+        warehouse_location=material.warehouse_location if material else "",
+    )
+
+
+def _box_rationale(
+    config: AppConfig,
+    box: dict[str, object],
+    total_slots: int,
+    capacity_per_box: float,
+) -> list[str]:
+    items: list[CargoItem] = box["items"]
+    rank = int(box["accessibility_rank"])
+    if not items:
+        return [
+            "Caja libre para absorber retornables, incidencias o recolocacion durante la ruta.",
+            "Se mantiene vacia para no bloquear accesos laterales si cambia la secuencia.",
+        ]
+
+    stops = sorted({item.stop_index for item in items})
+    clients = sorted({item.client_name for item in items})
+    total_pallets = sum(item.pallet_equivalent for item in items)
+    rationale: list[str] = []
+    if rank <= max(2, total_slots // 3):
+        rationale.append("Se coloca en acceso temprano para descargar las primeras paradas sin mover cajas posteriores.")
+    elif rank >= max(1, total_slots - total_slots // 3 + 1):
+        rationale.append("Se reserva hacia la parte trasera para paradas posteriores y reduce manipulaciones intermedias.")
+    else:
+        rationale.append("Se deja en una zona media para equilibrar acceso, peso y mezcla de referencias.")
+
+    if len(stops) == 1:
+        rationale.append(f"Agrupa la entrega {stops[0]} para que el operario vea todos sus objetos juntos.")
+    else:
+        rationale.append(f"Agrupa entregas compatibles {stops[0]}-{stops[-1]} manteniendo clientes cercanos en la secuencia.")
+
+    if len(clients) > 1:
+        rationale.append(f"Comparte caja entre {len(clients)} clientes porque el volumen individual no llena un hueco completo.")
+    if total_pallets > capacity_per_box * config.max_vehicle_fill_ratio:
+        rationale.append("Supera el objetivo por caja, pero es preferible a fragmentar mas la descarga.")
+    return rationale[:3]
+
+
+def _build_cargo_boxes(
+    config: AppConfig,
+    dataset: CanonicalDataset,
+    vehicle: Vehicle,
+    ordered_stops: list[Stop],
+) -> list[CargoBox]:
+    total_slots = max(1, len(vehicle.slot_names))
+    capacity_per_box = vehicle.pallet_capacity / total_slots
+    boxes = [
+        {
+            "slot_name": slot_name,
+            "box_id": _box_id_for_slot(slot_name, index + 1),
+            "position_label": _slot_position_label(slot_name),
+            "mode": _cargo_mode(config, index + 1, total_slots),
+            "accessibility_rank": index + 1,
+            "items": [],
+        }
+        for index, slot_name in enumerate(vehicle.slot_names)
+    ]
+
+    stop_position = {stop.stop_id: index for index, stop in enumerate(ordered_stops)}
+    for stop in ordered_stops:
+        preferred_index = min(
+            total_slots - 1,
+            int(stop_position[stop.stop_id] * total_slots / max(len(ordered_stops), 1)),
+        )
+        for line in sorted(
+            stop.delivery_lines,
+            key=lambda item: (
+                dataset.materials.get(item.material_id).stack_class if dataset.materials.get(item.material_id) else "mixed",
+                -item.pallet_equivalent,
+                item.material_description,
+            ),
+        ):
+            item = _cargo_item_from_line(dataset, line, stop, stop_position[stop.stop_id] + 1)
+            best_index = min(
+                range(total_slots),
+                key=lambda idx: (
+                    abs(idx - preferred_index) * 2.2
+                    + max(0.0, _box_pallets(boxes[idx]) + item.pallet_equivalent - capacity_per_box) * 5.0
+                    + (0.0 if any(existing.stop_id == item.stop_id for existing in boxes[idx]["items"]) else 0.65)
+                    + len({existing.stop_id for existing in boxes[idx]["items"]}) * 0.2
+                    + _box_pallets(boxes[idx]) * 0.35,
+                    _box_pallets(boxes[idx]),
+                    idx,
+                ),
+            )
+            boxes[best_index]["items"].append(item)
+
+    cargo_boxes: list[CargoBox] = []
+    for box in boxes:
+        items: list[CargoItem] = box["items"]
+        client_names = _ordered_unique(item.client_name for item in items)
+        stop_ids = _ordered_unique(item.stop_id for item in items)
+        stop_indexes = sorted({item.stop_index for item in items})
+        total_quantity = round(sum(item.quantity for item in items), 3)
+        total_pallets = round(sum(item.pallet_equivalent for item in items), 4)
+        total_zce = round(sum(item.statistical_boxes for item in items), 3)
+        total_volume = round(sum(item.volume_m3 for item in items), 3)
+        total_weight = round(sum(item.weight_kg for item in items), 1)
+        returnable_quantity = round(sum(item.quantity for item in items if item.returnable), 3)
+        cargo_boxes.append(
+            CargoBox(
+                box_id=box["box_id"],
+                slot_name=box["slot_name"],
+                position_label=box["position_label"],
+                mode=box["mode"],
+                accessibility_rank=box["accessibility_rank"],
+                client_names=client_names,
+                stop_ids=stop_ids,
+                stop_indexes=stop_indexes,
+                total_quantity=total_quantity,
+                total_pallet_equivalent=total_pallets,
+                total_zce=total_zce,
+                total_volume_m3=total_volume,
+                total_weight_kg=total_weight,
+                returnable_quantity=returnable_quantity,
+                blocking_risk=round(box["accessibility_rank"] / total_slots, 2),
+                rationale=_box_rationale(config, box, total_slots, capacity_per_box),
+                items=items,
+            )
+        )
+    return cargo_boxes
+
+
+def _box_pallets(box: dict[str, object]) -> float:
+    return sum(item.pallet_equivalent for item in box["items"])
+
+
+def _ordered_unique(values) -> list:
+    unique = []
+    seen = set()
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        unique.append(value)
+    return unique
+
+
+def _slot_allocations_from_cargo_boxes(config: AppConfig, cargo_boxes: list[CargoBox]) -> list[SlotAllocation]:
+    allocations: list[SlotAllocation] = []
+    for box in cargo_boxes:
+        material_mix = _ordered_unique(item.material_description[:40] for item in box.items)[:6]
+        allocations.append(
+            SlotAllocation(
+                slot_name=box.slot_name,
+                mode=box.mode,
+                accessibility_rank=box.accessibility_rank,
+                client_names=box.client_names,
+                material_mix=material_mix,
+                pallet_equivalent=box.total_pallet_equivalent,
+                return_reserve=round(box.total_pallet_equivalent * min(config.reverse_logistics_ratio, 0.4), 3),
+                blocking_risk=box.blocking_risk,
+            )
+        )
+    return allocations
 
 
 def _build_slot_allocations(config: AppConfig, vehicle: Vehicle, ordered_stops: list[Stop]) -> list[SlotAllocation]:
@@ -1166,7 +1408,8 @@ def optimize_routes_for_date(
             projected_peak_load,
             projected_peak_volume_m3,
         ) = _sequence_stops(config, ors, batch.stops, vehicle, stop_returns, stop_volumes_m3, stop_return_volumes_m3)
-        slot_allocations = _build_slot_allocations(config, vehicle, ordered)
+        cargo_boxes = _build_cargo_boxes(config, dataset, vehicle, ordered)
+        slot_allocations = _slot_allocations_from_cargo_boxes(config, cargo_boxes)
         route_breakdown = {
             key: round(sum(item.score_components.get(key, 0.0) for item in stop_insights), 3)
             for key in (
@@ -1226,6 +1469,7 @@ def optimize_routes_for_date(
                 stop_insights=stop_insights,
                 live_metrics=live_metrics,
                 slot_allocations=slot_allocations,
+                cargo_boxes=cargo_boxes,
                 route_legs=route_legs,
                 alerts=alerts,
                 rationale=_build_rationale(

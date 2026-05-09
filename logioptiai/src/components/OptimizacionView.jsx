@@ -103,6 +103,19 @@ function formatVolume(value, digits = 2) {
   return `${Number(value).toFixed(digits)} m3`
 }
 
+function shortText(value, max = 52) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text
+}
+
+function cargoItemText(item) {
+  const quantity = Number(item.quantity || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })
+  const unit = item.sale_unit || item.saleUnit || ''
+  const description = item.material_description || item.description || 'Referencia sin descripcion'
+  const zce = Number(item.statistical_boxes || item.statisticalBoxes || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })
+  return `${quantity}${unit ? ` ${unit}` : ''} · ${shortText(description, 58)} · ${zce} ZCE`
+}
+
 function formatDateTime(value) {
   if (!value) return 'Sin registro'
   try {
@@ -250,6 +263,7 @@ function RouteCard({ route, fillLimitPct, color }) {
   const volumeTone = volumePct > 100 ? '#f97316' : '#38bdf8'
   const alerts = route.alerts || []
   const stopInsights = route.stop_insights || []
+  const cargoBoxes = route.cargo_boxes || []
   const cargoMix = route.cargo_mix_profile || {}
   const dynamicFactorPct = Math.round((route.dynamic_volume_factor || route.vehicle?.dynamic_volume_factor || 0) * 100)
   const boxFriendlyPct = Math.round((cargoMix.box_friendly_ratio || 0) * 100)
@@ -412,6 +426,62 @@ function RouteCard({ route, fillLimitPct, color }) {
               {alert}
             </div>
           ))}
+        </div>
+      )}
+
+      {cargoBoxes.length > 0 && (
+        <div style={{
+          background: 'rgba(255,255,255,.03)',
+          border: '1px solid rgba(255,255,255,.06)',
+          borderRadius: 16,
+          padding: 14,
+          marginBottom: 14,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline', marginBottom: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(184,194,219,.72)', textTransform: 'uppercase', letterSpacing: .7 }}>
+              Cajas y objetos cargados
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(184,194,219,.58)' }}>
+              {cargoBoxes.filter(box => (box.items || []).length > 0).length}/{cargoBoxes.length} cajas con contenido real
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10 }}>
+            {cargoBoxes.map(box => (
+              <div key={`${route.route_code}-${box.box_id}`} style={{
+                border: `1px solid ${color}2e`,
+                borderRadius: 12,
+                padding: 12,
+                background: 'rgba(255,255,255,.025)',
+                minHeight: 132,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 7 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color }}>{box.box_id}</div>
+                  <div style={{ fontSize: 10, color: 'rgba(184,194,219,.62)' }}>{box.position_label}</div>
+                </div>
+                <div style={{ fontSize: 11, color: 'rgba(223,230,246,.82)', lineHeight: 1.35, marginBottom: 7 }}>
+                  {(box.client_names || []).slice(0, 2).join(', ') || 'Reserva operativa'}
+                </div>
+                <div style={{ fontSize: 10, color: 'rgba(184,194,219,.62)', marginBottom: 7 }}>
+                  {Number(box.total_zce || box.totalZce || 0).toFixed(2)} ZCE · {(box.items || []).length} objetos
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {(box.items || []).slice(0, 3).map((item, index) => (
+                    <div key={`${box.box_id}-${item.material_id}-${index}`} style={{ fontSize: 10, color: 'rgba(214,222,243,.72)', lineHeight: 1.3 }}>
+                      {cargoItemText(item)}
+                    </div>
+                  ))}
+                  {(box.items || []).length > 3 && (
+                    <div style={{ fontSize: 10, color, fontWeight: 700 }}>+{box.items.length - 3} referencias más</div>
+                  )}
+                </div>
+                {box.rationale?.[0] && (
+                  <div style={{ marginTop: 8, paddingTop: 7, borderTop: '1px solid rgba(255,255,255,.06)', fontSize: 10, color: 'rgba(184,194,219,.62)', lineHeight: 1.35 }}>
+                    {box.rationale[0]}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

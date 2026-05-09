@@ -156,9 +156,9 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
     }
 
     assumptions = [
-        "Si ORS no esta configurado con API key, el sistema cae a un proveedor sintetico basado en geocodificacion determinista y haversine.",
+        "El ruteo usa OSRM local y coordenadas normalizadas; no se aceptan geometrías rectas, haversine ni puntos sinteticos de fallback.",
         "La asignacion inicial usa las rutas historicas como semillas, pero intenta consolidar rutas pequenas si eso reduce camiones activos.",
-        "La carga interna del camion se representa por slots discretos porque el dataset no trae medidas interiores exactas.",
+        "La carga interna del camion se representa por cajas/slots discretos enriquecidos con los objetos reales de cada entrega.",
         "La logistica inversa se aproxima con una razon media sobre el volumen entregado y se usa para reservar hueco operativo.",
         "La capacidad volumetrica operativa combina el porcentaje manual de ocupacion con la funcion dinamica de estiba cargada desde funcion_porcentaje.py.",
         "La flota de Mollet queda limitada a 11 camiones de 6 palets, 4 camiones de 8 palets y 1 furgoneta de 3 palets.",
@@ -168,7 +168,7 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
         "Los camiones de 6 palets son preferentes, pero la asignacion se hace contra cupos reales por tipo de vehiculo.",
         "La restriccion del 85% puede forzar vehiculos mayores o alertas cuando la ruta historica ya nace muy cargada.",
         "La nueva restriccion geometrica por volumen puede recortar mas la capacidad disponible si predominan barriles o formatos poco apilables.",
-        "El layout del almacen se trata como una heuristica de picking, no como un plano metrico exacto.",
+        "El layout del almacen y las cajas del camion se tratan como una heuristica operativa, no como un gemelo metrico exacto.",
     ]
 
     bundle = OptimizationBundle(
@@ -186,7 +186,7 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
             "return_peak": total_returns,
             "return_peak_volume_m3": total_return_volume_m3,
             "alerts": len(total_alerts),
-            "ors_mode": "osrm+photon",
+            "ors_mode": "local-osrm+normalized-geocode",
             "window_compliance_rate": round(on_time_stops / max(total_stops, 1), 4),
             "max_fill_ratio": max_fill_ratio,
             "max_volume_ratio": max_volume_ratio,
@@ -207,10 +207,26 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
     return bundle
 
 
+def _validate_bundle_geometry(bundle_payload: dict[str, object]) -> None:
+    bad_legs: list[str] = []
+    for route in bundle_payload.get("routes", []):
+        route_code = route.get("route_code", "ruta")
+        for index, leg in enumerate(route.get("route_legs", []), start=1):
+            geometry = leg.get("geometry") or []
+            distance_km = float(leg.get("distance_km") or 0)
+            if len(geometry) <= 2 and distance_km > 1.0:
+                bad_legs.append(f"{route_code} tramo {index}: {leg.get('from_name')} -> {leg.get('to_name')}")
+    if bad_legs:
+        preview = "; ".join(bad_legs[:8])
+        suffix = "" if len(bad_legs) <= 8 else f"; +{len(bad_legs) - 8} tramos mas"
+        raise ValueError(f"Bundle rechazado: contiene geometria recta o insuficiente ({preview}{suffix}).")
+
+
 def export_bundle(config: AppConfig | None = None, planning_date: str | None = None) -> dict[str, Path]:
     app_config = config or AppConfig.discover()
     bundle = build_demo_bundle(app_config, planning_date=planning_date)
     bundle_payload = bundle.to_dict()
+    _validate_bundle_geometry(bundle_payload)
     audit_payload = bundle.audit.to_dict()
 
     output_paths = {

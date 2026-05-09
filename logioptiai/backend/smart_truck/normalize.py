@@ -72,6 +72,40 @@ def _fallback_unit_volume(sale_unit: str) -> float:
     return default_by_unit.get(sale_unit, 0.018)
 
 
+def _volume_to_m3(raw_value: str) -> float:
+    # ZM040 stores packaging volumes in dm3/litres; the optimizer works in m3.
+    volume = _parse_float(raw_value)
+    return volume / 1000.0 if volume > 0 else 0.0
+
+
+def _conversion_ratio(row: dict[str, str]) -> float:
+    denominator = _parse_float(row.get("Denom.", ""), default=1.0)
+    numerator = _parse_float(row.get("Contador", ""), default=1.0)
+    if denominator <= 0:
+        return 1.0
+    return numerator / denominator
+
+
+def _zce_conversions(rows_by_unit: dict[str, dict[str, str]]) -> dict[str, float]:
+    zce_row = rows_by_unit.get("ZCE")
+    if not zce_row:
+        return {}
+    zce_denominator = _parse_float(zce_row.get("Denom.", ""), default=1.0)
+    zce_numerator = _parse_float(zce_row.get("Contador", ""), default=1.0)
+    if zce_numerator <= 0:
+        return {}
+    zce_per_base_unit = zce_denominator / zce_numerator
+    conversions = {"ZCE": 1.0}
+    for unit, row in rows_by_unit.items():
+        if not unit:
+            continue
+        if unit == "ZCE":
+            conversions[unit] = 1.0
+            continue
+        conversions[unit] = round(_conversion_ratio(row) * zce_per_base_unit, 6)
+    return conversions
+
+
 @dataclass
 class CanonicalDataset:
     clients: dict[str, Client]
@@ -104,12 +138,12 @@ def load_material_profiles(config: AppConfig) -> dict[str, MaterialProfile]:
         sale_unit = next(iter(rows_by_unit.keys()))
         pallet_row = rows_by_unit.get("PAL")
         pallet_units = _parse_float(pallet_row.get("Contador", "")) if pallet_row else None
-        pallet_volume = _parse_float(pallet_row.get("Volumen", "")) if pallet_row else None
+        pallet_volume = _volume_to_m3(pallet_row.get("Volumen", "")) if pallet_row else None
         pallet_weight = _parse_float(pallet_row.get("Peso bruto", "")) if pallet_row else None
         unit_volume = None
         if sale_unit in rows_by_unit:
             unit_row = rows_by_unit[sale_unit]
-            base_volume = _parse_float(unit_row.get("Volumen", ""))
+            base_volume = _volume_to_m3(unit_row.get("Volumen", ""))
             count = max(_parse_float(unit_row.get("Contador", ""), default=1.0), 1.0)
             if base_volume:
                 unit_volume = base_volume / count
@@ -125,6 +159,7 @@ def load_material_profiles(config: AppConfig) -> dict[str, MaterialProfile]:
             pallet_volume_m3=pallet_volume or 1.8,
             unit_volume_m3=unit_volume,
             gross_weight_kg=pallet_weight or None,
+            zce_per_unit_by_unit=_zce_conversions(rows_by_unit),
         )
 
     # Keep materials present in zubic but absent in ZM040 with conservative defaults.
@@ -144,6 +179,7 @@ def load_material_profiles(config: AppConfig) -> dict[str, MaterialProfile]:
             pallet_volume_m3=1.8,
             unit_volume_m3=None,
             gross_weight_kg=None,
+            zce_per_unit_by_unit={row.get("UMB", "").strip() or "CAJ": 1.0, "ZCE": 1.0},
         )
     return profiles
 

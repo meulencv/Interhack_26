@@ -128,14 +128,145 @@ function routeRiskLevel(row) {
   return 'normal'
 }
 
+function normalizeCargoItem(item = {}) {
+  return {
+    materialId: String(item.material_id || item.materialId || '').trim(),
+    description: compactName(item.material_description || item.description, 'Referencia sin descripcion'),
+    quantity: round(item.quantity, 3),
+    saleUnit: String(item.sale_unit || item.saleUnit || '').trim(),
+    deliveryId: String(item.delivery_id || item.deliveryId || '').trim(),
+    stopId: String(item.stop_id || item.stopId || '').trim(),
+    stopIndex: Number(item.stop_index || item.stopIndex || 0),
+    clientName: compactName(item.client_name || item.clientName, 'Cliente sin nombre'),
+    palletEquivalent: round(item.pallet_equivalent || item.palletEquivalent, 4),
+    statisticalBoxes: round(item.statistical_boxes ?? item.statisticalBoxes ?? item.zce ?? 0, 3),
+    volumeM3: round(item.volume_m3 || item.volumeM3, 3),
+    weightKg: round(item.weight_kg || item.weightKg, 1),
+    stackClass: String(item.stack_class || item.stackClass || 'mixed'),
+    returnable: Boolean(item.returnable),
+    warehouseLocation: String(item.warehouse_location || item.warehouseLocation || '').trim(),
+  }
+}
+
+function fallbackCargoBoxes(route) {
+  const allocations = route?.slot_allocations || []
+  return allocations.map((slot, index) => {
+    const items = (slot.material_mix || []).map((description, itemIndex) => normalizeCargoItem({
+      material_description: description,
+      quantity: itemIndex === 0 ? round(slot.pallet_equivalent || 0, 3) : 0,
+      sale_unit: 'mix',
+      client_name: slot.client_names?.[0] || 'Cliente asignado',
+    }))
+    return {
+      box_id: `B${index + 1}`,
+      slot_name: slot.slot_name,
+      position_label: compactName(slot.slot_name, `Caja ${index + 1}`).replaceAll('_', ' '),
+      mode: slot.mode || 'hybrid_reference',
+      accessibility_rank: Number(slot.accessibility_rank || index + 1),
+      client_names: slot.client_names || [],
+      stop_ids: [],
+      stop_indexes: [],
+      total_quantity: round(slot.pallet_equivalent || 0, 3),
+      total_pallet_equivalent: round(slot.pallet_equivalent || 0, 4),
+      total_zce: round(slot.total_zce || slot.pallet_equivalent * 60 || 0, 3),
+      total_volume_m3: 0,
+      total_weight_kg: 0,
+      returnable_quantity: 0,
+      blocking_risk: round(slot.blocking_risk || 0, 2),
+      rationale: ['Asignacion heredada del slot operativo del bundle.'],
+      items,
+    }
+  })
+}
+
+function normalizeCargoBoxes(route) {
+  const rawBoxes = route?.cargo_boxes || []
+  const boxes = rawBoxes.length ? rawBoxes : fallbackCargoBoxes(route)
+  return boxes.map((box, index) => {
+    const items = (box.items || []).map(normalizeCargoItem)
+    const totalQuantity = box.total_quantity ?? items.reduce((sum, item) => sum + item.quantity, 0)
+    const totalPallets = box.total_pallet_equivalent ?? items.reduce((sum, item) => sum + item.palletEquivalent, 0)
+    const totalZce = box.total_zce ?? box.totalZce ?? items.reduce((sum, item) => sum + item.statisticalBoxes, 0)
+    const totalVolume = box.total_volume_m3 ?? items.reduce((sum, item) => sum + item.volumeM3, 0)
+    const totalWeight = box.total_weight_kg ?? items.reduce((sum, item) => sum + item.weightKg, 0)
+    return {
+      boxId: String(box.box_id || box.boxId || `B${index + 1}`),
+      slotName: String(box.slot_name || box.slotName || ''),
+      positionLabel: compactName(box.position_label || box.positionLabel || box.slot_name, `Caja ${index + 1}`).replaceAll('_', ' '),
+      mode: String(box.mode || 'hybrid_reference'),
+      accessibilityRank: Number(box.accessibility_rank || box.accessibilityRank || index + 1),
+      clientNames: box.client_names || box.clientNames || [],
+      stopIds: box.stop_ids || box.stopIds || [],
+      stopIndexes: box.stop_indexes || box.stopIndexes || [],
+      totalQuantity: round(totalQuantity, 3),
+      totalPalletEquivalent: round(totalPallets, 4),
+      totalZce: round(totalZce, 3),
+      totalVolumeM3: round(totalVolume, 3),
+      totalWeightKg: round(totalWeight, 1),
+      returnableQuantity: round(box.returnable_quantity || box.returnableQuantity || 0, 3),
+      blockingRisk: round(box.blocking_risk || box.blockingRisk || 0, 2),
+      rationale: box.rationale || [],
+      items,
+      topItems: items.slice(0, 5),
+    }
+  })
+}
+
+function buildDeliveryRows(route, cargoBoxes) {
+  return (route?.stops || []).map((stop, index) => {
+    const items = (stop.delivery_lines || []).map(line => normalizeCargoItem({
+      ...line,
+      stop_id: stop.stop_id,
+      stop_index: index + 1,
+      client_name: stop.client_names?.[0] || line.client_name,
+    }))
+    const boxIds = cargoBoxes
+      .filter(box => box.stopIds.includes(stop.stop_id) || box.items.some(item => item.stopId === stop.stop_id))
+      .map(box => box.boxId)
+    return {
+      stopId: stop.stop_id,
+      stopIndex: index + 1,
+      clientName: compactName(stop.client_names?.[0], 'Cliente sin nombre'),
+      town: compactName(stop.town, ''),
+      deliveryIds: Array.from(new Set(items.map(item => item.deliveryId).filter(Boolean))),
+      totalQuantity: round(items.reduce((sum, item) => sum + item.quantity, 0), 3),
+      totalPalletEquivalent: round(items.reduce((sum, item) => sum + item.palletEquivalent, 0), 4),
+      totalZce: round(items.reduce((sum, item) => sum + item.statisticalBoxes, 0), 3),
+      totalVolumeM3: round(items.reduce((sum, item) => sum + item.volumeM3, 0), 3),
+      references: items,
+      topItems: items.slice(0, 7),
+      boxIds,
+    }
+  })
+}
+
+function buildCargoSummary(cargoBoxes, deliveries) {
+  const items = cargoBoxes.flatMap(box => box.items)
+  const references = new Set(items.map(item => `${item.materialId}:${item.description}`))
+  return {
+    boxes: cargoBoxes.length,
+    loadedBoxes: cargoBoxes.filter(box => box.items.length > 0).length,
+    items: items.length,
+    references: references.size,
+    deliveries: deliveries.length,
+    palletEquivalent: round(cargoBoxes.reduce((sum, box) => sum + box.totalPalletEquivalent, 0), 3),
+    zce: round(cargoBoxes.reduce((sum, box) => sum + box.totalZce, 0), 3),
+    volumeM3: round(cargoBoxes.reduce((sum, box) => sum + box.totalVolumeM3, 0), 3),
+    weightKg: round(cargoBoxes.reduce((sum, box) => sum + box.totalWeightKg, 0), 1),
+  }
+}
+
 function buildRouteRow(route, index) {
   const validStops = (route?.stops || []).filter(isValidStop)
   const vehicle = routeVehicle(route)
+  const cargoBoxes = normalizeCargoBoxes(route)
+  const deliveries = buildDeliveryRows(route, cargoBoxes)
+  const cargoSummary = buildCargoSummary(cargoBoxes, deliveries)
   const capacity = Number(route?.vehicle?.pallet_capacity) || vehicle.pedidos
   const load = round(route?.pallet_load, 3)
   const loadPct = Math.round((load / Math.max(capacity, 1)) * 100)
   const alertCount = route?.alerts?.length || 0
-  const zce = Math.max(vehicle.pedidos * 60, Math.round(load * 60))
+  const zce = Math.max(0, Math.round(cargoSummary.zce || load * 60))
   const windows = validStops.length || route?.sequence?.length || 0
   const missedWindows = Math.min(windows, alertCount + (loadPct >= 115 ? 2 : 0))
   const row = {
@@ -171,6 +302,10 @@ function buildRouteRow(route, index) {
     alertCount,
     alerts: route?.alerts || [],
     slotAllocations: route?.slot_allocations || [],
+    cargoBoxes,
+    deliveries,
+    cargoSummary,
+    rationale: route?.rationale || [],
     references: topReferencesForRoute(route, 4),
     rawRoute: route,
   }
@@ -239,6 +374,11 @@ function buildMapData(routes) {
         zce: row.zce,
         retornables: row.retornables,
         estado: row.estado,
+        cargoBoxes: row.cargoBoxes,
+        cargoSummary: row.cargoSummary,
+        deliveries: row.deliveries,
+        rationale: row.rationale,
+        references: row.references,
       },
       path: routePositions(row.rawRoute),
       routeStops: (row.rawRoute?.stops || []).filter(isValidStop).map(s => [s.latitude, s.longitude]),
@@ -595,6 +735,9 @@ function buildCurrentPageContext(activeScreen, { routes, vehicles, alerts, analy
       stats: { total: routes.length, states: statusCounts(routes) },
       columns: 'ruta|tipo|estado|conductor|area|paradas/clientes|ocupacion|km|alertas',
       rows: summarizeRoutes(routes, 18),
+      cargo: routes.slice(0, 8).map(route =>
+        `${route.id}|${route.cargoSummary.loadedBoxes}/${route.cargoSummary.boxes} cajas|${route.cargoSummary.references} refs|${route.cargoSummary.deliveries} entregas`
+      ),
       risks: summarizeRiskRoutes(routes, 8),
       references: referenceRows(viewModel, 6),
     }
@@ -654,7 +797,7 @@ export function buildAssistantContext({ activeNav, lang, viewModel }) {
       activeScreen,
       instruction: 'Usa currentPage como fuente principal. Si el usuario pregunta por otro apartado, responde con el global si basta; si no, sugiere cambiar a esa seccion.',
     },
-    note: 'Resumen acotado para IA. El algoritmo fino de carga interior del camion aun no esta conectado; hoy hay slots discretos y heuristicas de accesibilidad.',
+    note: 'Resumen acotado para IA. La carga interior del camion ya expone cajas discretas con objetos reales, motivo de asignacion y entrega asociada.',
     global: {
       nav: SCREEN_NAMES.map((name, index) => `${index === activeNav ? '*' : ''}${name}`),
       pageSummaries: SCREEN_NAMES.map(name => `${name}: ${screenVisibleSummary(name)}`),

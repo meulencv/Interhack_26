@@ -10,7 +10,9 @@ import pandas as pd
 
 from margen_variable_viajes import calcular_margen_variable_viaje
 from optimizador_carga_camion import (
-    RUTA_CATALOGO_ZM040_FIJO,
+    RUTA_HACKATON_DEFECTO as RUTA_HACKATON_OPTIMIZADOR,
+    RUTA_LAYOUT_DEFECTO as RUTA_LAYOUT_OPTIMIZADOR,
+    RUTA_ZM040_DEFECTO as RUTA_ZM040_OPTIMIZADOR,
     STACK_FRAGIL,
     STACK_RESISTENTE,
     ItemCarga,
@@ -18,9 +20,9 @@ from optimizador_carga_camion import (
     optimizar_carga_camion,
 )
 
-RUTA_HACKATON_DEFECTO = Path(__file__).with_name("Hackaton.xlsx")
-RUTA_LAYOUT_DEFECTO = Path(__file__).with_name("Layout Mollet.xlsx")
-RUTA_ZM040_DEFECTO = RUTA_CATALOGO_ZM040_FIJO
+RUTA_HACKATON_DEFECTO = RUTA_HACKATON_OPTIMIZADOR
+RUTA_LAYOUT_DEFECTO = RUTA_LAYOUT_OPTIMIZADOR
+RUTA_ZM040_DEFECTO = RUTA_ZM040_OPTIMIZADOR
 
 
 @dataclass

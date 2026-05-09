@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
+import os
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 import hashlib
 import json
 import re
@@ -40,10 +41,14 @@ class JsonCache:
         self.path.write_text(json.dumps(self._data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-class ORSClient:
-    """Routing client — Nominatim (geocoding, no key) + OSRM (routing, no key)."""
+class RoutingDataError(RuntimeError):
+    """Raised when a route cannot be resolved without production fallbacks."""
 
-    OSRM = "http://router.project-osrm.org"
+
+class ORSClient:
+    """Routing client using local OSRM and normalized delivery addresses."""
+
+    OSRM = os.environ.get("LOGIOPTI_LOCAL_OSRM_URL", "http://127.0.0.1:5000").rstrip("/")
     PHOTON = "https://photon.komoot.io"
     # Service area: roughly Catalonia + surrounding provinces
     LAT_MIN, LAT_MAX = 40.5, 43.0
@@ -61,14 +66,24 @@ class ORSClient:
     # ── Public API ─────────────────────────────────────────────────────────────
 
     def geocode(self, address: str, postal_code: str, town: str) -> CoordinateResult:
-        key = self._key({"a": address, "p": postal_code, "t": town})
+        normalized_address = self._normalize_address(address, postal_code, town)
+        key = self._key({"a": normalized_address, "p": postal_code, "t": town})
+        legacy_key = self._key({"a": address, "p": postal_code, "t": town})
         cached = self.geocode_cache.get(key)
+        if cached is None:
+            cached = self.geocode_cache.get(legacy_key)
         if cached:
+            if cached.get("source") == "synthetic_fallback":
+                raise RoutingDataError(
+                    f"Coordenada sintetica no permitida para {normalized_address}, {postal_code} {town}."
+                )
             return CoordinateResult(**cached)
 
-        result = self._nominatim(address, postal_code, town)
+        result = self._nominatim(normalized_address, postal_code, town)
         if result is None:
-            result = self._depot_fallback(address, postal_code, town)
+            raise RoutingDataError(
+                f"No se pudo geocodificar sin fallback: {normalized_address}, {postal_code} {town}."
+            )
         self.geocode_cache.set(key, {"latitude": result.latitude, "longitude": result.longitude, "source": result.source})
         return result
 
@@ -76,8 +91,14 @@ class ORSClient:
         key = self._key({"c": coordinates})
         cached = self.matrix_cache.get(key)
         if cached:
+            if cached.get("source") == "haversine":
+                raise RoutingDataError("Matriz haversine no permitida en produccion.")
             return cached
-        result = self._osrm_matrix(coordinates) or self._haversine_matrix(coordinates)
+        result = self._osrm_matrix(coordinates)
+        if result is None:
+            raise RoutingDataError(
+                f"No hay matriz OSRM local para {len(coordinates)} puntos. Arranca OSRM en {self.OSRM}."
+            )
         self.matrix_cache.set(key, result)
         return result
 
@@ -85,8 +106,14 @@ class ORSClient:
         key = self._key({"c": coordinates})
         cached = self.directions_cache.get(key)
         if cached:
+            if cached.get("source") == "straight":
+                raise RoutingDataError("Geometria recta cacheada no permitida en produccion.")
             return cached
-        result = self._osrm_directions(coordinates) or self._straight_directions(coordinates)
+        result = self._osrm_directions(coordinates)
+        if result is None:
+            raise RoutingDataError(
+                f"No hay geometria OSRM local para el tramo {coordinates}. Arranca OSRM en {self.OSRM}."
+            )
         self.directions_cache.set(key, result)
         return result
 
@@ -100,32 +127,78 @@ class ORSClient:
         return None
 
     def _geocode_queries(self, address: str, postal_code: str, town: str) -> list[str]:
-        addr_norm = self._normalize_address(address)
+        addr_norm = self._normalize_address(address, postal_code, town)
         return [
             f"{addr_norm} {postal_code} {town} Spain",
             f"{postal_code} {town} Spain",
         ]
 
-    def _normalize_address(self, address: str) -> str:
-        replacements = {
-            "CALLE ": "Carrer ", "CALLE": "Carrer",
-            "CARRER ": "Carrer ", "C/ ": "Carrer ",
-            "AVENIDA ": "Avinguda ", "AVDA ": "Avinguda ", "AV. ": "Avinguda ",
-            "PASEO ": "Passeig ", "PASSEIG ": "Passeig ",
-            "CARRETERA ": "Carretera ", "CTRA. ": "Carretera ", "CTRA ": "Carretera ",
-            "PLAZA ": "Plaça ", "PL. ": "Plaça ",
-            "RONDA ": "Ronda ",
-            " S/N": "", "S/N": "",
-            "LOCAL ": "", ", LOCAL": "",
-            " (NAU ": " ", ")": "",
+    def _normalize_address(self, address: str, postal_code: str = "", town: str = "") -> str:
+        address_key = " ".join((address or "").upper().split())
+        town_key = " ".join((town or "").upper().split())
+        manual_aliases = {
+            ("P.I. CAN MAGAROLA, CTRA. NAC 152, K", "MOLLET DEL VALLES"): "Poligon Industrial Can Magarola, Carretera Nacional 152",
+            ("B-500 KM 6", "SANT FOST DE CAMPSENTELLE"): "Carretera B-500 kilometro 6",
+            ("CARRETERA C-17 S/N", "MOLLET DEL VALLES"): "Carretera C-17",
+            ("CL QUARTER NORD 1", "MOLLET DEL VALLES"): "Carrer Quarter Nord 1",
+            ("CENTRO COMERCIAL LA ROCA VILLAG S/N", "SANTA AGNES DE MALANYANES"): "La Roca Village",
+            ("MATAGALLS, S/N (ESQUINA C/CAMI DEL", "GRANOLLERS"): "Carrer Matagalls",
+            ("CTRA. SANT ADRIA A LA ROCA, KM. 15,", "MONTORNÈS DEL VALLÈS"): "Carretera Sant Adria a la Roca kilometro 15",
+            ("CTRA. SANT ADRIA A LA ROCA, KM. 15,", "MONTORNES DEL VALLES"): "Carretera Sant Adria a la Roca kilometro 15",
+            ("CARRETERA BV-5213 KM 10", "VIC"): "Parador de Vic Sau, Carretera BV-5213 kilometro 10",
         }
-        result = address
-        for old, new in replacements.items():
-            result = result.replace(old, new)
+        alias = manual_aliases.get((address_key, town_key))
+        if alias:
+            return alias
+
+        result = f" {address or ''} "
+        replacements = {
+            r"\bCALLE\b": "Carrer",
+            r"\bCL\.\b": "Carrer",
+            r"\bCL\b": "Carrer",
+            r"\bC/\s*": "Carrer ",
+            r"\bCARRER\b": "Carrer",
+            r"\bAVENIDA\b": "Avinguda",
+            r"\bAVDA\.\b": "Avinguda",
+            r"\bAVDA\b": "Avinguda",
+            r"\bAV\.\b": "Avinguda",
+            r"\bAVINGUDA\b": "Avinguda",
+            r"\bPASEO\b": "Passeig",
+            r"\bPASSEIG\b": "Passeig",
+            r"\bPS\.\b": "Passeig",
+            r"\bPG\.\b": "Passeig",
+            r"\bPLAZA\b": "Plaça",
+            r"\bPL\.\b": "Plaça",
+            r"\bPZA\.\b": "Plaça",
+            r"\bPZA\b": "Plaça",
+            r"\bPASAJE\b": "Passatge",
+            r"\bPJE\.\b": "Passatge",
+            r"\bPTGE\.\b": "Passatge",
+            r"\bCTRA\.\b": "Carretera",
+            r"\bCTRA\b": "Carretera",
+            r"\bCRTA\.\b": "Carretera",
+            r"\bCRTA\b": "Carretera",
+            r"\bCR\b": "Carretera",
+            r"\bCARRETERA\b": "Carretera",
+            r"\bPOL\.\s*IND\.\b": "Poligon Industrial",
+            r"\bP\.I\.\b": "Poligon Industrial",
+            r"\bPOLIGONO\b": "Poligon Industrial",
+            r"\bPOLIGON\b": "Poligon Industrial",
+            r"\bRBLA\.\b": "Rambla",
+            r"\bRONDA\b": "Ronda",
+            r"\bCAMINO\b": "Cami",
+        }
+        for pattern, new in replacements.items():
+            result = re.sub(pattern, new, result, flags=re.IGNORECASE)
+        result = re.sub(r"\bS/N\b", "", result, flags=re.IGNORECASE)
+        result = re.sub(r"\bSN\b", "", result, flags=re.IGNORECASE)
+        result = re.sub(r"\bKM\.?\s*", "kilometro ", result, flags=re.IGNORECASE)
+        result = re.sub(r"\bNAC\.?\s*", "Nacional ", result, flags=re.IGNORECASE)
+        result = result.replace("(", " ").replace(")", " ").replace("-", " ")
+        result = re.sub(r",?\s+LOCAL\b.*", "", result, flags=re.IGNORECASE)
         # Remove highway km references that confuse geocoders
-        result = re.sub(r"\s+KM\s+[\d.,]+.*", "", result, flags=re.IGNORECASE)
         result = re.sub(r"\s+N-\d+\s+\d+.*", "", result, flags=re.IGNORECASE)
-        return result.strip()
+        return " ".join(result.split())
 
     def _photon(self, query: str) -> CoordinateResult | None:
         if not self._photon_available:
@@ -195,7 +268,7 @@ class ORSClient:
             "source": "osrm",
         }
 
-    # ── Haversine fallbacks (no network) ──────────────────────────────────────
+    # ── Non-production helpers kept for diagnostics only ─────────────────────
 
     def _haversine_matrix(self, coordinates: list[tuple[float, float]]) -> dict:
         n = len(coordinates)
