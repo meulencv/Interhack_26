@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, TileLayer, Polyline, CircleMarker, Marker } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -11,6 +11,7 @@ import { AlertasView } from './components/AlertasView'
 import { AnalyticsView } from './components/AnalyticsView'
 import { TruckViewer3D } from './components/TruckViewer3D'
 import { loadStaticBundle } from './services/api'
+import { buildAssistantContext, buildDashboardViewModel } from './data/logisticsViewModel'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -20,90 +21,12 @@ L.Icon.Default.mergeOptions({
 })
 
 const CENTER = [41.5412, 2.2137]
-const DEPOT  = [41.5412, 2.2137]
-const ORS_KEY = import.meta.env.VITE_ORS_KEY
-
-// 11 × 6P · 4 × 8P · 1 × FURGO
-const TIPOS_BY_IDX = [
-  '6P','6P','6P','6P','6P','6P','6P','6P','6P','6P','6P',
-  '8P','8P','8P','8P',
-  'FURGO',
-]
-const CONDUCTORES = [
-  'P. Martínez','J. Herrera','C. Vega','F. Navarro','H. Suárez',
-  'T. Peralta','M. García','L. Romero','A. Díaz','R. López',
-  'E. Torres','B. Molina','S. Campos','N. Fuentes','O. Ramos','D. Santos',
-]
-
-const ROUTE_COLORS = [
-  '#22d3ee','#3b82f6','#22c55e','#f59e0b','#a855f7','#ef4444',
-  '#ec4899','#14b8a6','#f97316','#84cc16','#06b6d4','#8b5cf6',
-  '#f43f5e','#10b981','#eab308','#6366f1','#0ea5e9','#d946ef',
-]
 
 const GLASS = {
   background: 'rgba(11,18,38,.82)',
   backdropFilter: 'blur(14px)',
   WebkitBackdropFilter: 'blur(14px)',
   border: '1px solid rgba(255,255,255,.09)',
-}
-
-async function fetchOrsGeometry(waypoints) {
-  if (!ORS_KEY || waypoints.length < 2) return null
-  try {
-    const coords = waypoints.map(([lat, lon]) => [lon, lat])
-    const res = await fetch('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: ORS_KEY },
-      body: JSON.stringify({ coordinates: coords, instructions: false }),
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    return (data.features?.[0]?.geometry?.coordinates || []).map(([lon, lat]) => [lat, lon])
-  } catch {
-    return null
-  }
-}
-
-function bundleToMapData(bundle) {
-  if (!bundle?.routes?.length) return { routes: [], stops: [], trucks: [] }
-  const routes = bundle.routes.slice(0, 18).map((r, i) => {
-    const legs = r.route_legs || []
-    let positions = legs.flatMap(leg => leg.geometry || [])
-    if (positions.length < 2) {
-      const validStops = (r.stops || []).filter(s => s.latitude !== 0 && s.longitude !== 0)
-      positions = [DEPOT, ...validStops.map(s => [s.latitude, s.longitude])]
-    }
-    return { color: ROUTE_COLORS[i % ROUTE_COLORS.length], positions }
-  })
-  const stops = bundle.routes.flatMap((r, i) =>
-    (r.stops || []).map(s => ({
-      pos: [s.latitude, s.longitude],
-      color: ROUTE_COLORS[i % ROUTE_COLORS.length],
-    }))
-  ).filter(s => {
-    const [lat, lon] = s.pos
-    return lat !== 0 && lon !== 0 && lat > 40.5 && lat < 43.0 && lon > 0.15 && lon < 3.35
-  })
-  const trucks = bundle.routes.slice(0, 16).map((r, i) => {
-    const firstStop = (r.stops || []).find(s => s.latitude !== 0 && s.longitude !== 0)
-    if (!firstStop) return null
-    const tipo   = TIPOS_BY_IDX[i] || '6P'
-    const pedidos = tipo === '8P' ? 8 : tipo === 'FURGO' ? 3 : 6
-    return {
-      pos: [firstStop.latitude, firstStop.longitude],
-      ruta: {
-        id: `R-${String(i + 1).padStart(2, '0')}`,
-        conductor: CONDUCTORES[i] || `Conductor ${i + 1}`,
-        tipo,
-        pedidos,
-        zce: pedidos * 60,
-        retornables: Math.round(pedidos * 60 * 0.6),
-        estado: 'en-ruta',
-      },
-    }
-  }).filter(Boolean)
-  return { routes, stops, trucks }
 }
 
 function makeTruckIcon(tipo) {
@@ -113,15 +36,6 @@ function makeTruckIcon(tipo) {
     'FURGO': { url: '/furgo.png',   w: 56, h: 40 },
   }[tipo] || { url: '/truck.png', w: 64, h: 46 }
   return L.icon({ iconUrl: cfg.url, iconSize: [cfg.w, cfg.h], iconAnchor: [cfg.w / 2, cfg.h] })
-}
-
-function AlertIcon() {
-  return L.divIcon({
-    className: '',
-    html: `<div style="width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-bottom:22px solid #ef4444;position:relative;filter:drop-shadow(0 0 6px #ef4444);"><span style="position:absolute;top:6px;left:-4px;color:white;font-weight:700;font-size:12px;">!</span></div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 24],
-  })
 }
 
 function Clock() {
@@ -153,16 +67,19 @@ export default function App() {
   const [lang, setLang]               = useState('es-ES')
   const [selectedRuta, setSelectedRuta] = useState(null)
   const icons = { '6P': makeTruckIcon('6P'), '8P': makeTruckIcon('8P'), 'FURGO': makeTruckIcon('FURGO') }
-  const [mapData, setMapData]           = useState({ routes: [], stops: [], trucks: [] })
-  const [bundleOverview, setBundleOverview] = useState(null)
+  const [bundle, setBundle]             = useState(null)
+  const viewModel = useMemo(() => buildDashboardViewModel(bundle), [bundle])
+  const assistantContext = useMemo(
+    () => buildAssistantContext({ activeNav, lang, viewModel }),
+    [activeNav, lang, viewModel]
+  )
+  const mapData = viewModel.mapData
+  const bundleOverview = bundle ? viewModel.overview : null
   const mapMode = activeNav === 0
 
   useEffect(() => {
     loadStaticBundle()
-      .then(bundle => {
-        setMapData(bundleToMapData(bundle))
-        setBundleOverview(bundle.overview || null)
-      })
+      .then(setBundle)
       .catch(() => {})
   }, [])
 
@@ -221,7 +138,7 @@ export default function App() {
               <polyline points="6 9 12 15 18 9"/>
             </svg>
           </div>
-          <VoiceAssistant lang={lang} showCard={mapMode} />
+          <VoiceAssistant lang={lang} showCard={mapMode} context={assistantContext} />
         </div>
       </aside>
 
@@ -273,11 +190,11 @@ export default function App() {
         </header>
 
         {/* ── Full-page views (non-map) ── */}
-        {activeNav === 1 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><FlotaView /></div>}
-        {activeNav === 2 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><EntregasView /></div>}
+        {activeNav === 1 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><FlotaView vehicles={viewModel.fleetVehicles} /></div>}
+        {activeNav === 2 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><EntregasView routes={viewModel.routes} /></div>}
         {activeNav === 3 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><OptimizacionView /></div>}
-        {activeNav === 4 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><AlertasView /></div>}
-        {activeNav === 5 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><AnalyticsView /></div>}
+        {activeNav === 4 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><AlertasView alerts={viewModel.alerts} /></div>}
+        {activeNav === 5 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><AnalyticsView analytics={viewModel.analytics} /></div>}
 
         {/* ── MAP VIEW (full-screen) ── */}
         <section

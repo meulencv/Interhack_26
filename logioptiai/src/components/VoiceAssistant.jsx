@@ -5,7 +5,7 @@ import { synthesizeSpeech } from '../services/elevenlabs'
 import { getAIResponse } from '../services/ai'
 import { BottomWave } from './BottomWave'
 
-export function VoiceAssistant({ lang = 'es-ES', showCard = true }) {
+export function VoiceAssistant({ lang = 'es-ES', showCard = true, context = null }) {
   const [listening, setListening] = useState(false)
   const [resolveState, setResolveState] = useState('idle') // idle | resolving
   const [ttsState, setTtsState] = useState('idle') // idle | connecting | speaking | error
@@ -19,6 +19,7 @@ export function VoiceAssistant({ lang = 'es-ES', showCard = true }) {
   const shouldProcessRef = useRef(false)
   const audioRef = useRef(null)
   const abortRef = useRef(null)
+  const conversationRef = useRef([])
 
   const isActive = listening
   const waveVolume = micVolume
@@ -78,8 +79,13 @@ export function VoiceAssistant({ lang = 'es-ES', showCard = true }) {
 
     setResolveState('resolving')
     try {
-      // context = null por ahora; en el futuro se pasarán datos de la pantalla
-      const reply = await getAIResponse(text, null)
+      const history = conversationRef.current.slice(-4)
+      const reply = await getAIResponse(text, context, history)
+      conversationRef.current = [
+        ...history,
+        { role: 'user', content: text },
+        { role: 'assistant', content: reply },
+      ].slice(-4)
       setLastReply(reply)
       setResolveState('idle')
 
@@ -107,7 +113,7 @@ export function VoiceAssistant({ lang = 'es-ES', showCard = true }) {
       setTtsState('error')
       setTimeout(() => setTtsState('idle'), 3000)
     }
-  }, [])
+  }, [context])
 
   const startPTT = useCallback(() => {
     // Interrumpir audio si estaba reproduciendo

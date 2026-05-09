@@ -70,7 +70,7 @@ const TIPO_META = {
     ),
   },
   normal: {
-    label: 'Camiones normales',
+    label: 'Camiones 6P',
     color: '#a78bfa',
     bg: 'rgba(167,139,250,0.10)',
     border: 'rgba(167,139,250,0.22)',
@@ -84,7 +84,7 @@ const TIPO_META = {
     ),
   },
   grande: {
-    label: 'Camiones grandes',
+    label: 'Camiones 8P',
     color: '#fb923c',
     bg: 'rgba(251,146,60,0.10)',
     border: 'rgba(251,146,60,0.22)',
@@ -108,10 +108,11 @@ const ESTADO_META = {
 }
 
 function EficienciaBar({ value, color }) {
+  const pct = Math.min(100, Math.max(0, value))
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 100 }}>
       <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,.06)', borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${value}%`, background: color, borderRadius: 2, transition: 'width .4s' }} />
+        <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 2, transition: 'width .4s' }} />
       </div>
       <span style={{ fontSize: 12, color: '#cfd5e6', fontWeight: 500, minWidth: 28 }}>{value}%</span>
     </div>
@@ -209,12 +210,13 @@ function TipoSection({ tipo, rows }) {
   )
 }
 
-export function FlotaView() {
+export function FlotaView({ vehicles }) {
+  const data = vehicles ?? FLOTA
   const stats = [
-    { label: 'Total vehículos', value: FLOTA.length, color: '#cfd5e6' },
-    { label: 'En ruta', value: FLOTA.filter(v => v.estado === 'en-ruta').length, color: '#3b82f6' },
-    { label: 'Entregados', value: FLOTA.filter(v => v.estado === 'entregado').length, color: '#22c55e' },
-    { label: 'Alertas activas', value: FLOTA.filter(v => v.estado === 'alerta').length, color: '#ef4444' },
+    { label: 'Total vehículos', value: data.length, color: '#cfd5e6' },
+    { label: 'En ruta', value: data.filter(v => v.estado === 'en-ruta').length, color: '#3b82f6' },
+    { label: 'Entregados', value: data.filter(v => v.estado === 'entregado').length, color: '#22c55e' },
+    { label: 'Alertas activas', value: data.filter(v => v.estado === 'alerta').length, color: '#ef4444' },
   ]
 
   return (
@@ -243,7 +245,7 @@ export function FlotaView() {
       {/* Scrollable table area */}
       <div style={{ flex: 1, overflowY: 'auto', paddingRight: 2 }}>
         {['furgo', 'normal', 'grande'].map(tipo => (
-          <TipoSection key={tipo} tipo={tipo} rows={FLOTA.filter(v => v.tipo === tipo)} />
+          <TipoSection key={tipo} tipo={tipo} rows={data.filter(v => v.tipo === tipo)} />
         ))}
       </div>
     </div>

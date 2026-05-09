@@ -64,6 +64,9 @@ function KpiCard({ data }) {
 }
 
 function BarChart({ data }) {
+  if (!data.length) {
+    return <div style={{ height: 144, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(160,170,200,.35)', fontSize: 12 }}>Sin rutas cargadas</div>
+  }
   const max = Math.max(...data.map(d => d.cap))
   const H = 120
   return (
@@ -90,6 +93,9 @@ function BarChart({ data }) {
 }
 
 function LineChart({ data }) {
+  if (!data.length) {
+    return <div style={{ height: 96, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(160,170,200,.35)', fontSize: 12 }}>Sin tendencia</div>
+  }
   const W = 100, H = 70
   const min = Math.min(...data.map(d => d.pct)) - 5
   const max = 100
@@ -138,7 +144,13 @@ function FamiliaBar({ item }) {
   )
 }
 
-export function AnalyticsView() {
+export function AnalyticsView({ analytics }) {
+  const kpiCards = analytics?.kpiCards ?? KPI_CARDS
+  const zceByRoute = analytics?.zceByRoute ?? ZCE_POR_RUTA
+  const trend = analytics?.trend ?? TENDENCIA
+  const productFamilies = analytics?.productFamilies ?? FAMILIAS
+  const zones = analytics?.zones ?? ZONAS_PERF
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '18px 22px', overflow: 'hidden' }}>
       {/* Header */}
@@ -150,7 +162,7 @@ export function AnalyticsView() {
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingRight: 2 }}>
         {/* KPI cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 10 }}>
-          {KPI_CARDS.map(k => <KpiCard key={k.label} data={k} />)}
+          {kpiCards.map(k => <KpiCard key={k.label} data={k} />)}
         </div>
 
         {/* Charts row */}
@@ -165,7 +177,7 @@ export function AnalyticsView() {
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#ef4444' }}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: '#ef4444' }} />Sobre cap.</span>
               </div>
             </div>
-            <BarChart data={ZCE_POR_RUTA} />
+            <BarChart data={zceByRoute} />
             <div style={{ fontSize: 10, color: 'rgba(160,170,200,.35)', marginTop: 8 }}>1 pedido = 60 ZCE (caja estadística) · Línea punteada = capacidad máxima del vehículo</div>
           </div>
 
@@ -173,10 +185,10 @@ export function AnalyticsView() {
           <div style={{ background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: 10, padding: '14px 16px' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#cfd5e6', marginBottom: 4 }}>Ventanas horarias (7d)</div>
             <div style={{ fontSize: 11, color: 'rgba(160,170,200,.45)', marginBottom: 12 }}>% clientes con entrega en ventana</div>
-            <LineChart data={TENDENCIA} />
+            <LineChart data={trend} />
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: '#7c6cff' }}>91.3%</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#7c6cff' }}>{trend.at(-1)?.pct ?? 0}%</div>
                 <div style={{ fontSize: 10, color: 'rgba(160,170,200,.4)' }}>Media semana</div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -191,10 +203,10 @@ export function AnalyticsView() {
             <div style={{ fontSize: 13, fontWeight: 700, color: '#cfd5e6', marginBottom: 4 }}>Mix de producto</div>
             <div style={{ fontSize: 11, color: 'rgba(160,170,200,.45)', marginBottom: 14 }}>Por familia · % del total ZCE</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {FAMILIAS.map(f => <FamiliaBar key={f.label} item={f} />)}
+              {productFamilies.map(f => <FamiliaBar key={f.label} item={f} />)}
             </div>
             <div style={{ marginTop: 14, padding: '8px 10px', background: 'rgba(251,146,60,.06)', border: '1px solid rgba(251,146,60,.15)', borderRadius: 7 }}>
-              <div style={{ fontSize: 11, color: '#fb923c', fontWeight: 700 }}>Retornables: {FAMILIAS[1].pct}%</div>
+              <div style={{ fontSize: 11, color: '#fb923c', fontWeight: 700 }}>Retornables: {(productFamilies.find(f => f.label === 'Retornables') || productFamilies[1])?.pct ?? 0}%</div>
               <div style={{ fontSize: 10, color: 'rgba(160,170,200,.45)', marginTop: 2 }}>Objetivo: ~60% · gestión inversa activa</div>
             </div>
           </div>
@@ -207,7 +219,7 @@ export function AnalyticsView() {
             {['Zona', 'Ventanas cumplidas', 'Km recorridos', 'Eficiencia pedidos (%)'].map(h => (
               <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'rgba(160,170,200,.45)', textTransform: 'uppercase', letterSpacing: .5, padding: '0 0 8px 0' }}>{h}</span>
             ))}
-            {ZONAS_PERF.map((z, i) => {
+            {zones.map(z => {
               const efColor = z.efic > 100 ? '#ef4444' : z.efic > 90 ? '#22c55e' : '#f59e0b'
               return [
                 <span key={z.zona + 'z'} style={{ padding: '8px 0', fontSize: 12.5, fontFamily: 'monospace', color: '#7c6cff', fontWeight: 700, borderTop: '1px solid rgba(255,255,255,.04)' }}>{z.zona}</span>,

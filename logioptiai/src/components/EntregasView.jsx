@@ -49,16 +49,17 @@ function VentanaBar({ cumplidas, total }) {
 const COLS  = '60px 120px 150px 70px 65px 75px 85px 80px 110px 100px'
 const HEADS = ['Ruta', 'Conductor', 'Zona', 'Tipo', 'Clientes', 'Pedidos', 'ZCE', 'Retornos', 'Estado', 'Ventanas']
 
-export function EntregasView() {
+export function EntregasView({ routes }) {
+  const data = routes ?? RUTAS
   const [selectedRuta, setSelectedRuta] = useState(null)
 
-  const total       = RUTAS.length
-  const enRuta      = RUTAS.filter(r => r.estado === 'en-ruta').length
-  const completadas = RUTAS.filter(r => r.estado === 'completada').length
-  const alertas     = RUTAS.filter(r => r.estado === 'alerta').length
-  const totalZCE    = RUTAS.reduce((s, r) => s + r.zce, 0)
-  const totalRet    = RUTAS.reduce((s, r) => s + r.retornables, 0)
-  const pctRet      = Math.round((totalRet / totalZCE) * 100)
+  const total       = data.length
+  const enRuta      = data.filter(r => r.estado === 'en-ruta').length
+  const completadas = data.filter(r => r.estado === 'completada').length
+  const alertas     = data.filter(r => r.estado === 'alerta').length
+  const totalZCE    = data.reduce((s, r) => s + r.zce, 0)
+  const totalRet    = data.reduce((s, r) => s + r.retornables, 0)
+  const pctRet      = totalZCE ? Math.round((totalRet / totalZCE) * 100) : 0
 
   const stats = [
     { label: 'Rutas activas', value: total,                     color: '#cfd5e6' },
@@ -111,7 +112,7 @@ export function EntregasView() {
 
       {/* Rows */}
       <div style={{ flex: 1, overflowY: 'auto', border: '1px solid rgba(255,255,255,.07)', borderRadius: '0 0 8px 8px' }}>
-        {RUTAS.map((r, i) => {
+        {data.map((r, i) => {
           const est = ESTADO_META[r.estado]
           const tip = TIPO_COLOR[r.tipo]
           return (

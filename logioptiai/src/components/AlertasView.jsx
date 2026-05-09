@@ -106,14 +106,15 @@ function AlertCard({ alerta }) {
   )
 }
 
-export function AlertasView() {
+export function AlertasView({ alerts }) {
+  const data = alerts ?? ALERTAS
   const [filtro, setFiltro] = useState('Todas')
 
-  const activas = ALERTAS.filter(a => a.activa)
-  const criticas = ALERTAS.filter(a => a.severidad === 'critica')
-  const resueltas = ALERTAS.filter(a => a.severidad === 'resuelta')
+  const activas = data.filter(a => a.activa)
+  const criticas = data.filter(a => a.severidad === 'critica')
+  const resueltas = data.filter(a => a.severidad === 'resuelta')
 
-  const filtered = ALERTAS.filter(a => {
+  const filtered = data.filter(a => {
     if (filtro === 'Activas') return a.activa
     if (filtro === 'Críticas') return a.severidad === 'critica'
     if (filtro === 'Resueltas') return a.severidad === 'resuelta'
@@ -121,7 +122,7 @@ export function AlertasView() {
   })
 
   const stats = [
-    { label: 'Total alertas', value: ALERTAS.length, color: '#cfd5e6' },
+    { label: 'Total alertas', value: data.length, color: '#cfd5e6' },
     { label: 'Activas', value: activas.length, color: '#f59e0b' },
     { label: 'Críticas', value: criticas.length, color: '#ef4444' },
     { label: 'Resueltas hoy', value: resueltas.length, color: '#22c55e' },
