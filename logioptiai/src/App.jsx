@@ -9,8 +9,7 @@ import { EntregasView } from './components/EntregasView'
 import { OptimizacionView } from './components/OptimizacionView'
 import { AlertasView } from './components/AlertasView'
 import { AnalyticsView } from './components/AnalyticsView'
-
-const ORS_KEY = import.meta.env.VITE_ORS_KEY
+import { loadStaticBundle } from './services/api'
 
 // Fix leaflet default icon
 delete L.Icon.Default.prototype._getIconUrl
@@ -20,48 +19,54 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-// Buenos Aires center
-const CENTER = [-34.608, -58.437]
+// DDI Mollet del Vallès depot
+const CENTER = [41.5412, 2.2137]
+const DEPOT = [41.5412, 2.2137]
+const ORS_KEY = import.meta.env.VITE_ORS_KEY
 
-// Route definitions: waypoints used to request real road geometry from ORS
-const ROUTE_DEFS = [
-  { color: '#22d3ee', waypoints: [CENTER, [-34.593, -58.390], [-34.590, -58.380]] },
-  { color: '#3b82f6', waypoints: [CENTER, [-34.600, -58.460], [-34.595, -58.455]] },
-  { color: '#22c55e', waypoints: [CENTER, [-34.615, -58.415], [-34.628, -58.478]] },
-  { color: '#f59e0b', dashArray: '6 6', waypoints: [CENTER, [-34.630, -58.465], [-34.638, -58.395]] },
-  { color: '#a855f7', dashArray: '6 6', waypoints: [CENTER, [-34.622, -58.495], [-34.618, -58.415]] },
-  { color: '#ef4444', waypoints: [CENTER, [-34.640, -58.505], [-34.598, -58.460]] },
-]
+const ROUTE_COLORS = ['#22d3ee', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#ef4444', '#ec4899', '#14b8a6', '#f97316', '#84cc16', '#06b6d4', '#8b5cf6', '#f43f5e', '#10b981', '#eab308', '#6366f1', '#0ea5e9', '#d946ef']
 
-async function fetchOrsRoute(waypoints) {
-  const coords = waypoints.map(([lat, lng]) => [lng, lat])
-  const resp = await fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
-    method: 'POST',
-    headers: { Authorization: ORS_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ coordinates: coords, instructions: false }),
-  })
-  if (!resp.ok) throw new Error(`ORS ${resp.status}`)
-  const data = await resp.json()
-  return data.features[0].geometry.coordinates.map(([lng, lat]) => [lat, lng])
+async function fetchOrsGeometry(waypoints) {
+  if (!ORS_KEY || waypoints.length < 2) return null
+  try {
+    const coords = waypoints.map(([lat, lon]) => [lon, lat])
+    const res = await fetch('https://api.openrouteservice.org/v2/directions/driving-hgv/geojson', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: ORS_KEY },
+      body: JSON.stringify({ coordinates: coords, instructions: false }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return (data.features?.[0]?.geometry?.coordinates || []).map(([lon, lat]) => [lat, lon])
+  } catch {
+    return null
+  }
 }
 
-const STOPS = [
-  { pos: [-34.590, -58.380], color: '#3b82f6' },
-  { pos: [-34.595, -58.455], color: '#22c55e' },
-  { pos: [-34.628, -58.478], color: '#22c55e' },
-  { pos: [-34.638, -58.395], color: '#a855f7' },
-  { pos: [-34.618, -58.415], color: '#a855f7' },
-  { pos: [-34.598, -58.460], color: '#22d3ee' },
-]
-
-const TRUCKS = [
-  { pos: [-34.593, -58.390] },
-  { pos: [-34.600, -58.460] },
-  { pos: [-34.615, -58.415] },
-  { pos: [-34.630, -58.465] },
-  { pos: [-34.622, -58.495] },
-  { pos: [-34.640, -58.505] },
-]
+function bundleToMapData(bundle) {
+  if (!bundle?.routes?.length) return { routes: [], stops: [], trucks: [] }
+  const routes = bundle.routes.slice(0, 18).map((r, i) => {
+    const legs = r.route_legs || []
+    let positions = legs.flatMap(leg => leg.geometry || [])
+    if (positions.length < 2) {
+      // fallback: straight lines between stops
+      const validStops = (r.stops || []).filter(s => s.latitude !== 0 && s.longitude !== 0)
+      positions = [DEPOT, ...validStops.map(s => [s.latitude, s.longitude])]
+    }
+    return { color: ROUTE_COLORS[i % ROUTE_COLORS.length], positions }
+  })
+  const stops = bundle.routes.flatMap((r, i) =>
+    (r.stops || []).map(s => ({
+      pos: [s.latitude, s.longitude],
+      color: ROUTE_COLORS[i % ROUTE_COLORS.length],
+    }))
+  ).filter(s => s.pos[0] !== 0 && s.pos[1] !== 0)
+  const trucks = bundle.routes.slice(0, 18).map((r) => {
+    const firstStop = (r.stops || []).find(s => s.latitude !== 0 && s.longitude !== 0)
+    return firstStop ? { pos: [firstStop.latitude, firstStop.longitude] } : null
+  }).filter(Boolean)
+  return { routes, stops, trucks }
+}
 
 function TruckIcon() {
   return L.icon({
@@ -127,16 +132,16 @@ export default function App() {
   const [lang, setLang] = useState('es-ES')
   const truckIcon = TruckIcon()
   const alertIcon = AlertIcon()
-  const [routes, setRoutes] = useState(ROUTE_DEFS.map(d => ({ ...d, positions: d.waypoints })))
+  const [mapData, setMapData] = useState({ routes: [], stops: [], trucks: [] })
+  const [bundleOverview, setBundleOverview] = useState(null)
 
   useEffect(() => {
-    Promise.all(
-      ROUTE_DEFS.map(def =>
-        fetchOrsRoute(def.waypoints).catch(() => def.waypoints)
-      )
-    ).then(allPositions => {
-      setRoutes(ROUTE_DEFS.map((def, i) => ({ ...def, positions: allPositions[i] })))
-    })
+    loadStaticBundle()
+      .then(bundle => {
+        setMapData(bundleToMapData(bundle))
+        setBundleOverview(bundle.overview || null)
+      })
+      .catch(() => {})
   }, [])
 
   return (
@@ -263,10 +268,10 @@ export default function App() {
             <div className="fleet-card">
               <div className="card-title">Flota en tiempo real</div>
               <div className="fleet-list">
-                <div className="fleet-row"><div className="fleet-left"><span className="dot b"/>En ruta</div><div className="fleet-num">28</div></div>
-                <div className="fleet-row"><div className="fleet-left"><span className="dot g"/>Entregados</div><div className="fleet-num">15</div></div>
-                <div className="fleet-row"><div className="fleet-left"><span className="dot y"/>Pendientes</div><div className="fleet-num">7</div></div>
-                <div className="fleet-row"><div className="fleet-left"><span className="dot r"/>Alertas</div><div className="fleet-num">2</div></div>
+                <div className="fleet-row"><div className="fleet-left"><span className="dot b"/>Rutas</div><div className="fleet-num">{bundleOverview?.routes ?? '—'}</div></div>
+                <div className="fleet-row"><div className="fleet-left"><span className="dot g"/>Km totales</div><div className="fleet-num">{bundleOverview?.distance_km ?? '—'}</div></div>
+                <div className="fleet-row"><div className="fleet-left"><span className="dot y"/>Palés</div><div className="fleet-num">{bundleOverview?.pallet_load ?? '—'}</div></div>
+                <div className="fleet-row"><div className="fleet-left"><span className="dot r"/>Alertas</div><div className="fleet-num">{bundleOverview?.alerts ?? '—'}</div></div>
               </div>
             </div>
 
@@ -282,16 +287,15 @@ export default function App() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
 
-              {/* Routes — real road geometry from OpenRouteService */}
-              {routes.map((route, i) => (
+              {/* Routes from smart_truck bundle */}
+              {mapData.routes.map((route, i) => (
                 <Polyline
                   key={i}
                   positions={route.positions}
                   pathOptions={{
                     color: route.color,
                     weight: 3,
-                    opacity: 0.9,
-                    dashArray: route.dashArray,
+                    opacity: 0.85,
                     lineCap: 'round',
                     lineJoin: 'round',
                   }}
@@ -299,7 +303,7 @@ export default function App() {
               ))}
 
               {/* Stop markers */}
-              {STOPS.map((s, i) => (
+              {mapData.stops.map((s, i) => (
                 <CircleMarker
                   key={i}
                   center={s.pos}
@@ -308,13 +312,10 @@ export default function App() {
                 />
               ))}
 
-              {/* Trucks */}
-              {TRUCKS.map((t, i) => (
+              {/* Trucks at first stop of each route */}
+              {mapData.trucks.map((t, i) => (
                 <Marker key={i} position={t.pos} icon={truckIcon} />
               ))}
-
-              {/* Alert */}
-              <Marker position={[-34.606, -58.442]} icon={alertIcon} />
             </MapContainer>
           </div>
 
@@ -327,31 +328,30 @@ export default function App() {
                   <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                 </svg>
               </div>
-              <div className="badge"><span className="b-dot"/>Simulated Annealing</div>
+              <div className="badge"><span className="b-dot"/>VRP Greedy · Equilibrado</div>
 
               <div className="obj-block">
-                <div className="obj-label">Objetivo actual</div>
-                <div className="obj-value">Minimizar tiempo de entrega</div>
+                <div className="obj-label">Objetivo activo</div>
+                <div className="obj-value">Equilibrado (tiempo + distancia + carga)</div>
               </div>
 
               <div className="params">
-                <div className="params-title">Parámetros</div>
-                <div className="param-row"><span className="param-name">Temperatura inicial</span><span className="param-val">100.0</span></div>
-                <div className="param-row"><span className="param-name">Temperatura final</span><span className="param-val">0.1</span></div>
-                <div className="param-row"><span className="param-name">Tasa de enfriamiento</span><span className="param-val">0.95</span></div>
-                <div className="param-row"><span className="param-name">Iteraciones</span><span className="param-val">1,000</span></div>
-                <div className="param-row"><span className="param-name">Vecinos por iteración</span><span className="param-val">50</span></div>
+                <div className="params-title">Resultado del modelo</div>
+                <div className="param-row"><span className="param-name">Rutas planificadas</span><span className="param-val">{bundleOverview?.routes ?? '—'}</span></div>
+                <div className="param-row"><span className="param-name">Distancia total</span><span className="param-val">{bundleOverview ? `${bundleOverview.distance_km} km` : '—'}</span></div>
+                <div className="param-row"><span className="param-name">Palés cargados</span><span className="param-val">{bundleOverview?.pallet_load ?? '—'}</span></div>
+                <div className="param-row"><span className="param-name">Retornables pico</span><span className="param-val">{bundleOverview?.return_peak ?? '—'}</span></div>
+                <div className="param-row"><span className="param-name">Modo geocoding</span><span className="param-val">{bundleOverview?.ors_mode ?? '—'}</span></div>
               </div>
 
               <div className="progress-block">
-                <div className="progress-head"><span>Progreso</span><span>78%</span></div>
-                <div className="progress-bar"><div className="progress-fill"/></div>
-                <div className="iter-text">Iteración 780 / 1000</div>
-                <div className="best-sol">Mejor solución encontrada</div>
+                <div className="progress-head"><span>Cobertura de rutas</span><span>100%</span></div>
+                <div className="progress-bar"><div className="progress-fill" style={{ width: '100%' }}/></div>
+                <div className="iter-text">{bundleOverview ? `${bundleOverview.routes} rutas · ${bundleOverview.distance_km} km` : 'Cargando datos…'}</div>
+                <div className="best-sol">Solución cargada desde bundle</div>
               </div>
             </div>
 
-            <VoiceAssistant lang={lang} />
           </div>
         </section>
 
@@ -419,6 +419,7 @@ export default function App() {
           </div>
         </section>
       </main>
+      <VoiceAssistant lang={lang} showCard={activeNav === 0} />
     </div>
   )
 }

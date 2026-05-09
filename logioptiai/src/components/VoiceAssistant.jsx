@@ -4,7 +4,7 @@ import { synthesizeSpeech } from '../services/elevenlabs'
 import { getAIResponse } from '../services/ai'
 import { BottomWave } from './BottomWave'
 
-export function VoiceAssistant({ lang = 'es-ES' }) {
+export function VoiceAssistant({ lang = 'es-ES', showCard = true }) {
   const [listening, setListening] = useState(false)
   const [resolveState, setResolveState] = useState('idle') // idle | resolving
   const [ttsState, setTtsState] = useState('idle') // idle | connecting | speaking | error
@@ -173,9 +173,44 @@ export function VoiceAssistant({ lang = 'es-ES' }) {
     return '#6b7280'
   }
 
+  const isNotIdle = listening || resolveState === 'resolving' || ttsState !== 'idle'
+
   return (
     <>
-      <div className="card voice-card" style={{ position: 'relative' }}>
+      {!showCard && isNotIdle && (
+        <div style={{
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          zIndex: 10000,
+          background: 'rgba(15,23,42,0.92)',
+          border: `1px solid ${statusColor()}`,
+          borderRadius: 12,
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          fontSize: 13,
+          color: '#e2e8f0',
+          boxShadow: `0 0 16px ${statusColor()}44`,
+          backdropFilter: 'blur(8px)',
+          pointerEvents: 'none',
+        }}>
+          <span style={{
+            width: 8, height: 8, borderRadius: '50%',
+            background: statusColor(),
+            boxShadow: `0 0 6px ${statusColor()}`,
+            flexShrink: 0,
+          }} />
+          {getStatus()}
+          {listening && transcript && (
+            <span style={{ color: '#94a3b8', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              — {transcript}
+            </span>
+          )}
+        </div>
+      )}
+      <div className="card voice-card" style={{ position: 'relative', display: showCard ? '' : 'none' }}>
         <div className="voice-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span
             style={{
