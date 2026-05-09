@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, Polyline, CircleMarker, Marker, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Polyline, CircleMarker, Marker } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
+
+const ORS_KEY = import.meta.env.VITE_ORS_KEY
 
 // Fix leaflet default icon
 delete L.Icon.Default.prototype._getIconUrl
@@ -15,14 +17,27 @@ L.Icon.Default.mergeOptions({
 // Buenos Aires center
 const CENTER = [-34.608, -58.437]
 
-const ROUTES = [
-  { color: '#22d3ee', positions: [[-34.590, -58.380], [-34.600, -58.400], [-34.615, -58.420], [-34.625, -58.440], [-34.620, -58.460]] },
-  { color: '#3b82f6', positions: [[-34.588, -58.410], [-34.598, -58.425], [-34.610, -58.435]] },
-  { color: '#22c55e', positions: [[-34.595, -58.455], [-34.608, -58.465], [-34.618, -58.470], [-34.628, -58.478]] },
-  { color: '#f59e0b', positions: [[-34.620, -58.460], [-34.630, -58.475], [-34.640, -58.490], [-34.645, -58.510]], dashArray: '6 6' },
-  { color: '#a855f7', positions: [[-34.638, -58.395], [-34.628, -58.405], [-34.618, -58.415]], dashArray: '6 6' },
-  { color: '#f59e0b', positions: [[-34.598, -58.460], [-34.605, -58.480], [-34.612, -58.500]] },
+// Route definitions: waypoints used to request real road geometry from ORS
+const ROUTE_DEFS = [
+  { color: '#22d3ee', waypoints: [CENTER, [-34.593, -58.390], [-34.590, -58.380]] },
+  { color: '#3b82f6', waypoints: [CENTER, [-34.600, -58.460], [-34.595, -58.455]] },
+  { color: '#22c55e', waypoints: [CENTER, [-34.615, -58.415], [-34.628, -58.478]] },
+  { color: '#f59e0b', dashArray: '6 6', waypoints: [CENTER, [-34.630, -58.465], [-34.638, -58.395]] },
+  { color: '#a855f7', dashArray: '6 6', waypoints: [CENTER, [-34.622, -58.495], [-34.618, -58.415]] },
+  { color: '#ef4444', waypoints: [CENTER, [-34.640, -58.505], [-34.598, -58.460]] },
 ]
+
+async function fetchOrsRoute(waypoints) {
+  const coords = waypoints.map(([lat, lng]) => [lng, lat])
+  const resp = await fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
+    method: 'POST',
+    headers: { Authorization: ORS_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ coordinates: coords, instructions: false }),
+  })
+  if (!resp.ok) throw new Error(`ORS ${resp.status}`)
+  const data = await resp.json()
+  return data.features[0].geometry.coordinates.map(([lng, lat]) => [lat, lng])
+}
 
 const STOPS = [
   { pos: [-34.590, -58.380], color: '#3b82f6' },
@@ -100,6 +115,17 @@ export default function App() {
   const [activeNav, setActiveNav] = useState(0)
   const truckIcon = TruckIcon()
   const alertIcon = AlertIcon()
+  const [routes, setRoutes] = useState(ROUTE_DEFS.map(d => ({ ...d, positions: d.waypoints })))
+
+  useEffect(() => {
+    Promise.all(
+      ROUTE_DEFS.map(def =>
+        fetchOrsRoute(def.waypoints).catch(() => def.waypoints)
+      )
+    ).then(allPositions => {
+      setRoutes(ROUTE_DEFS.map((def, i) => ({ ...def, positions: allPositions[i] })))
+    })
+  }, [])
 
   return (
     <div className="frame">
@@ -198,8 +224,8 @@ export default function App() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
 
-              {/* Routes */}
-              {ROUTES.map((route, i) => (
+              {/* Routes — real road geometry from OpenRouteService */}
+              {routes.map((route, i) => (
                 <Polyline
                   key={i}
                   positions={route.positions}
