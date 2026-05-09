@@ -108,7 +108,7 @@ function bundleToMapData(bundle) {
 
 function makeTruckIcon(tipo) {
   const cfg = {
-    '6P':    { url: '/truck6p.png', w: 64, h: 46 },
+    '6P':    { url: '/truck6p.png', w: 51, h: 37 },
     '8P':    { url: '/truck.png',   w: 70, h: 50 },
     'FURGO': { url: '/furgo.png',   w: 56, h: 40 },
   }[tipo] || { url: '/truck.png', w: 64, h: 46 }
