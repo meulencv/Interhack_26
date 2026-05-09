@@ -73,7 +73,7 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
             "pallet_load": total_load,
             "return_peak": total_returns,
             "alerts": len(total_alerts),
-            "ors_mode": "live" if app_config.ors.enabled else "synthetic_fallback",
+            "ors_mode": "osrm+photon",
         },
         routes=route_results,
         assumptions=assumptions,

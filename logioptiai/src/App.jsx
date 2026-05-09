@@ -60,7 +60,10 @@ function bundleToMapData(bundle) {
       pos: [s.latitude, s.longitude],
       color: ROUTE_COLORS[i % ROUTE_COLORS.length],
     }))
-  ).filter(s => s.pos[0] !== 0 && s.pos[1] !== 0)
+  ).filter(s => {
+    const [lat, lon] = s.pos
+    return lat !== 0 && lon !== 0 && lat > 40.5 && lat < 43.0 && lon > 0.15 && lon < 3.35
+  })
   const trucks = bundle.routes.slice(0, 18).map((r) => {
     const firstStop = (r.stops || []).find(s => s.latitude !== 0 && s.longitude !== 0)
     return firstStop ? { pos: [firstStop.latitude, firstStop.longitude] } : null

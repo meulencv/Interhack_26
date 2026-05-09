@@ -1,3 +1,4 @@
+
 const RUTAS = [
   { id: 'R-01', conductor: 'P. Martínez', zona: 'ZM040-BCN-01', clientes: 18, palets: 6, zce: 342, retornables: 198, estado: 'en-ruta', horaInicio: '06:30', ventanas: 16, cumplidas: 14, km: 42.3, tipo: '6P' },
   { id: 'R-02', conductor: 'J. Herrera', zona: 'ZM040-BCN-02', clientes: 22, palets: 8, zce: 471, retornables: 284, estado: 'en-ruta', horaInicio: '06:45', ventanas: 20, cumplidas: 18, km: 58.1, tipo: '8P' },
