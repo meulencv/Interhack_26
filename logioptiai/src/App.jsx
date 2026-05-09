@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { MapContainer, TileLayer, Polyline, CircleMarker, Marker } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -45,6 +45,95 @@ function Clock() {
     return () => clearInterval(t)
   }, [])
   return <span className="time">{time}</span>
+}
+
+function MovingTruck({ truck, icon, onClick }) {
+  const markerRef = useRef(null)
+
+  useEffect(() => {
+    if (!markerRef.current || !truck.path || truck.path.length < 2) return
+
+    const pathLatLngs = truck.path.map(p => L.latLng(p))
+    const stopsLatLngs = (truck.routeStops || []).map(p => L.latLng(p))
+    const visitedStops = new Set()
+
+    const isStopAndNotVisited = (latLng) => {
+      const stopIdx = stopsLatLngs.findIndex(s => s.distanceTo(latLng) < 10)
+      if (stopIdx !== -1 && !visitedStops.has(stopIdx)) {
+        visitedStops.add(stopIdx)
+        return true
+      }
+      return false
+    }
+
+    let currentSegment = Math.floor(Math.random() * (pathLatLngs.length - 1))
+    let currentPos = pathLatLngs[currentSegment]
+    let lastTime = performance.now()
+    
+    // 60 km/h in m/s
+    const speedMps = 60 * (1000 / 3600) 
+    // 5 mins in ms
+    const stopDurationMs = 5 * 60 * 1000 
+
+    let stopTimer = 0
+    let animationFrameId
+
+    const animate = (time) => {
+      const dt = Math.min(time - lastTime, 100) // cap dt at 100ms
+      lastTime = time
+
+      if (stopTimer > 0) {
+        stopTimer -= dt
+      } else {
+        if (currentSegment >= pathLatLngs.length - 1) {
+          currentSegment = 0
+          currentPos = pathLatLngs[0]
+          visitedStops.clear()
+        }
+
+        const p1 = currentPos
+        const p2 = pathLatLngs[currentSegment + 1]
+        const distToNext = p1.distanceTo(p2)
+        const moveDist = speedMps * (dt / 1000)
+
+        if (distToNext > 0) {
+          if (moveDist >= distToNext) {
+            currentPos = p2
+            currentSegment++
+            if (isStopAndNotVisited(currentPos)) {
+              stopTimer = stopDurationMs
+            }
+          } else {
+            const fraction = moveDist / distToNext
+            const lat = p1.lat + (p2.lat - p1.lat) * fraction
+            const lng = p1.lng + (p2.lng - p1.lng) * fraction
+            currentPos = L.latLng(lat, lng)
+          }
+        } else {
+          currentSegment++
+        }
+
+        if (markerRef.current) {
+          markerRef.current.setLatLng(currentPos)
+        }
+      }
+
+      animationFrameId = requestAnimationFrame(animate)
+    }
+
+    animationFrameId = requestAnimationFrame(animate)
+
+    return () => cancelAnimationFrame(animationFrameId)
+  }, [truck])
+
+  return (
+    <Marker
+      ref={markerRef}
+      position={truck.pos}
+      icon={icon}
+      eventHandlers={{ click: onClick }}
+    />
+  )
 }
 
 const NAV_ITEMS = [
@@ -322,11 +411,11 @@ export default function App() {
               ))}
 
               {mapData.trucks.map((t, i) => (
-                <Marker
+                <MovingTruck
                   key={i}
-                  position={t.pos}
+                  truck={t}
                   icon={icons[t.ruta?.tipo] || icons['6P']}
-                  eventHandlers={{ click: () => t.ruta && setSelectedRuta(t.ruta) }}
+                  onClick={() => t.ruta && setSelectedRuta(t.ruta)}
                 />
               ))}
             </MapContainer>

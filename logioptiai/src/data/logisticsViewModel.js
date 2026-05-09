@@ -234,6 +234,8 @@ function buildMapData(routes) {
         retornables: row.retornables,
         estado: row.estado,
       },
+      path: routePositions(row.rawRoute),
+      routeStops: (row.rawRoute?.stops || []).filter(isValidStop).map(s => [s.latitude, s.longitude]),
     }
   }).filter(Boolean)
 

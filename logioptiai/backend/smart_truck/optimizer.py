@@ -10,20 +10,47 @@ from .normalize import CanonicalDataset
 from .routing import ORSClient
 
 
-def _vehicle_for_load(config: AppConfig, route_code: str, pallet_load: float) -> Vehicle:
-    template: VehicleTemplate
-    if pallet_load > 5.6:
-        template = next(item for item in config.fleet_templates if item.label == "truck_8")
-    elif pallet_load > 2.6:
-        template = next(item for item in config.fleet_templates if item.label == "truck_6")
-    else:
-        template = next(item for item in config.fleet_templates if item.label == "van_3")
+def _make_vehicle(config: AppConfig, route_code: str, template_label: str) -> Vehicle:
+    template = next(t for t in config.fleet_templates if t.label == template_label)
     return Vehicle(
         vehicle_id=f"{route_code}-{template.label}",
         template=template.label,
         pallet_capacity=template.pallet_capacity,
         slot_names=list(template.slot_names),
     )
+
+
+def _assign_vehicles_to_routes(
+    config: AppConfig, route_loads: list[tuple[str, float]]
+) -> dict[str, str]:
+    """Assign vehicle templates using the real fleet pool.
+
+    Strategy: lightest route(s) → van_3, heaviest N → truck_8, rest → truck_6.
+    Exhausted pool slots fall back to truck_6.
+    """
+    pool = dict(config.fleet_counts)
+    sorted_by_load = sorted(route_loads, key=lambda x: x[1])
+
+    assignment: dict[str, str] = {}
+
+    # Reserve van_3 for the lightest route(s)
+    vans_available = pool.get("van_3", 0)
+    for route_code, load in sorted_by_load[:vans_available]:
+        assignment[route_code] = "van_3"
+
+    remaining = [(rc, ld) for rc, ld in sorted_by_load if rc not in assignment]
+
+    # Heaviest routes get truck_8
+    truck8_available = pool.get("truck_8", 0)
+    for route_code, _ in reversed(remaining[-truck8_available:] if truck8_available else []):
+        assignment[route_code] = "truck_8"
+
+    # Everything else gets truck_6
+    for route_code, _ in remaining:
+        if route_code not in assignment:
+            assignment[route_code] = "truck_6"
+
+    return assignment
 
 
 def _cluster_parking_candidates(stops: list[Stop], ors: ORSClient) -> list[Stop]:
@@ -239,7 +266,8 @@ def optimize_routes_for_date(
     planning_date: date,
     ors: ORSClient,
 ) -> list[RoutePlan]:
-    results: list[RoutePlan] = []
+    # Geocode all stops and compute loads first so fleet can be assigned as a pool.
+    geocoded_routes: list[tuple[str, list[Stop], float]] = []
     for route_code, stops in sorted(route_stops.items()):
         if not stops:
             continue
@@ -252,7 +280,17 @@ def optimize_routes_for_date(
             stop.coordinate_source = geocoded.source
         clustered = _cluster_parking_candidates(stops, ors)
         pallet_load = round(sum(stop.total_pallet_equivalent for stop in clustered), 3)
-        vehicle = _vehicle_for_load(config, route_code, pallet_load)
+        geocoded_routes.append((route_code, clustered, pallet_load))
+
+    # Assign vehicles from the fixed fleet pool based on load ranking.
+    vehicle_assignment = _assign_vehicles_to_routes(
+        config, [(rc, load) for rc, _, load in geocoded_routes]
+    )
+
+    results: list[RoutePlan] = []
+    for route_code, clustered, pallet_load in geocoded_routes:
+        template_label = vehicle_assignment[route_code]
+        vehicle = _make_vehicle(config, route_code, template_label)
         ordered, distance_km, duration_minutes, route_legs, arrivals, departures = _sequence_stops(
             config, ors, clustered
         )

@@ -58,6 +58,7 @@ class AppConfig:
     depot: DepotConfig = field(default_factory=DepotConfig)
     weights: Weights = field(default_factory=Weights)
     reverse_logistics_ratio: float = 0.60
+    fleet_counts: dict[str, int] = field(default_factory=lambda: {"truck_8": 4, "truck_6": 11, "van_3": 1})
     fleet_templates: tuple[VehicleTemplate, ...] = (
         VehicleTemplate(
             label="truck_6",

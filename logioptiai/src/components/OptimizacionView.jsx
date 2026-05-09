@@ -116,7 +116,7 @@ export function OptimizacionView() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexShrink: 0 }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 3 }}>Motor de Optimización</div>
-          <div style={{ fontSize: 13, color: 'rgba(160,170,200,.6)' }}>Planificación VRP · palés, ventanas horarias, logística inversa</div>
+          <div style={{ fontSize: 13, color: 'rgba(160,170,200,.6)' }}>Planificación VRP · pedidos, ventanas horarias, logística inversa</div>
         </div>
         <button
           onClick={running ? undefined : handleRun}
@@ -180,14 +180,14 @@ export function OptimizacionView() {
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <div>
                   <div style={{ fontSize: 12.5, color: '#cfd5e6' }}>Prioridad carga</div>
-                  <div style={{ fontSize: 10, color: 'rgba(160,170,200,.4)' }}>por cliente ↔ por referencia</div>
+                  <div style={{ fontSize: 10, color: 'rgba(160,170,200,.4)' }}>prioridad repartidor ↔ prioridad almacén</div>
                 </div>
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#7c6cff' }}>{cargaCliente}%</span>
               </div>
               <input type="range" min={0} max={100} value={cargaCliente} onChange={e => setCargaCliente(+e.target.value)} style={{ width: '100%', accentColor: '#7c6cff' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'rgba(160,170,200,.35)', marginTop: 4 }}>
-                <span>Referencia (almacén)</span>
                 <span>Cliente (calle)</span>
+                <span>Referencia (almacén)</span>
               </div>
             </div>
           </div>
@@ -199,7 +199,7 @@ export function OptimizacionView() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {[
                 ['Secuenciación', 'Nearest-neighbor con ventanas'],
-                ['Vehículo', 'Auto-asignado por carga (3/6/8 palés)'],
+                ['Vehículo', 'Pool real: 11×6P · 4×8P · 1×FURGO (por carga)'],
                 ['Slots carga', 'Accesibilidad + prioridad cliente'],
                 ['Retornables', retornables ? '60% reserva inversa' : 'Desactivada'],
                 ['Ventanas', ventanas ? 'Penalización x4.5 por retraso' : 'Sin restricción'],
@@ -231,7 +231,7 @@ export function OptimizacionView() {
               <KpiChip label="Rutas" value={overview.routes} color="#7c6cff" />
               <KpiChip label="km totales" value={`${overview.distance_km} km`} color="#22c55e" />
               <KpiChip label="Duración total" value={`${Math.round(overview.duration_minutes / 60)}h`} color="#3b82f6" />
-              <KpiChip label="Palés" value={overview.pallet_load} color="#fb923c" />
+              <KpiChip label="Pedidos" value={overview.pallet_load} color="#fb923c" />
               <KpiChip label="Alertas" value={overview.alerts} color={overview.alerts > 0 ? '#ef4444' : '#34d399'} />
             </div>
             {result.bundle?.actionable_alerts?.length > 0 && (
