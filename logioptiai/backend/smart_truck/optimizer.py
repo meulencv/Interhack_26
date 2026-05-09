@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from statistics import mean
+import re
 
 from .config import AppConfig, VehicleTemplate
 from .models import CargoBox, CargoItem, RouteLeg, RoutePlan, SlotAllocation, Stop, StopInsight, Vehicle
@@ -287,8 +289,133 @@ def _vehicle_for_load(
     )
 
 
+def _natural_route_key(route_code: str) -> tuple[int, int, str]:
+    text = str(route_code or "")
+    match = re.search(r"(\d+)$", text)
+    number = int(match.group(1)) if match else 999999
+    # DR routes are the operational truck identifiers in the demo; DA codes can
+    # remain as traceability, but should not win the visible route name.
+    prefix_rank = 0 if text.upper().startswith("DR") else 1
+    return (prefix_rank, number, text)
+
+
+def _route_loads_by_source(stops: list[Stop]) -> dict[str, float]:
+    loads: dict[str, float] = defaultdict(float)
+    for stop in stops:
+        for line in stop.delivery_lines:
+            code = line.route_code or stop.route_code
+            loads[code] += line.pallet_equivalent
+    return dict(loads)
+
+
+def _dominant_route_code(source_route_codes: list[str], stops: list[Stop]) -> str:
+    loads = _route_loads_by_source(stops)
+    if loads:
+        return min(
+            loads,
+            key=lambda code: (
+                0 if code.upper().startswith("DR") else 1,
+                -loads[code],
+                _natural_route_key(code),
+            ),
+        )
+    return sorted(source_route_codes, key=_natural_route_key)[0]
+
+
+def _dominant_text(values: list[str]) -> str:
+    cleaned = [str(value or "").strip() for value in values if str(value or "").strip()]
+    if not cleaned:
+        return ""
+    counts = Counter(cleaned)
+    return min(counts, key=lambda value: (-counts[value], value))
+
+
+def _copy_stop_with_group_defaults(stop: Stop) -> Stop:
+    stop.original_stop_ids = stop.original_stop_ids or [stop.stop_id]
+    stop.original_client_count = stop.original_client_count or len(stop.client_ids) or 1
+    stop.grouped_stop_count = stop.grouped_stop_count or 1
+    return stop
+
+
 def _cluster_parking_candidates(stops: list[Stop]) -> list[Stop]:
-    return stops
+    if len(stops) < 2:
+        return [_copy_stop_with_group_defaults(stop) for stop in stops]
+
+    remaining = stops[:]
+    clusters: list[list[Stop]] = []
+    while remaining:
+        seed = remaining.pop(0)
+        group = [seed]
+        keep: list[Stop] = []
+        for candidate in remaining:
+            distance_m = haversine_km(seed.latitude, seed.longitude, candidate.latitude, candidate.longitude) * 1000.0
+            if distance_m <= 50.0:
+                group.append(candidate)
+            else:
+                keep.append(candidate)
+        clusters.append(group)
+        remaining = keep
+
+    clustered: list[Stop] = []
+    for cluster_index, group in enumerate(clusters, start=1):
+        if len(group) == 1:
+            clustered.append(_copy_stop_with_group_defaults(group[0]))
+            continue
+
+        route_codes = sorted(
+            {
+                line.route_code or stop.route_code
+                for stop in group
+                for line in stop.delivery_lines
+                if line.route_code or stop.route_code
+            },
+            key=_natural_route_key,
+        )
+        route_code = _dominant_route_code(route_codes or [group[0].route_code], group)
+        total_pallet = round(sum(stop.total_pallet_equivalent for stop in group), 4)
+        all_lines = [line for stop in group for line in stop.delivery_lines]
+        client_ids = _ordered_unique(client_id for stop in group for client_id in stop.client_ids)
+        client_names = _ordered_unique(client_name for stop in group for client_name in stop.client_names)
+        original_stop_ids = [original for stop in group for original in (stop.original_stop_ids or [stop.stop_id])]
+        service_minutes = max(8, sum(stop.service_minutes for stop in group) - (len(group) - 1) * 5)
+        centroid_latitude = round(sum(stop.latitude for stop in group) / len(group), 7)
+        centroid_longitude = round(sum(stop.longitude for stop in group) / len(group), 7)
+        max_distance_m = max(
+            haversine_km(centroid_latitude, centroid_longitude, stop.latitude, stop.longitude) * 1000.0
+            for stop in group
+        )
+        clustered.append(
+            Stop(
+                stop_id=f"{route_code}:parking-{cluster_index:02d}",
+                route_code=route_code,
+                parking_group_id=f"{route_code}:parking-50m-{cluster_index:02d}",
+                client_ids=client_ids,
+                client_names=client_names,
+                town=_dominant_text([stop.town for stop in group]),
+                zone=_dominant_text([stop.zone for stop in group]),
+                latitude=centroid_latitude,
+                longitude=centroid_longitude,
+                total_pallet_equivalent=total_pallet,
+                delivery_lines=all_lines,
+                service_minutes=service_minutes,
+                priority_score=max(stop.priority_score for stop in group),
+                window_start_minutes=min(stop.window_start_minutes for stop in group),
+                window_end_minutes=max(stop.window_end_minutes for stop in group),
+                coordinate_source="parking_cluster_50m_osrm_snapped",
+                original_stop_ids=original_stop_ids,
+                original_client_count=len(client_ids),
+                grouped_stop_count=len(original_stop_ids),
+                parking_optimization_reason=(
+                    f"{len(original_stop_ids)} paradas a menos de 50 m se atienden desde un unico punto medio "
+                    f"(radio max. {max_distance_m:.0f} m)."
+                ),
+            )
+        )
+    return clustered
+
+
+def _cluster_savings(stops: list[Stop]) -> int:
+    return sum(max(0, stop.grouped_stop_count - 1) for stop in stops)
 
 
 def _make_route_batch(
@@ -297,6 +424,9 @@ def _make_route_batch(
     stops: list[Stop],
     dataset: CanonicalDataset,
 ) -> RouteBatch:
+    stops = _cluster_parking_candidates(stops)
+    source_route_codes = sorted(set(source_route_codes), key=_natural_route_key)
+    route_code = _dominant_route_code(source_route_codes or [route_code], stops)
     volume_candidates = _volume_candidates_for_stops(dataset, stops)
     cargo_mix = _cargo_mix_profile(volume_candidates)
     centroid_latitude = mean(stop.latitude for stop in stops)
@@ -324,9 +454,9 @@ def _make_route_batch(
 
 
 def _merge_batches(left: RouteBatch, right: RouteBatch, dataset: CanonicalDataset) -> RouteBatch:
-    merged_codes = sorted({*left.source_route_codes, *right.source_route_codes})
-    merged_route_code = " + ".join(merged_codes)
+    merged_codes = sorted({*left.source_route_codes, *right.source_route_codes}, key=_natural_route_key)
     merged_stops = left.stops + right.stops
+    merged_route_code = _dominant_route_code(merged_codes, merged_stops)
     return _make_route_batch(merged_route_code, merged_codes, merged_stops, dataset)
 
 

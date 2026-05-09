@@ -118,6 +118,10 @@ class Stop:
     window_start_minutes: int
     window_end_minutes: int
     coordinate_source: str
+    original_stop_ids: list[str] = field(default_factory=list)
+    original_client_count: int = 1
+    grouped_stop_count: int = 1
+    parking_optimization_reason: str = ""
 
 
 @dataclass

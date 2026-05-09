@@ -94,6 +94,17 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
     total_objective_score = round(sum(route.objective_score for route in route_results), 2)
     total_alerts = [alert for route in route_results for alert in route.alerts]
     total_stops = sum(len(route.stops) for route in route_results)
+    original_stop_count = sum(
+        sum(max(1, stop.grouped_stop_count or len(stop.original_stop_ids) or 1) for stop in route.stops)
+        for route in route_results
+    )
+    parking_stops_saved = max(0, original_stop_count - total_stops)
+    grouped_stop_count = sum(
+        1
+        for route in route_results
+        for stop in route.stops
+        if (stop.grouped_stop_count or 1) > 1
+    )
     on_time_stops = sum(route.live_metrics.get("on_time_stops", 0) for route in route_results)
     vehicle_mix = Counter(route.vehicle.template for route in route_results)
     fleet_counts = dict(app_config.fleet_counts)
@@ -137,6 +148,7 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
         "dynamic_volume_function": "funcion_porcentaje.py",
         "fleet_counts": fleet_counts,
         "max_active_vehicles": fleet_limit,
+        "parking_cluster_radius_m": 50,
     }
     scorecard = {
         "objective_score": total_objective_score,
@@ -153,11 +165,17 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
         "vehicle_mix": dict(vehicle_mix),
         "fleet_limit_violations": fleet_limit_violations,
         "merged_routes_saved": merged_routes_saved,
+        "original_stop_count": original_stop_count,
+        "optimized_stop_count": total_stops,
+        "parking_stops_saved": parking_stops_saved,
+        "grouped_stop_count": grouped_stop_count,
+        "parking_cluster_radius_m": 50,
     }
 
     assumptions = [
         "El ruteo usa OSRM local y coordenadas normalizadas; no se aceptan geometrías rectas, haversine ni puntos sinteticos de fallback.",
         "La asignacion inicial usa las rutas historicas como semillas, pero intenta consolidar rutas pequenas si eso reduce camiones activos.",
+        "Antes de secuenciar, las paradas a menos de 50 metros se agrupan en un punto medio operativo para ahorrar estacionamientos sin perder entregas.",
         "La carga interna del camion se representa por cajas/slots discretos enriquecidos con los objetos reales de cada entrega.",
         "La logistica inversa se aproxima con una razon media sobre el volumen entregado y se usa para reservar hueco operativo.",
         "La capacidad volumetrica operativa combina el porcentaje manual de ocupacion con la funcion dinamica de estiba cargada desde funcion_porcentaje.py.",
@@ -166,6 +184,7 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
     tradeoffs = [
         "La prioridad global es reducir camiones activos; los objetivos de tiempo, km o descarga actuan despues dentro de cada ruta final.",
         "Los camiones de 6 palets son preferentes, pero la asignacion se hace contra cupos reales por tipo de vehiculo.",
+        "Las rutas fusionadas mantienen un unico codigo operativo; los codigos de origen quedan solo como trazabilidad interna.",
         "La restriccion del 85% puede forzar vehiculos mayores o alertas cuando la ruta historica ya nace muy cargada.",
         "La nueva restriccion geometrica por volumen puede recortar mas la capacidad disponible si predominan barriles o formatos poco apilables.",
         "El layout del almacen y las cajas del camion se tratan como una heuristica operativa, no como un gemelo metrico exacto.",
@@ -196,6 +215,11 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
             "fleet_limit": fleet_limit,
             "fleet_limit_violations": fleet_limit_violations,
             "merged_routes_saved": merged_routes_saved,
+            "original_stop_count": original_stop_count,
+            "optimized_stop_count": total_stops,
+            "parking_stops_saved": parking_stops_saved,
+            "grouped_stop_count": grouped_stop_count,
+            "parking_cluster_radius_m": 50,
         },
         scorecard=scorecard,
         routes=route_results,
@@ -330,6 +354,7 @@ def save_optimization_run(
         "vehicle_count": bundle_payload.get("scorecard", {}).get("vehicle_count"),
         "vehicle_mix": bundle_payload.get("scorecard", {}).get("vehicle_mix"),
         "merged_routes_saved": bundle_payload.get("scorecard", {}).get("merged_routes_saved"),
+        "parking_stops_saved": bundle_payload.get("scorecard", {}).get("parking_stops_saved"),
         "constraints": bundle_payload.get("constraints"),
     }
 

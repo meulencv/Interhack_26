@@ -26,13 +26,9 @@ const TOTAL_VENTANAS  = RUTAS.reduce((s, r) => s + r.ventanas, 0)     // 211
 const TOTAL_CUMPLIDAS = RUTAS.reduce((s, r) => s + r.cumplidas, 0)    // 150
 const AVG_DESCARGA    = RUTAS.reduce((s, r) => s + r.minDescarga, 0) / RUTAS.length
 
-const BASELINE = { camiones: 18, km: 852, minDescarga: 18.3, ventanasPct: 63, co2Kg: 230.0, ocupPct: 71 }
+const BASELINE = { camiones: 16, km: 852, minDescarga: 18.3, ventanasPct: 63, co2Kg: 230.0, ocupPct: 71 }
 const OPT      = { camiones: 16, km: Math.round(TOTAL_KM * 10) / 10, minDescarga: Math.round(AVG_DESCARGA * 10) / 10, ventanasPct: Math.round((TOTAL_CUMPLIDAS / TOTAL_VENTANAS) * 100), co2Kg: Math.round(TOTAL_KM * 0.27 * 10) / 10, ocupPct: Math.round((TOTAL_ZCE / RUTAS.reduce((s, r) => s + r.cap, 0)) * 100) }
 
-const KM_SAVED     = BASELINE.km - OPT.km
-const CO2_SAVED    = BASELINE.co2Kg - OPT.co2Kg
-const MIN_SAVED    = BASELINE.minDescarga - OPT.minDescarga
-const TRUCKS_SAVED = BASELINE.camiones - OPT.camiones
 const STOPS_TOTAL  = RUTAS.reduce((s, r) => s + r.ventanas, 0)
 
 const CLIENTES_TOTAL = 241
@@ -108,7 +104,7 @@ function ImpactCard({ label, optimized, baseline, unit, suffix = '', color, icon
         <span style={{ fontSize: 16, fontWeight: 600, color: 'rgba(160,170,200,.7)' }}>{unit}</span>
       </div>
       <div style={{ fontSize: 12, color: 'rgba(160,170,200,.5)', marginBottom: 12 }}>
-        <span style={{ color: '#22c55e', fontWeight: 700 }}>−{pct}%</span> vs sin optimizar
+        <span style={{ color: '#22c55e', fontWeight: 700 }}>−{pct}%</span> vs sin compactar
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'rgba(160,170,200,.35)', marginBottom: 4 }}>
         <span>Sin optimizar</span><span>Optimizado</span>
@@ -206,7 +202,9 @@ function ZceChart({ routes }) {
   )
 }
 
-function TradeoffPanel() {
+function TradeoffPanel({ impact, kmSaved, co2Saved }) {
+  const stopSaved = impact?.parkingStopsSaved || 0
+  const routeMergesSaved = impact?.routeMergesSaved || 0
   return (
     <div style={{
       background: 'rgba(124,108,255,.06)', border: '1px solid rgba(124,108,255,.2)',
@@ -232,13 +230,13 @@ function TradeoffPanel() {
           <div style={{ fontSize: 11, color: '#22c55e', fontWeight: 600, marginBottom: 6 }}>Ganamos</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(160,170,200,.7)' }}>
-              <span style={{ color: '#22c55e' }}>↑</span> −26% tiempo por descarga
+              <span style={{ color: '#22c55e' }}>↑</span> {stopSaved} paradas evitadas por radio 50 m
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(160,170,200,.7)' }}>
-              <span style={{ color: '#22c55e' }}>↑</span> 2 camiones menos en flota
+              <span style={{ color: '#22c55e' }}>↑</span> {routeMergesSaved} rutas historicas consolidadas
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(160,170,200,.7)' }}>
-              <span style={{ color: '#22c55e' }}>↑</span> −{Math.round(KM_SAVED)} km · −{Math.round(CO2_SAVED)} kg CO₂
+              <span style={{ color: '#22c55e' }}>↑</span> −{Math.round(kmSaved)} km · −{Math.round(co2Saved)} kg CO₂ estimados
             </div>
           </div>
         </div>
@@ -255,6 +253,41 @@ export function AnalyticsView({ analytics }) {
   const [zceProc, setZceProc]     = useState(Math.round(TOTAL_ZCE * 0.63))
   const [co2Live, setCo2Live]     = useState(OPT.co2Kg)
   const tickRef = useRef(0)
+  const impact = analytics?.impact || {}
+  const originalStops = impact.originalStops || analytics?.totals?.originalStops || STOPS_TOTAL
+  const optimizedStops = impact.optimizedStops || analytics?.totals?.optimizedStops || STOPS_TOTAL
+  const parkingStopsSaved = impact.parkingStopsSaved || analytics?.totals?.parkingStopsSaved || 0
+  const stopReductionPct = impact.stopReductionPct || (originalStops ? Math.round((parkingStopsSaved / originalStops) * 100) : 0)
+  const routeMergesSaved = impact.routeMergesSaved || analytics?.totals?.routeMergesSaved || 0
+  const activeVehicles = impact.activeVehicles || analytics?.planned || OPT.camiones
+  const fleetLimit = impact.fleetLimit || analytics?.totals?.fleetLimit || activeVehicles
+  const liveTotalZce = analytics?.totals?.totalZce || TOTAL_ZCE
+  const liveWindowPct = analytics?.totals?.windowPct || OPT.ventanasPct
+  const liveReturnPct = analytics?.totals?.returnPct || 62
+  const estimatedKmSaved = Math.max(0, parkingStopsSaved * 0.18 + routeMergesSaved * 6)
+  const estimatedCo2Saved = Math.round(estimatedKmSaved * 0.27 * 10) / 10
+  const eventPool = analytics?.events?.length ? analytics.events : LIVE_EVENTS_POOL
+
+  useEffect(() => {
+    if (!analytics?.events?.length) return undefined
+    const frame = requestAnimationFrame(() => setEvents(analytics.events.slice(0, 5)))
+    return () => cancelAnimationFrame(frame)
+  }, [analytics?.events])
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      if (analytics?.totals?.totalZce) {
+        setZceProc(Math.round(analytics.totals.totalZce * 0.63))
+      }
+      if (analytics?.totals?.windowPct) {
+        setVentPct(analytics.totals.windowPct)
+      }
+      if (analytics?.totals?.totalKm) {
+        setCo2Live(Math.round(analytics.totals.totalKm * 0.27 * 10) / 10)
+      }
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [analytics?.totals?.totalZce, analytics?.totals?.windowPct, analytics?.totals?.totalKm])
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -271,23 +304,18 @@ export function AnalyticsView({ analytics }) {
         })
       }
       if (t % 2 === 1) {
-        setZceProc(z => Math.min(z + Math.round(Math.random() * 12 + 3), TOTAL_ZCE))
+        setZceProc(z => Math.min(z + Math.round(Math.random() * 12 + 3), liveTotalZce))
       }
       if (t % 5 === 0) {
         setCo2Live(c => Math.round((c + (Math.random() - 0.4) * 0.8) * 10) / 10)
       }
-      const nextEvent = LIVE_EVENTS_POOL[t % LIVE_EVENTS_POOL.length]
+      const nextEvent = eventPool[t % eventPool.length]
       setEvents(prev => [nextEvent, ...prev].slice(0, 6))
     }, 3200)
     return () => clearInterval(id)
-  }, [clientes])
+  }, [clientes, eventPool, liveTotalZce])
 
-  const animKmSaved    = useCountUp(KM_SAVED,    { duration: 1800, delay: 0   })
-  const animCO2Saved   = useCountUp(CO2_SAVED,   { duration: 2000, delay: 200 })
-  const animMinSaved   = useCountUp(MIN_SAVED,   { duration: 1600, delay: 100, decimals: 1 })
-  const animTrucks     = useCountUp(TRUCKS_SAVED, { duration: 900,  delay: 300 })
-  const animClientes   = useCountUp(clientes,    { duration: 600  })
-  const animZceProc    = useCountUp(zceProc,     { duration: 800  })
+  const animStops      = useCountUp(parkingStopsSaved, { duration: 900,  delay: 300 })
 
   const chartRoutes = (analytics?.zceByRoute?.length ? analytics.zceByRoute : RUTAS).map(route => ({
     id: route.ruta || route.id,
@@ -302,7 +330,7 @@ export function AnalyticsView({ analytics }) {
   const chartOkPct = chartRoutes.length
     ? Math.round(((chartRoutes.length - chartRiskCount) / chartRoutes.length) * 100)
     : 100
-  const ocupPct = Math.min(100, Math.round((zceProc / TOTAL_ZCE) * OPT.ocupPct * 1.15))
+  const ocupPct = analytics?.totals?.avgLoad || Math.min(100, Math.round((zceProc / liveTotalZce) * OPT.ocupPct * 1.15))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '16px 20px', overflow: 'hidden' }}>
@@ -329,38 +357,38 @@ export function AnalyticsView({ analytics }) {
 
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-        {/* ── Star KPI: Camiones ahorrados ── */}
+        {/* ── Star KPI: Paradas ahorradas ── */}
         <div style={{
           background: 'linear-gradient(135deg, rgba(34,197,94,.1) 0%, rgba(34,197,94,.04) 100%)',
           border: '1px solid rgba(34,197,94,.28)', borderRadius: 14, padding: '16px 22px',
           display: 'flex', alignItems: 'center', gap: 20,
         }}>
-          <div style={{ fontSize: 52, lineHeight: 1 }}>🚛</div>
+          <div style={{ fontSize: 52, lineHeight: 1 }}>◎</div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: 'rgba(160,170,200,.5)', marginBottom: 4 }}>
-              KPI estrella · Reducción de flota
+              KPI estrella · Compactación de paradas
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
               <span style={{ fontSize: 52, fontWeight: 900, color: '#22c55e', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                -{animTrucks}
+                -{animStops}
               </span>
-              <span style={{ fontSize: 20, fontWeight: 600, color: 'rgba(160,170,200,.7)' }}>camiones</span>
-              <span style={{ fontSize: 14, color: '#22c55e', fontWeight: 700 }}>(-{Math.round((TRUCKS_SAVED / BASELINE.camiones) * 100)}%)</span>
+              <span style={{ fontSize: 20, fontWeight: 600, color: 'rgba(160,170,200,.7)' }}>paradas</span>
+              <span style={{ fontSize: 14, color: '#22c55e', fontWeight: 700 }}>({stopReductionPct}% menos)</span>
             </div>
             <div style={{ fontSize: 13, color: 'rgba(160,170,200,.55)', marginTop: 4 }}>
-              <span style={{ color: 'rgba(239,68,68,.7)', textDecoration: 'line-through', marginRight: 10 }}>{BASELINE.camiones} camiones sin optimizar</span>
+              <span style={{ color: 'rgba(239,68,68,.7)', textDecoration: 'line-through', marginRight: 10 }}>{originalStops} paradas originales</span>
               →&nbsp;
-              <span style={{ color: '#22c55e', fontWeight: 600 }}>{OPT.camiones} camiones optimizados</span>
-              &nbsp;·&nbsp;mismo volumen, menos recursos
+              <span style={{ color: '#22c55e', fontWeight: 600 }}>{optimizedStops} paradas operativas</span>
+              &nbsp;·&nbsp;radio 50 m, entregas intactas
             </div>
           </div>
           <div style={{ textAlign: 'center', padding: '0 16px' }}>
-            <div style={{ fontSize: 28, fontWeight: 800, color: '#22c55e' }}>{animClientes}</div>
-            <div style={{ fontSize: 10, color: 'rgba(160,170,200,.45)', marginTop: 2 }}>clientes<br />servidos hoy</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#22c55e' }}>{activeVehicles}</div>
+            <div style={{ fontSize: 10, color: 'rgba(160,170,200,.45)', marginTop: 2 }}>vehículos<br />activos</div>
           </div>
           <div style={{ textAlign: 'center', padding: '0 16px', borderLeft: '1px solid rgba(255,255,255,.06)' }}>
-            <div style={{ fontSize: 28, fontWeight: 800, color: '#a78bfa' }}>{animZceProc.toLocaleString()}</div>
-            <div style={{ fontSize: 10, color: 'rgba(160,170,200,.45)', marginTop: 2 }}>ZCE<br />procesadas</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#a78bfa' }}>{routeMergesSaved}</div>
+            <div style={{ fontSize: 10, color: 'rgba(160,170,200,.45)', marginTop: 2 }}>rutas<br />consolidadas</div>
           </div>
         </div>
 
@@ -369,8 +397,8 @@ export function AnalyticsView({ analytics }) {
           <ImpactCard
             label="Km recorridos ahorrados"
             icon="🛣️"
-            optimized={OPT.km}
-            baseline={BASELINE.km}
+            optimized={Math.max(0, Math.round(chartTotalKm - estimatedKmSaved))}
+            baseline={Math.round(chartTotalKm)}
             unit="km"
             color="#38bdf8"
             delay={0}
@@ -388,8 +416,8 @@ export function AnalyticsView({ analytics }) {
           <ImpactCard
             label="CO₂ evitado · Sostenibilidad"
             icon="🌿"
-            optimized={OPT.co2Kg}
-            baseline={BASELINE.co2Kg}
+            optimized={Math.max(0, Math.round((chartTotalKm * 0.27 - estimatedCo2Saved) * 10) / 10)}
+            baseline={Math.round(chartTotalKm * 0.27 * 10) / 10}
             unit="kg CO₂"
             color="#22c55e"
             delay={300}
@@ -420,16 +448,16 @@ export function AnalyticsView({ analytics }) {
             <div style={{ fontSize: 13, fontWeight: 700, color: '#cfd5e6', marginBottom: 2 }}>
               KPIs en vivo &nbsp;<LiveDot color="#38bdf8" />
             </div>
-            <LiveBar label="Ventanas horarias cumplidas" value={ventPct} color="#f59e0b" blink />
+            <LiveBar label="Ventanas horarias cumplidas" value={ventPct || liveWindowPct} color="#f59e0b" blink />
             <LiveBar label="Ocupación media de flota" value={ocupPct} color="#a78bfa" />
-            <LiveBar label="Retornables recogidos" value={62} color="#fb923c" />
+            <LiveBar label="Retornables recogidos" value={liveReturnPct} color="#fb923c" />
             <LiveBar label="Rutas dentro de capacidad" value={chartOkPct} color="#22c55e" />
             <div style={{ marginTop: 'auto', padding: '10px 12px', background: 'rgba(56,189,248,.06)', border: '1px solid rgba(56,189,248,.15)', borderRadius: 8 }}>
               <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 700 }}>
                 CO₂ real emitido hoy: {co2Live} kg
               </div>
               <div style={{ fontSize: 10, color: 'rgba(160,170,200,.4)', marginTop: 2 }}>
-                Ahorro vs flota sin optimizar: {Math.round(CO2_SAVED)} kg
+                Ahorro por compactación: {Math.round(estimatedCo2Saved)} kg
               </div>
             </div>
           </div>
@@ -448,7 +476,7 @@ export function AnalyticsView({ analytics }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, paddingBottom: 4 }}>
 
           {/* Trade-off panel */}
-          <TradeoffPanel />
+          <TradeoffPanel impact={impact} kmSaved={estimatedKmSaved} co2Saved={estimatedCo2Saved} />
 
           {/* Zone performance */}
           <div style={{ background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.06)', borderRadius: 12, padding: '14px 16px' }}>
@@ -459,7 +487,7 @@ export function AnalyticsView({ analytics }) {
               {[
                 { label: 'En ruta', val: chartRoutes.length, color: '#3b82f6' },
                 { label: 'Dentro capacidad', val: chartRoutes.length - chartRiskCount, color: '#22c55e' },
-                { label: 'Sobrecarga', val: chartRiskCount, color: '#ef4444' },
+                { label: 'Fuera límite', val: chartRiskCount, color: '#ef4444' },
                 { label: 'Vehículos', val: chartRoutes.length, color: '#f59e0b' },
                 { label: 'Total km', val: `${Math.round(chartTotalKm)}`, color: '#38bdf8', unit: '' },
                 { label: 'ZCE total', val: chartTotalZce.toLocaleString(), color: '#a78bfa', unit: '' },
@@ -474,7 +502,7 @@ export function AnalyticsView({ analytics }) {
               <span style={{ fontSize: 16 }}>📦</span>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#a78bfa' }}>
-                  {chartTotalZce.toLocaleString()} cajas estadísticas · {chartRoutes.length} vehículos activos
+                {chartTotalZce.toLocaleString()} cajas estadísticas · {activeVehicles}/{fleetLimit} vehículos activos
                 </div>
                 <div style={{ fontSize: 10, color: 'rgba(160,170,200,.4)', marginTop: 1 }}>
                   Retornables: 60% objetivo Damm · logística inversa activa

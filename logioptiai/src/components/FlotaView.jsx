@@ -110,7 +110,7 @@ const ESTADO_META = {
 const RISK_META = {
   normal:     { label: 'Normal',      color: '#7c6cff', bg: 'rgba(124,108,255,.12)' },
   alta:       { label: 'Carga alta',  color: '#22c55e', bg: 'rgba(34,197,94,.12)' },
-  sobrecarga: { label: 'Sobrecarga',  color: '#ef4444', bg: 'rgba(239,68,68,.12)' },
+  sobrecarga: { label: 'Fuera limite',  color: '#ef4444', bg: 'rgba(239,68,68,.12)' },
 }
 
 function EficienciaBar({ value, color }) {
@@ -228,7 +228,7 @@ export function FlotaView({ vehicles }) {
     { label: 'Total vehículos', value: data.length, color: '#cfd5e6' },
     { label: 'En ruta', value: data.filter(v => v.estado === 'en-ruta').length, color: '#3b82f6' },
     { label: 'Entregados', value: data.filter(v => v.estado === 'entregado').length, color: '#22c55e' },
-    { label: 'Sobrecarga', value: data.filter(v => v.riskLevel === 'sobrecarga').length, color: '#ef4444' },
+    { label: 'Fuera límite', value: data.filter(v => v.riskLevel === 'sobrecarga').length, color: '#ef4444' },
   ]
 
   return (

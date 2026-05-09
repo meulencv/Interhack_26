@@ -126,7 +126,7 @@ export function VoiceAssistant({ lang = 'es-ES', showCard = true, context = null
       setTtsState('error')
       setTimeout(() => setTtsState('idle'), 3000)
     }
-  }, [context])
+  }, [context, onZoomTruck])
 
   const startPTT = useCallback(() => {
     // Interrumpir audio si estaba reproduciendo

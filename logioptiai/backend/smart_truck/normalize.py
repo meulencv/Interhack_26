@@ -365,6 +365,9 @@ def build_route_stops(
                 window_start_minutes=active_window.start_minutes if active_window else 7 * 60,
                 window_end_minutes=active_window.end_minutes if active_window else 18 * 60,
                 coordinate_source="pending",
+                original_stop_ids=[f"{route_code}:{client_id}"],
+                original_client_count=1,
+                grouped_stop_count=1,
             )
             route_stops[route_code].append(stop)
     return route_stops

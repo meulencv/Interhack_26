@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
-import { MapContainer, TileLayer, Polyline, CircleMarker, Marker, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Polyline, CircleMarker, Marker, Tooltip, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
@@ -35,7 +35,12 @@ function makeTruckIcon(tipo) {
     '8P':    { url: '/truck.png',   w: 70, h: 50 },
     'FURGO': { url: '/furgo.png',   w: 56, h: 40 },
   }[tipo] || { url: '/truck.png', w: 64, h: 46 }
-  return L.icon({ iconUrl: cfg.url, iconSize: [cfg.w, cfg.h], iconAnchor: [cfg.w / 2, cfg.h] })
+  return L.divIcon({
+    className: 'truck-marker',
+    html: `<img src="${cfg.url}" style="width: 100%; height: 100%; display: block; transition: transform 0.3s ease;" />`,
+    iconSize: [cfg.w, cfg.h],
+    iconAnchor: [cfg.w / 2, cfg.h]
+  })
 }
 
 function Clock() {
@@ -52,7 +57,9 @@ function MapInteractionWatcher({ followingTruckId, onCancel }) {
   const map = useMap()
   useEffect(() => {
     if (!followingTruckId) return
-    const cancel = () => onCancel()
+    const cancel = (event) => {
+      if (event?.originalEvent) onCancel()
+    }
     map.on('dragstart', cancel)
     map.on('zoomstart', cancel)
     return () => {
@@ -69,11 +76,19 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
   const currentPosRef = useRef(truck.pos ? L.latLng(truck.pos) : null)
 
   const isFollowed = followingTruckId === truck.ruta?.id
+  const isFlyingRef = useRef(false)
 
   // Initial fly-to when follow starts
   useEffect(() => {
     if (isFollowed && currentPosRef.current) {
+      isFlyingRef.current = true
       map.flyTo(currentPosRef.current, 17, { duration: 1.8, easeLinearity: 0.25 })
+      const timer = setTimeout(() => {
+        isFlyingRef.current = false
+      }, 1850)
+      return () => clearTimeout(timer)
+    } else {
+      isFlyingRef.current = false
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [followingTruckId])
@@ -105,6 +120,7 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
 
     let stopTimer = 0
     let animationFrameId
+    let lastDirection = 1
 
     const animate = (time) => {
       const dt = Math.min(time - lastTime, 100)
@@ -121,6 +137,13 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
 
         const p1 = currentPos
         const p2 = pathLatLngs[currentSegment + 1]
+
+        if (p2.lng < p1.lng) {
+          lastDirection = -1
+        } else if (p2.lng > p1.lng) {
+          lastDirection = 1
+        }
+
         const distToNext = p1.distanceTo(p2)
         const moveDist = speedMps * (dt / 1000)
 
@@ -146,12 +169,19 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
 
         if (markerRef.current) {
           markerRef.current.setLatLng(currentPos)
+          const el = markerRef.current.getElement()
+          if (el) {
+            const img = el.querySelector('img')
+            if (img) {
+              img.style.transform = lastDirection === -1 ? 'scaleX(-1)' : 'scaleX(1)'
+            }
+          }
         }
 
         // Continuously follow the truck — setView without animation so the
         // camera is locked to the marker each frame. The smooth movement
         // comes from the truck's own interpolation, not from Leaflet easing.
-        if (isFollowed) {
+        if (isFollowed && !isFlyingRef.current) {
           map.setView(currentPos, map.getZoom(), { animate: false, noMoveStart: true })
         }
       }
@@ -162,7 +192,7 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
     animationFrameId = requestAnimationFrame(animate)
 
     return () => cancelAnimationFrame(animationFrameId)
-  }, [truck])
+  }, [truck, isFollowed, map])
 
   return (
     <Marker
@@ -170,7 +200,21 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
       position={truck.pos}
       icon={icon}
       eventHandlers={{ click: onClick }}
-    />
+    >
+      <Tooltip direction="top" offset={[0, -36]} opacity={0.96} sticky>
+        <div style={{ minWidth: 190 }}>
+          <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: 2 }}>
+            {truck.ruta?.id} · {truck.ruta?.tipo}
+          </div>
+          <div>{truck.ruta?.conductor || 'Conductor asignado'}</div>
+          <div>{truck.ruta?.routeLabel || 'Ruta sin municipio'}</div>
+          <div>{truck.ruta?.zce || 0} ZCE · {truck.ruta?.cargoSummary?.loadedBoxes || 0} cajas</div>
+          {truck.ruta?.parkingStopsSaved > 0 && (
+            <div>{truck.ruta.parkingStopsSaved} paradas ahorradas</div>
+          )}
+        </div>
+      </Tooltip>
+    </Marker>
   )
 }
 
@@ -204,6 +248,25 @@ export default function App() {
   const mapData = viewModel.mapData
   const bundleOverview = bundle ? viewModel.overview : null
   const mapMode = activeNav === 0
+  const recentEvents = viewModel.events || []
+  const eventClassByType = { ok: 'b', info: 'b', warn: 'y', critical: 'r', error: 'r' }
+  const performanceSummary = [
+    { label: 'Paradas operativas', value: bundleOverview?.optimized_stop_count ?? viewModel.routes.reduce((sum, route) => sum + route.stops, 0) },
+    { label: 'Paradas ahorradas', value: bundleOverview?.parking_stops_saved ?? 0 },
+    { label: 'Distancia total', value: bundleOverview ? `${Math.round(bundleOverview.distance_km)} km` : '—' },
+    { label: 'Vehículos', value: bundleOverview?.vehicle_count ?? viewModel.routes.length },
+  ]
+  const followTruck = (id) => {
+    const requested = String(id || '').trim().toUpperCase()
+    const target = mapData.trucks.find(truck => {
+      const ruta = truck.ruta || {}
+      return [ruta.id, ruta.vehicleId, ruta.conductor]
+        .filter(Boolean)
+        .some(value => String(value).toUpperCase().includes(requested) || requested.includes(String(value).toUpperCase()))
+    })
+    setActiveNav(0)
+    setFollowingTruckId(target?.ruta?.id || requested)
+  }
 
   useEffect(() => {
     loadStaticBundle()
@@ -213,7 +276,9 @@ export default function App() {
 
   // Cancel follow when the user navigates away from the map
   useEffect(() => {
-    if (activeNav !== 0) setFollowingTruckId(null)
+    if (activeNav === 0) return undefined
+    const frame = requestAnimationFrame(() => setFollowingTruckId(null))
+    return () => cancelAnimationFrame(frame)
   }, [activeNav])
 
   return (
@@ -275,7 +340,7 @@ export default function App() {
             lang={lang}
             showCard={mapMode}
             context={assistantContext}
-            onZoomTruck={(id) => setFollowingTruckId(id)}
+            onZoomTruck={followTruck}
           />
         </div>
       </aside>
@@ -433,33 +498,39 @@ export default function App() {
             }}>
               <div className="card events-card" style={GLASS}>
                 <div className="events-title">Eventos recientes <span className="more">⋯</span></div>
-                <div className="event">
-                  <div className="ev-icon r"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-                  <div className="ev-name">Corte de calle</div>
-                  <div className="ev-detail">Av. Siempre Viva 742</div>
-                  <div className="ev-time">10:40 AM</div>
-                </div>
-                <div className="event">
-                  <div className="ev-icon y"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-                  <div className="ev-name">Retraso en entrega</div>
-                  <div className="ev-detail">Cliente: Distribuidora Norte</div>
-                  <div className="ev-time">10:32 AM</div>
-                </div>
-                <div className="event">
-                  <div className="ev-icon b"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></div>
-                  <div className="ev-name">Nuevo pedido asignado</div>
-                  <div className="ev-detail">Pedido #4587</div>
-                  <div className="ev-time">10:28 AM</div>
-                </div>
+                {recentEvents.map((event, index) => (
+                  <div className="event" key={`${event.text}-${index}`}>
+                    <div className={`ev-icon ${eventClassByType[event.tipo] || 'b'}`}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                        {event.tipo === 'warn'
+                          ? <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>
+                          : <><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></>}
+                      </svg>
+                    </div>
+                    <div className="ev-name">{event.text}</div>
+                    <div className="ev-detail">{event.sub}</div>
+                    <div className="ev-time">{event.time}</div>
+                  </div>
+                ))}
+                {recentEvents.length === 0 && (
+                  <div className="event">
+                    <div className="ev-icon b" />
+                    <div className="ev-name">Cargando eventos operativos</div>
+                    <div className="ev-detail">Esperando bundle</div>
+                    <div className="ev-time">Ahora</div>
+                  </div>
+                )}
               </div>
 
               <div className="card events-card" style={GLASS}>
                 <div className="events-title" style={{ marginBottom: 0 }}>Resumen de rendimiento</div>
                 <div className="summary-grid">
-                  <div className="summary-cell"><div className="summary-label">Entregas hoy</div><div className="summary-value">43</div></div>
-                  <div className="summary-cell"><div className="summary-label">Tiempo promedio</div><div className="summary-value">2h 45m</div></div>
-                  <div className="summary-cell"><div className="summary-label">Distancia total</div><div className="summary-value">1,246 km</div></div>
-                  <div className="summary-cell"><div className="summary-label">Eficiencia</div><div className="summary-value">92%</div></div>
+                  {performanceSummary.map(item => (
+                    <div className="summary-cell" key={item.label}>
+                      <div className="summary-label">{item.label}</div>
+                      <div className="summary-value">{item.value}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

@@ -1,6 +1,6 @@
 # Recalcular bundles con OSRM local
 
-Guia paso a paso para regenerar `demo_bundle.json` sin fallbacks, sin lineas rectas largas y con la distribucion de cajas/ZCE actualizada.
+Guia paso a paso para regenerar `demo_bundle.json` sin fallbacks, sin lineas rectas largas, con paradas cercanas compactadas a 50 m y con la distribucion de cajas/ZCE actualizada.
 
 ## Objetivo
 
@@ -9,7 +9,7 @@ El bundle final que consume el frontend esta en:
 - `logioptiai/backend/generated/demo_bundle.json`
 - `logioptiai/public/data/demo_bundle.json`
 
-Al recalcularlo, todas las rutas deben salir de OSRM local. No se debe usar ORS, Photon para rutas, `straight`, `haversine` ni puntos sinteticos. Si OSRM no puede resolver algo, el export debe fallar.
+Al recalcularlo, todas las rutas deben salir de OSRM local. No se debe usar ORS, Photon para rutas, `straight`, `haversine` ni puntos sinteticos. Si OSRM no puede resolver algo, el export debe fallar. Antes de secuenciar, el optimizador agrupa paradas que queden en un radio de 50 m y conserva las entregas originales dentro de una unica parada operativa.
 
 ## 1. Instalar OSRM si no existe
 
@@ -117,6 +117,22 @@ El resultado valido es:
   "badLong": 0
 }
 ```
+
+## 8. Validar compactacion de paradas
+
+```bash
+jq '{original: .overview.original_stop_count, optimizadas: .overview.optimized_stop_count, ahorradas: .overview.parking_stops_saved, grupos: .overview.grouped_stop_count, radio_m: .overview.parking_cluster_radius_m}' \
+  logioptiai/public/data/demo_bundle.json
+```
+
+Tambien verifica que las rutas fusionadas no se publiquen con nombres concatenados:
+
+```bash
+jq '[.routes[].route_code | select(test("\\+"))] as $r | [.routes[].vehicle.vehicle_id | select(test("\\+"))] as $v | {rutas_con_mas: $r, vehiculos_con_mas: $v}' \
+  logioptiai/public/data/demo_bundle.json
+```
+
+El resultado valido es que ambas listas esten vacias. Los codigos historicos quedan solo en `source_route_codes`.
 
 Puede haber tramos de 2 puntos si son muy cortos, porque OSRM a veces devuelve una geometria simple para calles cercanas. Lo que no puede haber son tramos largos de 2 puntos cruzando el mapa.
 

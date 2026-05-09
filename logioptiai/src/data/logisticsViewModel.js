@@ -118,7 +118,7 @@ function routeTownLine(stops) {
   return origin === destination ? origin : `${origin} -> ${destination}`
 }
 
-function routeStatus(route, row, index) {
+function routeStatus(route) {
   const explicit = route?.estado || route?.status
   if (explicit && STATUS_LABEL[explicit]) return explicit
   return 'en-ruta'
@@ -259,6 +259,10 @@ function buildDeliveryRows(route, cargoBoxes) {
       totalPalletEquivalent: round(items.reduce((sum, item) => sum + item.palletEquivalent, 0), 4),
       totalZce: round(items.reduce((sum, item) => sum + item.statisticalBoxes, 0), 3),
       totalVolumeM3: round(items.reduce((sum, item) => sum + item.volumeM3, 0), 3),
+      groupedStopCount: Number(stop.grouped_stop_count || stop.groupedStopCount || 1),
+      originalStopIds: stop.original_stop_ids || stop.originalStopIds || [stop.stop_id],
+      originalClientCount: Number(stop.original_client_count || stop.originalClientCount || stop.client_ids?.length || 1),
+      parkingOptimizationReason: String(stop.parking_optimization_reason || stop.parkingOptimizationReason || '').trim(),
       references: items,
       topItems: items.slice(0, 7),
       boxIds,
@@ -288,6 +292,9 @@ function buildRouteRow(route, index) {
   const cargoBoxes = normalizeCargoBoxes(route)
   const deliveries = buildDeliveryRows(route, cargoBoxes)
   const cargoSummary = buildCargoSummary(cargoBoxes, deliveries)
+  const originalStopCount = deliveries.reduce((sum, delivery) => sum + Math.max(1, delivery.groupedStopCount), 0)
+  const parkingStopsSaved = Math.max(0, originalStopCount - validStops.length)
+  const groupedStops = deliveries.filter(delivery => delivery.groupedStopCount > 1)
   const load = round(route?.pallet_load, 3)
   const zce = Math.max(0, Math.round(cargoSummary.zce || load * 60))
   const capacity = routeZceCapacity(vehicle)
@@ -331,6 +338,11 @@ function buildRouteRow(route, index) {
     slotAllocations: route?.slot_allocations || [],
     cargoBoxes,
     deliveries,
+    originalStopCount,
+    optimizedStopCount: validStops.length,
+    parkingStopsSaved,
+    groupedStops,
+    sourceRouteCodes: route?.source_route_codes || [],
     cargoSummary,
     rationale: route?.rationale || [],
     references: topReferencesForRoute(route, 4),
@@ -339,7 +351,7 @@ function buildRouteRow(route, index) {
 
   return {
     ...row,
-    estado: routeStatus(route, row, index),
+    estado: routeStatus(route),
     riskLevel: routeRiskLevel(row),
     eficiencia: Math.max(0, loadPct),
     carga: `${zce} ZCE`,
@@ -404,6 +416,10 @@ function buildMapData(routes) {
         cargoBoxes: row.cargoBoxes,
         cargoSummary: row.cargoSummary,
         deliveries: row.deliveries,
+        parkingStopsSaved: row.parkingStopsSaved,
+        groupedStops: row.groupedStops,
+        vehicleId: row.vehicleId,
+        routeLabel: row.ruta,
         rationale: row.rationale,
         references: row.references,
       },
@@ -502,10 +518,62 @@ function buildAlerts(routes, bundle) {
   return alerts.slice(0, 18)
 }
 
+function buildOperationalEvents(routes, overview) {
+  const events = []
+  const savedStops = Number(overview.parking_stops_saved || 0)
+  const groupedCount = Number(overview.grouped_stop_count || 0)
+  if (savedStops > 0) {
+    events.push({
+      tipo: 'ok',
+      text: `${savedStops} paradas evitadas por proximidad`,
+      sub: `${groupedCount} puntos consolidados en radio 50 m`,
+      time: 'Ahora',
+    })
+  }
+
+  const mergedRoute = routes.find(route => route.sourceRouteCodes.length > 1)
+  if (mergedRoute) {
+    events.push({
+      tipo: 'info',
+      text: `${mergedRoute.id} absorbe entregas cercanas`,
+      sub: `${mergedRoute.sourceRouteCodes.length} rutas origen · ${mergedRoute.zce} ZCE`,
+      time: mergedRoute.horaInicio,
+    })
+  }
+
+  const routeWithDelay = routes.find(route => route.alerts.some(alert => alert.toLowerCase().includes('ventana')))
+  if (routeWithDelay) {
+    events.push({
+      tipo: 'warn',
+      text: `${routeWithDelay.id} con ventana en riesgo`,
+      sub: `${routeWithDelay.conductor} · ${routeWithDelay.cumplidas}/${routeWithDelay.ventanas} ventanas`,
+      time: routeWithDelay.entrega,
+    })
+  }
+
+  const firstRoute = routes[0]
+  if (firstRoute) {
+    events.push({
+      tipo: 'ok',
+      text: `${firstRoute.id} en reparto operativo`,
+      sub: `${firstRoute.ruta} · ${firstRoute.cargoSummary.loadedBoxes} cajas · ${firstRoute.zce} ZCE`,
+      time: firstRoute.horaInicio,
+    })
+  }
+
+  return events.slice(0, 6)
+}
+
 function buildAnalytics(routes, overview) {
   const planned = routes.length
   const completed = routes.filter(route => route.estado === 'completada').length
   const totalStops = routes.reduce((sum, route) => sum + route.stops, 0)
+  const originalStops = Number(overview.original_stop_count || routes.reduce((sum, route) => sum + route.originalStopCount, 0) || totalStops)
+  const optimizedStops = Number(overview.optimized_stop_count || totalStops)
+  const parkingStopsSaved = Number(overview.parking_stops_saved || Math.max(0, originalStops - optimizedStops))
+  const groupedStopCount = Number(overview.grouped_stop_count || routes.reduce((sum, route) => sum + route.groupedStops.length, 0))
+  const routeMergesSaved = Number(overview.merged_routes_saved || 0)
+  const fleetLimit = Number(overview.fleet_limit || planned)
   const totalWindows = routes.reduce((sum, route) => sum + route.ventanas, 0)
   const okWindows = routes.reduce((sum, route) => sum + route.cumplidas, 0)
   const avgStop = overview.duration_minutes && totalStops
@@ -527,14 +595,16 @@ function buildAnalytics(routes, overview) {
       { label: 'Ventanas horarias ok', value: `${windowPct}%`, sub: `${okWindows} / ${totalWindows} clientes`, color: '#f59e0b', pct: Math.min(100, Math.round(windowPct)) },
       { label: 'Km totales recorridos', value: `${round(overview.distance_km, 0)} km`, sub: 'desde bundle operativo', color: '#38bdf8', pct: 64 },
       { label: 'Retornables recogidos', value: `${returnPct}%`, sub: '~60% objetivo Damm', color: '#fb923c', pct: Math.min(100, returnPct) },
+      { label: 'Paradas evitadas', value: String(parkingStopsSaved), sub: `${originalStops} originales -> ${optimizedStops} operativas`, color: '#14b8a6', pct: originalStops ? Math.min(100, Math.round((parkingStopsSaved / originalStops) * 100)) : 0 },
     ],
     zceByRoute: routes.map(route => ({
       ruta: route.id,
       zce: route.zce,
-      cap: route.pedidos * 60,
+      cap: route.capacity,
       km: route.km,
       loadPct: route.loadPct,
       riskLevel: route.riskLevel,
+      estado: route.estado,
     })),
     trend: [
       { dia: 'L', pct: Math.max(75, Math.round(windowPct - 4)) },
@@ -559,12 +629,28 @@ function buildAnalytics(routes, overview) {
     })),
     completed,
     planned,
+    events: buildOperationalEvents(routes, overview),
+    impact: {
+      fleetLimit,
+      activeVehicles: planned,
+      routeMergesSaved,
+      originalStops,
+      optimizedStops,
+      parkingStopsSaved,
+      groupedStopCount,
+      stopReductionPct: originalStops ? round((parkingStopsSaved / originalStops) * 100, 1) : 0,
+    },
     totals: {
       totalKm: round(overview.distance_km, 1),
       totalZce: routes.reduce((sum, route) => sum + route.zce, 0),
       avgLoad,
       windowPct,
       returnPct,
+      originalStops,
+      optimizedStops,
+      parkingStopsSaved,
+      routeMergesSaved,
+      fleetLimit,
     },
   }
 }
@@ -591,9 +677,16 @@ function collectGlobalReferences(routes, limit = 12) {
 }
 
 export function buildDashboardViewModel(bundle) {
-  const overview = { ...FALLBACK_OVERVIEW, ...(bundle?.overview || {}) }
+  const rawOverview = { ...FALLBACK_OVERVIEW, ...(bundle?.overview || {}) }
   const routes = (bundle?.routes || []).slice(0, 18).map(buildRouteRow)
   const alerts = buildAlerts(routes, bundle)
+  const overview = {
+    ...rawOverview,
+    routes: routes.length,
+    vehicle_count: routes.length,
+    alerts: alerts.length,
+  }
+  const analytics = buildAnalytics(routes, overview)
   return {
     overview,
     selectedDate: bundle?.selected_date || null,
@@ -601,7 +694,8 @@ export function buildDashboardViewModel(bundle) {
     mapData: buildMapData(routes),
     fleetVehicles: buildFleetVehicles(routes),
     alerts,
-    analytics: buildAnalytics(routes, overview),
+    analytics,
+    events: analytics.events,
     assumptions: bundle?.assumptions || [],
     tradeoffs: bundle?.tradeoffs || [],
     references: collectGlobalReferences(routes),
@@ -678,6 +772,9 @@ function compactOverview(overview) {
     returnPeak: overview.return_peak,
     alerts: overview.alerts,
     mode: overview.ors_mode,
+    originalStops: overview.original_stop_count,
+    optimizedStops: overview.optimized_stop_count,
+    parkingStopsSaved: overview.parking_stops_saved,
   }
 }
 
@@ -685,7 +782,7 @@ function pageGuide(name) {
   if (name === 'Mapa en vivo') {
     return {
       sees: 'mapa Leaflet con rutas, paradas, vehiculos y overlays',
-      options: ['cambiar seccion', 'cambiar idioma ES/CA/EN', 'clic en vehiculo abre 3D', 'mantener espacio para hablar'],
+      options: ['hover en camion muestra destino/carga', 'clic en vehiculo abre 3D', 'seguir camion por IA con [ZOOM_TRUCK:id]', 'cambiar seccion'],
     }
   }
   if (name === 'Flota') {
@@ -741,6 +838,7 @@ function buildCurrentPageContext(activeScreen, { routes, vehicles, alerts, analy
       mapCounts: `${viewModel?.mapData?.routes?.length || 0} rutas, ${viewModel?.mapData?.stops?.length || 0} paradas, ${viewModel?.mapData?.trucks?.length || 0} vehiculos`,
       visiblePanels: ['Flota en tiempo real', 'Optimizacion activa', 'Eventos recientes', 'Resumen rendimiento'],
       mapRoutes: summarizeRoutes(routes, 10),
+      followableTrucks: routes.slice(0, 16).map(route => `${route.id}|${route.conductor}|${route.ruta}|${route.tipo}`),
       risks: summarizeRiskRoutes(routes, 6),
     }
   }

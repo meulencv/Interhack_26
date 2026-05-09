@@ -1,63 +1,6 @@
 import { useState } from 'react'
 
-const ALERTAS = [
-  {
-    id: 'ALT-001', tipo: 'ventana', severidad: 'critica',
-    titulo: 'Ventana horaria incumplida',
-    desc: 'Ruta R-04 · Cliente: Bar La Esquina (Gracia) · Ventana: 09:00-09:30 · Llegada estimada: 10:15',
-    ruta: 'R-04', conductor: 'F. Navarro', zona: 'ZM040-BCN-04',
-    hora: '09:42', activa: true,
-  },
-  {
-    id: 'ALT-002', tipo: 'capacidad', severidad: 'critica',
-    titulo: 'Sobrecarga de retornables',
-    desc: 'Ruta R-10 · Pedidos retornables superan capacidad prevista. Recogida acumulada: 7.2 pedido equivalentes vs. 6 disponibles.',
-    ruta: 'R-10', conductor: 'R. López', zona: 'ZM040-BCN-10',
-    hora: '10:18', activa: true,
-  },
-  {
-    id: 'ALT-003', tipo: 'ruta', severidad: 'media',
-    titulo: 'Retraso por corte de tráfico',
-    desc: 'Ruta R-01 · Incidencia en Passeig de Gràcia con Provença. Retraso estimado: +25 min. 3 ventanas en riesgo.',
-    ruta: 'R-01', conductor: 'P. Martínez', zona: 'ZM040-BCN-01',
-    hora: '10:05', activa: true,
-  },
-  {
-    id: 'ALT-004', tipo: 'carga', severidad: 'media',
-    titulo: 'Conflicto de acceso lateral',
-    desc: 'Ruta R-07 · Parada 12: barril Estrella Damm 50L en posición pedido 7 (interior). Requiere mover pedido 5 para acceso. Tiempo extra: +8 min.',
-    ruta: 'R-07', conductor: 'M. García', zona: 'ZM040-BCN-07',
-    hora: '09:55', activa: true,
-  },
-  {
-    id: 'ALT-005', tipo: 'ventana', severidad: 'baja',
-    titulo: 'Aviso anticipado: ventana próxima',
-    desc: 'Ruta R-02 · Cliente: Supermercados Nord (Nou Barris) · Ventana cierra en 22 min (11:00). Distancia actual: 3.1 km.',
-    ruta: 'R-02', conductor: 'J. Herrera', zona: 'ZM040-BCN-02',
-    hora: '10:38', activa: true,
-  },
-  {
-    id: 'ALT-006', tipo: 'vehiculo', severidad: 'baja',
-    titulo: 'Aviso de mantenimiento programado',
-    desc: 'Vehículo CN-02 (8P) · Revisión ITV pendiente en 3 días. Planificar sustitución para semana 21.',
-    ruta: 'R-05', conductor: 'H. Suárez', zona: 'ZM040-BCN-05',
-    hora: '08:00', activa: false,
-  },
-  {
-    id: 'ALT-007', tipo: 'carga', severidad: 'resuelta',
-    titulo: 'Desbalance ZCE resuelto',
-    desc: 'Ruta R-03 · Reequilibrio automático aplicado. Se redistribuyeron 18 ZCE de Font d\'Or al pedido 3. Eficiencia: 97%.',
-    ruta: 'R-03', conductor: 'C. Vega', zona: 'ZM040-BCN-03',
-    hora: '07:15', activa: false,
-  },
-  {
-    id: 'ALT-008', tipo: 'ruta', severidad: 'resuelta',
-    titulo: 'Reoptimización completada',
-    desc: 'Ruta R-08 · Nueva secuencia calculada tras cancelación cliente #4312. -8 km · +2 ventanas cumplibles.',
-    ruta: 'R-08', conductor: 'L. Romero', zona: 'ZM040-BCN-08',
-    hora: '06:52', activa: false,
-  },
-]
+const ALERTAS = []
 
 const SEV_META = {
   critica:  { label: 'Crítica',  color: '#ef4444', bg: 'rgba(239,68,68,.12)',  border: 'rgba(239,68,68,.25)'  },
@@ -107,7 +50,7 @@ function AlertCard({ alerta }) {
 }
 
 export function AlertasView({ alerts }) {
-  const data = alerts ?? ALERTAS
+  const data = alerts?.length ? alerts : ALERTAS
   const [filtro, setFiltro] = useState('Todas')
 
   const activas = data.filter(a => a.activa)
