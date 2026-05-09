@@ -57,14 +57,17 @@ function MapInteractionWatcher({ followingTruckId, onCancel }) {
   const map = useMap()
   useEffect(() => {
     if (!followingTruckId) return
-    const cancel = (event) => {
-      if (event?.originalEvent) onCancel()
+    const cancelDrag = () => {
+      onCancel() // dragstart is always user-initiated in Leaflet
     }
-    map.on('dragstart', cancel)
-    map.on('zoomstart', cancel)
+    const cancelZoom = (event) => {
+      if (event?.originalEvent) onCancel() // only cancel on user zoom
+    }
+    map.on('dragstart', cancelDrag)
+    map.on('zoomstart', cancelZoom)
     return () => {
-      map.off('dragstart', cancel)
-      map.off('zoomstart', cancel)
+      map.off('dragstart', cancelDrag)
+      map.off('zoomstart', cancelZoom)
     }
   }, [followingTruckId, map, onCancel])
   return null
@@ -77,6 +80,11 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
 
   const isFollowed = followingTruckId === truck.ruta?.id
   const isFlyingRef = useRef(false)
+  const isFollowedRef = useRef(isFollowed)
+
+  useEffect(() => {
+    isFollowedRef.current = isFollowed
+  }, [isFollowed])
 
   // Initial fly-to when follow starts
   useEffect(() => {
@@ -167,7 +175,9 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
         // Keep a live reference of current position for zoom/follow
         currentPosRef.current = currentPos
 
-        if (markerRef.current) {
+        // Skip updating DOM position during map animations (flyTo/zoom) to prevent the marker from flying off-screen
+        const isMapAnimating = isFlyingRef.current || map._animatingZoom
+        if (markerRef.current && !isMapAnimating) {
           markerRef.current.setLatLng(currentPos)
           const el = markerRef.current.getElement()
           if (el) {
@@ -181,7 +191,7 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
         // Continuously follow the truck — setView without animation so the
         // camera is locked to the marker each frame. The smooth movement
         // comes from the truck's own interpolation, not from Leaflet easing.
-        if (isFollowed && !isFlyingRef.current) {
+        if (isFollowedRef.current && !isFlyingRef.current) {
           map.setView(currentPos, map.getZoom(), { animate: false, noMoveStart: true })
         }
       }
@@ -192,7 +202,7 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
     animationFrameId = requestAnimationFrame(animate)
 
     return () => cancelAnimationFrame(animationFrameId)
-  }, [truck, isFollowed, map])
+  }, [truck, map])
 
   return (
     <Marker
@@ -550,7 +560,7 @@ export default function App() {
                 <Polyline
                   key={i}
                   positions={route.positions}
-                  pathOptions={{ color: route.color, weight: 3, opacity: 0.85, lineCap: 'round', lineJoin: 'round' }}
+                  pathOptions={{ className: 'route-fade-in', color: route.color, weight: 3, opacity: 0.85, lineCap: 'round', lineJoin: 'round', noClip: true }}
                 />
               ))}
 
