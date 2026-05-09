@@ -1,0 +1,933 @@
+A mi que és molt interessant i que poden sortir coses molt xores.  
+Ara, en aquest workshop tindrà dues parts.  
+Primer de tot us explicarem què fem al nostre departament de dades i d'innovació  
+perquè ens ubiqueu una mica perquè veieu quines coses estem treballant a nivell de dades,  
+que us ho explicarà l'Àlex, el meu company del departament,  
+i després entraré una mica més en el repte, quins recursos us donarem,  
+què esperem, què no esperem també, i us ho explicaran els meus companys de la DDi,  
+que ells saben millor la realitat en el dia a dia de distribució.  
+Així que res, et dono pel Àlex.  
+També agrair-vos que us hagueu apuntat a aquest repte.  
+Tinc dubtes de si ho feu per la cervesa o per l'operativa de la logística.  
+En tot cas, crec que la unió de les dues és guai.  
+O sigui, una empresa com Dam, que ara també us explicarem una mica  
+tot el que fem perquè no només fem cervesa  
+i no només fem anuncis de la platja i festivals,  
+fem moltes més altres coses.  
+Al final som una empresa que aquest any, suposo que heu vist,  
+que fem 150 anys.  
+Llavors, imagineu-vos una empresa de 150 anys,  
+la d'innovació que ha de fer al llarg de la seva història,  
+per ara estar una mica on estem.  
+Llavors, jo personalment estic al Departament de Data i Intel·ligència Artificial.  
+És un departament més o menys de nova creació.  
+Té uns dos anys.  
+I us explicarem una mica, a nivell estratègic i a nivell companyia,  
+què és Dam, no estrella Dam, perquè ho tingueu clar,  
+perquè per això també venen companys de la BDI,  
+que és la part de la distribució que és gairebé igual d'important  
+que produir la cervesa i igual d'important que els anuncis,  
+perquè al final és tota una cadena de valor.  
+Què estem fent des del Departament de Dades i Intel·ligència Artificial,  
+perquè també penseu una mica a aquest repte, com l'heu d'encarar  
+i com Dam està enfocant aquesta estratègia.  
+Va bé?  
+A veure a què pot sortir això.  
+El primer que us volia comentar és una foto una mica genèrica  
+de què fem, què tenim, qui som.  
+Tenim més de 25 marques de cervesa.  
+Segurament les més conegudes  
+ja les teniu en ment.  
+Estrella Dam, la Free Dam, l'Adam Lemon, tot això,  
+que es veuen la majoria a Barça, sobretot a Barcelona i a Catalunya.  
+Però penseu que a tot el Mediterrani  
+i sobretot a la resta d'Espanya tenim moltes marques,  
+perquè una de les estratègies que ens ha fet des de Dam,  
+no sé si coneixeu, Victòria, Turia, que també són una mica conegudes,  
+el nord, Oro o Keller,  
+s'han anat incorporant marques d'altres regions.  
+Per fer aquesta expansió des de les cerneries de Catalunya  
+arreu de la península idèrica, s'han anat adquirint marques.  
+Tenim dues malteries pròpies.  
+Al final, això també és important.  
+Intentem tota la cadena de valor.  
+No sé si la paraula és controlar-la,  
+però sí incidir en tota la cadena de valor  
+fins a alguns negocis que tenim d'hostaleria,  
+no només la fabricació i distribució de cervesa.  
+16 plantes de producció, 21 milions de hectòlitres,  
+i fa dos anys vam arribar als 2.000 milions d'euros de facturació.  
+Invertim molt en i més D i en innovació.  
+Quasi 10 milions d'euros invertits en innovació i més D.  
+Per una banda, hi ha el més D, tot el que és més orientat a producte,  
+el que seria fer una nova cervesa, packaging,  
+no sé si recordeu el tema de la substitució de les anelles de plàstic pel cartró,  
+temes relacionats amb la sostenibilitat,  
+i també tot el que faríem dins del departament de data i intel·ligència artificial,  
+que també inclou el departament d'innovació.  
+Bé, som més de 6.000 persones, etc.  
+Això és una mica la foto de totes les empreses, barres, negocis, marques que tenim al grup.  
+Per una banda, hi ha tota la part de Begudes, que està clar que és el core de la companyia.  
+Tenim les marques més importants que ja coneixeu,  
+però també altres que potser no teníeu en ment que formen part del grup Damp,  
+potser que ha caulat, que segur que la coneixeu.  
+Últimament hem incorporat Amnesty també, fa un parell d'anys, si no ho recordo malament,  
+i també marques d'aigua com Veri.  
+I a nivell sobretot d'altres negocis relacionats,  
+però que no tenen a veure com a tal amb el que és la Beguda,  
+tindríem la distribució logística, que és el repte, és important que ho sapigueu,  
+que forma part de Damp perquè tenim una empresa que és DDI,  
+que inclou diverses distribuïdores, que el que fan és fer arribar el producte  
+als diferents locals, als diferents establiments, i el repte va d'això.  
+Després temes de restauració, no sé si coneixeu Rodilla o Cafès Jamaica,  
+són diferents negocis de restauració, cafeteries,  
+que també formen part del grup Damp.  
+I per últim, temes més de la fundació, per exemple,  
+el que més coneix la gent és el Club de Futbol Damp,  
+que forma part de la fundació i que és un club de futbol,  
+i també tenim de Pàdel, etc.  
+Molta inversió, el que us deia, una empresa amb 150 anys,  
+si no innova, si no inverteix, es mor.  
+Al final necessites estar al dia, necessites estar a la última,  
+no sé si algú d'aquí ha estat a la Fàbrica del Prat, algú.  
+Us recomano.  
+Quan vas cap a l'aeroport tenim la Fàbrica,  
+que és una de les més modernes d'Europa,  
+es pot fer una visita, és veritat que no entres al detall,  
+però us podeu imaginar la inversió que hi ha per una empresa com Damp,  
+necessita tenir unes fàbriques que estiguin a la última,  
+i hi ha molta innovació, molta tecnologia,  
+una cosa que jo no vinc del món d'enginyeria,  
+però em crida molt l'atenció quan he anat a fer la visita,  
+els robots que es van movent de forma automàtica,  
+que porten la cervesa des dels cintes cap als camions,  
+i els camions ja cap als magatzems,  
+tota això, molta part d'aquesta està automatitzada amb robòtica,  
+perquè vosaltres, que sou molts de vosaltres d'un perfil més tecnològic,  
+segur que us ho recomano perquè us agradarà.  
+Hi ha una mica, per acabar aquesta part,  
+tot el tema de les campanyes,  
+si al final segurament el repte d'avui està molt allunyat  
+del que són les campanyes de màrqueting,  
+però també és una part molt important de la companyia,  
+tot el tema d'esponsoritzacions, tot el tema de concerts,  
+sobretot a Catalunya,  
+perquè estem molt posicionats en estar a prop de la cultura,  
+de la música, dels esports,  
+perquè al final la cervesa és una cosa molt cultural  
+i és una forma d'apropar-se a la gent.  
+A nivell de model de negoci,  
+us separaríem en tres principals coses.  
+Per una banda tenim el B2B,  
+aquest projecte en concret,  
+el repte que treballareu avui és B2B.  
+Tots aquells projectes relacionats amb el canal hostaleria,  
+on des d'adam portem la cervesa o les altres begudes  
+al canal ORECA, als bars.  
+Després també el canal d'alimentació,  
+tot el que són supermercats.  
+Després tindríem la part del B2C,  
+que és veritat que nosaltres no som una empresa B2C,  
+no venem directament els consumidors,  
+però sí que fem algunes cosetes,  
+tenim Unicommerce, per exemple,  
+sí que intentem també estar a prop dels consumidors,  
+perquè al final també són dades per nosaltres  
+i conèixer el consumidor ens ajuda a fer campanyes,  
+ens ajuda a conèixer millor els hàbits de consum, els gustos, etc.  
+I per últim,  
+i per últim,  
+fem projectes que intenten relacionar  
+el que diem B2B2C,  
+que és aplicacions i idees,  
+projectes que tinguin en compte els dos mons,  
+el consumidor,  
+ara us ensenyaré algun exemple de projecte,  
+el consumidor i el barista, en aquest cas.  
+Com hem arribat a nivell més d'ADAM, departament, etc.?  
+Quina transformació hem fet en els últims anys  
+per, avui, per exemple, estar aquí?  
+Nosaltres fa deu anys, el nostre president,  
+això és un departament, no ho he dit,  
+però depèn directament de presidència,  
+no depèn del comitè de direcció,  
+no depèn del comitè de direcció,  
+no depèn del comitè de direcció,  
+no depèn del comitè de direcció.  
+Veu, té la visió que com a companyia  
+hem de fer un pas més en quant a digitalització,  
+que implica no només fer aplicacions o webs  
+o ser més moderns en aquest sentit,  
+sinó també un canvi cultural.  
+Per una empresa, us imagineu com d'ADAM,  
+que té 150 anys i que hi ha molta gent  
+que porta 30, 40 anys a la companyia,  
+que és un canvi,  
+vosaltres que ja sou digitals,  
+he vist de tot, això també m'agrada,  
+hi ha gent més jove, això és guai, també.  
+Però és veritat que fa deu anys,  
+ja era raro, jo vaig entrar fa set,  
+i transformació digital, no ho sé,  
+tot feia ja digital.  
+Però quan entres en una empresa com d'ADAM,  
+no tens el mòbil o qualsevol tema digital,  
+i l'altra cosa és tenir una mentalitat digital,  
+és molt diferent.  
+Al final nosaltres teníem tot informatitzat,  
+però no estàvem a l'última en quant a aplicacions,  
+encara hi fèiem moltes manualitats amb Excel,  
+moltes coses que necessitàvem canviar.  
+Llavors durant, crec que és fins al 2022,  
+més o menys,  
+el departament es dedica a qualsevol projecte  
+de digitalització dins de la companyia,  
+des d'industrial,  
+a temes inclús d'agricultura,  
+a temes de màrqueting,  
+qualsevol projecte que fos digital  
+el fèiem des del departament.  
+Què passa el 2022? Comença una mica,  
+que això ja us sonarà més a la majoria,  
+de la IA,  
+més a nivell consumidor,  
+que la gent pot començar a fer servir la IA,  
+tot el tema del data driven, etc.  
+I Damm decideix, passades de fer un projecte  
+de transformació digital i dir,  
+aquests 7 o 8 anys que portem digitalitzant la companyia,  
+què fem amb totes aquestes dades?  
+He posat un CRM, però de què em serveix  
+pràcticament per registrar una visita  
+o per veure què ha venut el client.  
+Si tenim un CRM, que hem estat 3 o 4 anys recollint dades,  
+el que jo vull és que aquest CRM li proposi  
+el que ha de vendre, el que ha de dir a la visita,  
+quines visites ha de fer, llavors és aquest canvi  
+que hem fet en els dos o tres últims anys  
+de passar de digitalització a pensar en projectes  
+de data i intel·ligència tipjant  
+dades.  
+Evidentment amb els objectius que tenen  
+totes les companyies d'augmentar ventes,  
+millorar marge, etc.  
+Serà creixement, això del final qualsevol company  
+ho vol, però a partir de les dades.  
+I ara ja us deixo amb la part, potser més,  
+que us pot obrir una mica la ment  
+dels projectes que hem fet i els que estem fent ara.  
+Històricament havíem fet temes més  
+de digitalització, com per exemple una app  
+de baristes on el barista pugui veure  
+els seus consums, pugui obrir una incidència  
+perquè l'aixeta, el tirador no li funciona,  
+té problemes amb el barril, feien projectes d'aquest tipus,  
+per exemple aplicacions.  
+Hem fet també algun e-commerce, a vegades  
+aquests projectes no surten, però al departament,  
+no sé si no recordo el número, però hem fet  
+més de 300 o 400 projectes, alguns surten  
+i altres no, però sí que aquest per exemple  
+ara mateix no està en funcionament, però  
+en el seu dia vam pensar que per la distribució  
+era bona idea tenir un e-commerce on el barista  
+fes les comandes des de la web.  
+Això és una aplicació de cartes digitals,  
+tots heu viscut el Covid, per tant  
+se'ns va obrir una oportunitat que els bars,  
+per exemple, no era a nivell de salut,  
+no estava bé el tema de les cartes físiques  
+i que te la deixis passar a nosaltres,  
+allà va haver-hi un boom molt gran  
+en quant a les cartes digitals.  
+A més a més a més,  
+encara hi ha bars que ho tenen,  
+el tema dels QRs i veure la carta,  
+això no era només oferir un servei als baristes  
+perquè tinguessin digitalitzada la carta,  
+sinó que això són dades.  
+Nosaltres podíem veure des de dam,  
+recollir tota la informació de quins productes  
+es veien més, a quins bars, a quines zones  
+i això ens servia després per vendre millor  
+i per tant no té aquesta referència,  
+te la recomano perquè el bar del costat  
+l'està vendent molt bé i totes aquestes dades  
+ens serveixen per millorar.  
+També tenim els més de consumidor,  
+el que us deia abans del bito bito sí,  
+evidentment vam crear el que era un CRM,  
+vam crear el concepte de la MyD,  
+que des d'una mateixa plataforma  
+d'aquesta forma tenim informació de consumidor  
+que dam, per dam mai havia sigut rellevant,  
+mai ningú a dam havia dit perquè necessito  
+informació d'una persona en concreta.  
+Al final, ara, per exemple, amb tot el tema de la IA,  
+podem accelerar projectes per saber  
+com es comporta la gent d'una zona versus d'una altra,  
+treus un nou producte i pots saber  
+si funciona o no,  
+i amb el tema del consumidor,  
+aquí hi ha alguns exemples,  
+el de MyD que us deia,  
+i l'e-commerce del consumidor,  
+tenim també temes de rutes de tapes,  
+temes de wifi, tot de projectes  
+vinculats a captades del consumidor.  
+I el que us deia de la digitalització,  
+vam passar als projectes de data.  
+Com veieu, aquí ja no hi ha webs.  
+Si llegiu una mica, no sé si es llegeix bé,  
+hi ha una altra pantalla allà.  
+Aquests projectes són els que estem fent ara,  
+són els que veieu que no hi ha ni webs,  
+ni es parla d'aplicacions lliures,  
+sinó que són tot de projectes vinculats  
+a què fem amb totes aquestes dades.  
+Pricing, forecast, propostes òptimes de venda,  
+millora de la ruta, cicles de vida,  
+són projectes que tenen a veure,  
+a partir de l'explotació de les dades,  
+com li donem a negoci les eines  
+perquè facin millor la seva feina.  
+Se m'ha oblidat dir-ho quan fem el canvi  
+de transformació digital a un departament  
+de data intel·ligència artificial.  
+Com comprendreu les deu persones que estaven  
+d'experiència al món digital,  
+però teníem uns perfils més de negoci,  
+la majoria, vam adquirir una startup  
+d'aquí de Barcelona, que es diu NIC World,  
+que tenia entre 15 i 20 persones  
+de data scientists, enginyers, etc.  
+que s'han incorporat al departament  
+per fer justament aquests projectes.  
+La tipologia de projectes ha canviat,  
+els projectes interns i necessitàvem  
+incorporar aquest talent que no teníem.  
+Veieu que la innovació també va de persones,  
+d'incorporar un talent que tu no tens,  
+que tens 150 anys però no tens cap perfil  
+que sàpiga d'explotar dades ni de presentar  
+com presento aquestes dades  
+a nivell de visualització, etc.  
+Crec que aquesta frase reconeix,  
+que a part de la civada, l'arròs o el llúpol,  
+l'altra matèria prima que tenim són les dades.  
+I ja per acabar, alguns projectes  
+que sí que hem fet ja explotant aquestes dades,  
+i que aquests sí que estem fent,  
+portem dos anys fent-los,  
+no entraré en el detall,  
+però a nivell de promocions,  
+nosaltres des d'Adam hi havia un departament  
+que es deia el departament de promocions  
+que el que feia era posar tots els bars d'aquesta zona,  
+els hi farem l'1 més 1, l'estrella d'Adam,  
+la 2 més 2 de Freedom,  
+i tu els hi preguntes i per què?  
+Perquè sempre ho hem fet així, perquè funciona,  
+poses una mica d'intuïció i d'experiència,  
+i en alguns casos, en cèptem,  
+perquè també és necessari aquesta experiència.  
+Ara, quan feu una mica el projecte,  
+heu de tenir en compte una cosa molt important,  
+que el tema de la logística,  
+tu pots agafar un Excel, analitzar-lo i fer la ruta òptima,  
+però potser s'ha de parlar amb un transportista,  
+o parlar amb ells, i que us diguin,  
+el problema que tenen és aquest,  
+dades i tecnologia.  
+Abans els deia que jo cada matí veig un camió d'Adam,  
+al costat un camió de Coca-Cola,  
+i es barallen perquè deixen allà tot el material per terra,  
+un li ha agafat l'espai a l'altre,  
+llavors, aquests projectes que semblen molt d'agafar un Excel  
+i optimitzar-lo i tal, també teniu en compte  
+la part de les persones, perquè a vegades,  
+nosaltres, que estem en transformació digital  
+ens falta a vegades parlar amb les persones  
+que et diguin quin és el problema real.  
+I el tema que et deia de les promocions,  
+al final és, amb dades, intentem ajustar  
+quin és el segment òptim, la promoció òptima  
+en funció dels consums, etc.  
+Ara no entro molt en detall, també utilitzem  
+el llenguatge natural, no sé si algú  
+ha fet servir una aplicació de filtres  
+quan tu poses, per exemple, avui,  
+seleccionar els clients que m'hagin consumit  
+aquesta referència en aquest període de temps  
+i que siguin d'aquestes característiques.  
+Abans ells ho feien seleccionant el filtre 1 a 1.  
+Ara, nosaltres, el que els oferim a negoci  
+és que puguin posar un prompt, ho veieu aquí dalt,  
+doncs, selecciona tots els clients  
+amb aquestes característiques i tal.  
+30 segons, doncs ara són 10 segons.  
+També enviem per WhatsApp les comunicacions,  
+fem creativitats automàtiques, etc.  
+Ja per òptim, i així acabo i ja ho enllaço  
+amb el dia d'avui, internament,  
+una de les coses que fem des de fa 4 o 5 anys  
+és el Lab 1876, que és un projecte  
+d'intreemprendedoria,  
+molt similar al que fareu avui,  
+però amb treballadors d'adam,  
+i que ens serveix també per, bueno,  
+no és tant un model jacató,  
+tot i que sí que fem un cap de setmana  
+de desenvolupar la idea, després la presentem,  
+ens donem feedback, durar una mica més,  
+no és un cap de setmana, potser durarà 3 mesos o així,  
+però també han sortit projectes interessants  
+Jo crec que potser algú l'ha vist,  
+però és veritat que després costa emportar-los al carrer.  
+El feeling good és un got,  
+crec que hi ha una foto,  
+és un got pensat per festivals, sobretot,  
+on, bueno, veieu que és com metàl·lic,  
+té dues coses molt importants,  
+una és que es manté la temperatura de la cervesa  
+si estàs en un festival, per exemple,  
+amb la calor a l'estiu, etcètera,  
+tenir un material com el que té es manté freda,  
+la cervesa la pots tapar,  
+així també evites que et puguin posar algun producte al got,  
+i la segona part més important,  
+i aquí també entren les dades,  
+és el tema que a sota té un NFC  
+que et permet vincular-ho al teu mòbil  
+i llavors pagar directament amb el got,  
+és a dir, no necessites treure el mòbil ni la targeta,  
+sinó que quan et serveixen,  
+apropes el got al dispositiu de pagament  
+i ja fas el pagament vinculat a la teva aplicació.  
+Està guai, eh?  
+I ja te'l...  
+Damian és un projecte  
+que també a través d'IA  
+vinculat a les converses  
+volem proposar al client que va a un bar  
+en funció dels seus gustos,  
+doncs fer-li una proposta de quins plats  
+ha de demanar, com ha de maridar, etcètera,  
+i per últim,  
+perdoneu,  
+el Mufanflow, que ara no apareix,  
+és una aplicació que obre els tiradors  
+per fer autoserveï.  
+Tu t'apropes amb el mòbil,  
+li dius que vols obrir el tirador, et serveixes  
+i et diu quan has consumit i et cobra.  
+I per últim, ja acabo, sense dades,  
+no ets més que una altra persona amb una opinió.  
+Aquest projecte d'avui va molt de dades  
+i espero que el disfruteu i us deixeu els companys  
+que us expliquin el repte i ja comenceu a treballar.  
+Aprofito per dir  
+que d'aquí un parell de setmanes  
+i al cap de setmana del 22 i 23 de maig  
+fem un hackathon a Damm, únicament de l'empresa Damm.  
+Sé que potser és molt seguit, però teniu dues setmanes  
+per descansar, per si us voleu apuntar també.  
+L'organitzem en col·laboració amb Engineering Hub,  
+que també estan en l'organització d'aquest hackathon,  
+i es farà a la nostra sala del TEC Barcelona,  
+al port de Barcelona.  
+És un espai molt xulo i us animo a apuntar-vos també.  
+La web és damm.com per si voleu cotillejar després.  
+Ja us deixo amb l'Albert i el Dani.  
+Hola, bon dia i benvinguts a tots.  
+Ara parlarem de la part més del repte.  
+Nosaltres és un repte que, evidentment,  
+el tractareu amb dades, però al final va de màur a caixa.  
+Nosaltres, a la DDI, el que fem és  
+agafar el producte de Damm i portar-lo directament  
+a tots els bars. Qui som DDI?  
+Us hem explicat qui som Damm.  
+Fa uns 22 anys, Damm el que tenia eren  
+diferents distribuïdors que compraven el producte Damm  
+i el repartien als seus clients.  
+Damm va decidir ficar-se en el món de la distribució.  
+Va comprar una empresa de distribució  
+i a dia d'avui són 28 empreses repartides per a tot Espanya.  
+Aquí a Catalunya són 3 empreses.  
+Una tenim a Vilanova,  
+una altra la tenim a Sant Boi, que fa tota la part de Barcelona,  
+i una altra la tenim a Mollet, que fem al Vallès fins a la part de Vic.  
+El repte d'avui de què es tracta?  
+Fàcil i difícil alhora.  
+Nosaltres tenim un equip comercial  
+que cada dia està al carrer,  
+fa diverses comandes als clients que li toquen per la seva ruta  
+i al migdia tenim aquestes comandes  
+en el nostre CRM de l'empresa de cada una de les distribuïdores.  
+A partir d'aquí tenim un equip de logística  
+que el que fa és agafar aquestes comandes  
+i repartir-les en diferents camions,  
+mirant que puguem anar a tots els clients  
+i posar-los en una ruta més eficient possible.  
+Actualment la nostra base de dades,  
+la nostra intel·ligència per fer aquesta ruta  
+és al cap de la persona que està a la logística.  
+La seva experiència fa que posi uns clients  
+en una ruta o en una altra,  
+tenint en compte quant està el client  
+i el volum que porta cada un dels clients.  
+El primer que volem fer és trobar un sistema,  
+un programa, amb totes les dades que us passarem,  
+per poder organitzar aquestes rutes  
+de forma més professional,  
+que no depenguem del cap de tràfic  
+de cada una de les plataformes.  
+A part d'això, nosaltres hem de carregar  
+tots els productes que hi ha als diferents albarans  
+a dintre dels camions.  
+Tenim camions amb capacitats diferents,  
+tenim camions des de 6 palets  
+fins a 12 palets cada camió.  
+A dia d'avui el que fem és carregar,  
+fem agrupació de productes,  
+a cada un dels albarans hi ha una sèrie de productes,  
+agrupem producte a producte i optimitzem al màxim  
+les dimensions del camió,  
+posem el màxim possible a cada camió.  
+Això a nivell de magatzem és molt òptim  
+i es prepara molt ràpid,  
+però ens trobem que quan estem al carrer  
+el repartidor nostre ha d'anar als diferents departaments  
+del camió a buscar les caixes de cada client.  
+El que voldríem és poder carregar el camió  
+de manera que quan el repartidor  
+arribi als clients tingui els productes més accessibles.  
+Si fos carregar client a client,  
+el que ens podria és que optimitzaríem  
+molt menys el camió.  
+Hem de buscar un equilibri entre carregar client a client  
+i carregar tots els clients junts.  
+Hem de fer un mix.  
+El que no podem fer ni és ni una cosa ni l'altra.  
+Per poder resoldre tot això  
+us presentem una sèrie de dades.  
+Està passant una mica les línies quan anem avançant.  
+A veure, com ja va comentar Albert,  
+resumint-los una mica,  
+tots els dades els basarem en Mollet,  
+que és una distribució molt representativa a la zona.  
+Aproximadament salen uns 15 camions al dia  
+i visiten uns 20 clients.  
+Treballem amb el grup Dan  
+i la majoria dels productes són Dan,  
+i la majoria són d'altres fabricants.  
+En promesos tenim uns 1.100 productes  
+en la distribució i diferents càrrecs de treball.  
+Tenim en la distribució uns 700 productes propis de l'embaràs,  
+però treballem també amb altres almacenes.  
+Això li donaria una mica de complexitat a la preparació.  
+Per entrar en el detall dels dades  
+passarem dos mesos de dades reals,  
+que ja s'han carregat.  
+Les explicaré una mica la composició d'aquestes dades,  
+perquè en tot el que li he comentat,  
+hi ha una estructura on la persona,  
+el responsable de tràfic, decide  
+com es van a executar aquestes rutes  
+i aquí volem aquest valor agregat  
+de com ho podem optimitzar tant en la part de repartiment  
+com en l'embaràs.  
+En la parte de cliente, tenemos un número de clientes,  
+hay una zona, llamamos una zona a un conjunto,  
+llamaremos Sabadell, Parex,  
+Aribaut, zonas muy centradas,  
+donde concentraciones de clientes,  
+le damos una prioridad de viaje al cliente  
+y le asignamos un repartidor a este cliente.  
+Luego, por otro lado, tenemos la ruta, que es una ruta.  
+Una ruta tiene asignado un repartidor titular  
+y esta ruta tiene una zona asignada.  
+Todo esto lo van a tener en un Excel plano,  
+una lista donde lo podrán ver,  
+pero bueno, un poco para adelantarles las dudas.  
+¿Cómo van estas asignaciones?  
+Puede ser que un repartidor que tiene una zona haga otra.  
+Todo esto lo van a ver asociado en uno de los datos con el transporte.  
+Estos son datos reales y cualquier duda que tengáis con esto  
+lo van a ver con nosotros durante estos dos días.  
+Por qué a nivel de preparación es muy óptimo  
+tener el almacén organizado por lo que es una tipología de productos,  
+si es retornable o no, qué tan apilable es el producto.  
+Y en base a esto, una vez se decide la ruta,  
+sale una hoja de carga de preparación  
+donde los operarios del almacén van haciendo un recorrido  
+donde primero recogen todos los productos de la zona A,  
+van agrupando la zona B, C, D,  
+y así van por cada una de la zona  
+para llevar a las áreas del camión  
+para luego posteriormente ser cargado.  
+Todo esto se agrupa por productos y como dice Albert,  
+es una parte muy óptima para el almacén  
+donde no tiene que hacer tantos recorridos para el cliente,  
+pero a nivel de reparto, como comentaba nuestro compañero,  
+en el momento de llegar al cliente tiene que estar  
+en varios puntos del camión buscando los productos para este cliente.  
+También tener en cuenta que de estos 20 clientes que se reparten,  
+pueden ir con una caja, pero hay otras que pueden ir  
+con 50 cajas de productos.  
+Entonces es muy importante tener esto en cuenta.  
+Como comentaba, le vamos a dar datos  
+de la documentación física para que vean  
+cómo preparan nuestros operarios,  
+cuáles son los albaranes que se les entrega al cliente.  
+Le vamos a dar los dos datos de la simulación  
+de todos estos dos meses.  
+Aquí vamos a encontrar, distribuimos distintos tipos de productos,  
+productos retornables, cajas, botellas,  
+sin retorno, donde hay distintas medidas.  
+No todos los clientes, esto es un punto muy importante  
+y aquí ya vendrán conservaciones que nos cortegen decir,  
+oye, creemos que todos los clientes deberían tener  
+en los horarios de servicio.  
+Perfecto, hay unos que lo sabemos, hay otros que no,  
+y hay otros que se han ido informando.  
+Es un poco de aportación, será buena para nosotros.  
+Le juntaremos también algunas fotos del almacén  
+para que puedan verlo y poco más.  
+Estaremos aquí para ayudarlos con el reto  
+y cualquier duda, si tenéis duda ahora,  
+que seguramente tendrán las mismas y pueden ir  
+comentándolas y así resolvemos,  
+porque seguro entre varios equipos tendréis la misma duda,  
+estamos aquí para ayudarles.  
+Lo que digo yo es que aproximadamente el 60%  
+de los productos son productos retornables,  
+es decir, que también interviene la logística inversa.  
+Nosotras, anem al client, deixem el producte ple  
+i recollim el buit que el coloquem a vitre del camió.  
+I quan tornen al magatzem es descarreguen el magatzem.  
+Això és un tema important,  
+perquè no tot el producte que tenim és producte sense informació.  
+A l'hora de preparar, també hem de tindre en compte  
+el tipus de producte.  
+A l'hora de les entregues hem de preparar  
+els productes, hem de tindre en compte  
+que no podem barrejar tots els productes.  
+Quan tenim una caixa de cartró no li podem posar  
+un baril a sobre, perquè l'aixafarem.  
+O haurem d'agrupar els farils a un costat,  
+o potser posar les caixes menys dures  
+a la part superior del palet.  
+Tot avui estarem per aquí.  
+Qualsevol dubte que tingueu ara o més tard  
+podeu preguntar el que vulgueu.  
+Us enviarem per Discord un enllaç  
+on tindreu disponibles totes aquestes dades.  
+La presentació també hi serà.  
+Jo ara deixaria un torn obert de preguntes  
+si algú ara mateix se li acudeix algun dubte  
+que aixequi la mà, i ho passem al micro  
+que també pot resoldre totes les altres equips.  
+No pots carregar-ho tot a un costat  
+per la descarregada.  
+La veritat és que quan omplim un palet  
+del producte que sigui,  
+és bastant equilibrat el pes que suporta.  
+El que no podem fer és carregar un costat  
+i l'altre no.  
+Però sí que és veritat que és millor  
+repartir-ho durant tot el camí.  
+Cal tenir en compte per la descarregada.  
+Quan vas buidant el camió  
+i les coses buides has de mantenir l'equilibri.  
+Heu de tenir en compte que la majoria  
+dels nostres camions fa molt pocs quilòmetres.  
+Nosaltres mirem de trobar sempre rutes  
+que els clients siguin molt propers.  
+Un dels altres temes que veureu  
+és la parada. Què és per nosaltres una parada?  
+Una parada és aguantar a parc un camió  
+Nosaltres a vegades preferim aparcar  
+i fer camí a clients que estan a prop  
+que no anar client a client.  
+Primer perquè no podem aparcar davant de tots els clients  
+i segon perquè al final és molt més òptim.  
+Què vull dir amb això?  
+Estem parlant que potser un client  
+podem carregar el seu producte amb un sol palet.  
+Un client que ens porta 50 cases  
+però si faig una parada i tinc 3 clients  
+puc preparar les cases aquests 3 clients  
+en el mateix palet.  
+Nosaltres tenim camions que van en plataforma posterior  
+que puc baixar el palet a terra i amb un altre palet elèctric  
+puc anar-me acostant als diferents clients.  
+Hem de buscar un model mixte que tinguem  
+preparacions per gran volum de clients  
+i preparacions per un client o per diversos clients.  
+Quants palets hi ha en camió?  
+Nosaltres a Mollet tenim 3.  
+A Mollet tenim 3 tipus de vehicles de repartiment.  
+Hi ha camions de 6 palets, camions de 8 palets  
+i fogonetes que n'hi caben 3.  
+A cada client mínim li has de donar un palet  
+o pot ser menys quantitat?  
+A un client puc arribar a portar una caixa.  
+No és l'òptim perquè no és econòmicament més rentable  
+però a vegades a un client que s'ha descuidat una caixa  
+li portem una caixa.  
+El meu dubte era més o menys aquest.  
+Si cada client té un palet exclusiu seu  
+o hi ha productes paletitzats i productes no?  
+Tots els productes estan paletitzats  
+però al dia d'avui no tenim un client o un palet.  
+Tenim una agrupació de productes  
+que s'ha de fer el piquing al carrer.  
+Tenim 20 albarans, a cada albaran hi ha dues caixes  
+que són 40 caixes, agafem i carreguem les 40 caixes  
+i el software té que agafar dues caixes per aquest client  
+i se'n va a l'altre palet agafa una altra caixa  
+i agafa l'altre palet i agafa una altra caixa.  
+Ja que conteu amb el factor humà que fa el repartiment  
+si algun dia canvien de ruta  
+com fa la persona que ha de fer una ruta que no havia fet abans?  
+Quin tipus de estratègia teniu?  
+Nosaltres normalment assignem sempre  
+un repartidor a una ruta per dues coses  
+perquè es coneix la ruta i l'altra que és molt important  
+Els nostres repartidors entren en el magatzem del client.  
+Al magatzem del client hi ha coses de valor.  
+La confiança que té el repartidor amb el client  
+per a nosaltres és molt important.  
+Sempre hi ha repartidors que es posen malalts,  
+hi ha repartidors que tenen vacances o que no poden venir.  
+Va un altre repartidor.  
+Normalment hi ha rutes que va repartidor i ajudant.  
+Mirem que un dels dos sigui sempre el de la ruta  
+i que no es fabilen i es busca la vida al final.  
+Una pregunta que no sé si ho has comentat.  
+El tema d'una persona en un torn, només una ruta,  
+pot fer vac?  
+Normalment sempre es fa una ruta,  
+però una ruta pot tindre diversos viatges.  
+Nosaltres tenim un repartidor  
+que ve a les 5 del matí al magatzem,  
+es carrega el seu camió, se'n va a la ruta,  
+se'n va a una altra ruta.  
+Aquí el Dani us comentava el tema de la prioritat.  
+Dintre d'una ruta o d'una zona,  
+estàvem prioritats.  
+Un client que ens obre tard  
+normalment sempre està assignat  
+al segon viatge d'aquella ruta.  
+El factor de pèrdua de temps  
+hauríem de tenir en compte  
+que la ruta no vagi en ideal.  
+Això s'hauria de tenir en compte dintre de l'algoritme.  
+Que no perdi el temps, quan més eficient sigui.  
+L'algoritme s'hauria d'adaptar  
+a si perd temps proposa una altra cosa  
+o ja s'hauria de ser fixa.  
+No ens ho hem plantejat, però és una bona opció.  
+Et refereixes a que una ruta inicial  
+es pugui modificar posteriorment?  
+Seria una molt bona opció, evidentment.  
+S'ha dit que en els diferents camions  
+van diferents números de palets.  
+Un únic palet està completament sagellat  
+i només pot disposar d'un tipus de producte  
+o pot tenir diferents tipus de productes?  
+Poden portar tots els productes que facin falta.  
+Haves comentat que un repartidor  
+pot aparcar i repartir a tres clientes diferents.  
+Humanament, quantos palets  
+pot repartir?  
+Quants palets pot portar?  
+Palets pot portar un palet  
+només cada vegada,  
+però poden fer diversos viatges.  
+El que fan els repartidors és fer molts viatges  
+del camió al cliente.  
+Quan hi ha un client de gran volum,  
+hi ha dues opcions.  
+Si tenen un camió que va amb plataforma,  
+poden baixar tot el palet  
+i acompanyar-se amb la transpaleta elèctrica  
+i acompanyar-se amb la plaza real.  
+En plaza real  
+hem d'aparcar en un lloc de la plaza real  
+i des d'allà fem els 20 clients  
+des de la mateixa parada.  
+Poden identificar com està el cadapalet numèricament  
+o van amb mes sueltos?  
+El cadapalet el seu propi nom  
+ha identificat?  
+A dia d'avui no, però el podríem identificar.  
+Per fer la feina d'optimitzar la càrrega  
+pel moment de la descàrrega,  
+cada palet a quina zona del camió va carregat.  
+Tots els palets són igual de grans?  
+Sí, correcte.  
+Quantes caixes hi ha en un palet?  
+A nivell de volum,  
+hi ha un datum important perquè  
+quan volem mesurar tot, a nivell de distribució,  
+tenim una caixa estadística.  
+Aquesta és una caixa normal  
+i una caixa estadística.  
+En un palet de retornable són 60 caixes.  
+El estàndard d'un palet és 60 caixes estadístiques.  
+A nivell de volum són 1,8 m3.  
+És un palet de la nostra altura.  
+A nivell de camió,  
+tenim 6 o 8,  
+perquè als camions hi caben 3 palets per al costat.  
+En la furgoneta hi tenim 3 palets.  
+A nivell de volum,  
+en la conversió,  
+a nivell de planos de la data,  
+hi ha la unitat de base,  
+però això ho podem explicar.  
+És important perquè  
+a un camió de 3 palets  
+hi caben 250 caixes estadístiques.  
+A un de 8, hi caben les 300.  
+En los datos históricos  
+van a ver com un transport  
+és el promediu de caixes que té  
+en cada viatge que fan.  
+A nivell de caixa estadística,  
+hi ha una unitat de base,  
+això és una caixa,  
+i això és un barril.  
+A nivell de caixa estadística,  
+això és una unitat,  
+i això són 4 unitats.  
+És a dir que hi caben una quarta part de barrils  
+en un palet que de caixes.  
+Està vació, eh?  
+Evidentment,  
+tenim una caixa de llet,  
+una caixa de llet és més petita que això.  
+Per nosaltres, una caixa de llet és 0,8 caixes estadístiques.  
+En el mateix volum que ens caben 60 caixes,  
+que coincide que és una unitat i una caixa estadística,  
+evidentment, caben menys barrils,  
+però caben més llet.  
+Entiendo que las cajas  
+tienen que ir por encima de los barriles.  
+No se puede poner un barril encima de una caja.  
+Correcto. De hecho, el orden de la preparación del almacén  
+lo pensamos así.  
+Esto es muy básico,  
+pero la parte A,  
+todo esto viene siendo el producto retornable  
+y de mayor rotación. El almacén está conceptualmente pensado  
+en la caixa de llet.  
+Entonces, cómo empiezan, con toda la parte de los barriles,  
+luego se baja la parte del retornable y así va.  
+Seguramente, en los 6 palets que tiene el camión,  
+él va a empezar con lo que más vende,  
+más cantidades tiene y lo que más pesa.  
+Y no es que vamos a mezclar barriles con...  
+que posiblemente lo podemos hacer, pero barriles con cajas.  
+Muy poco lo hacemos porque vamos preparando  
+y vamos haciendo lo que le llaman como la cinta,  
+el orden de la preparación que tiene.  
+Nosotros tratamos de no mezclar productos y prepararlos  
+por apilabilidad. Oye, ¿cuántos barriles puedo poner encima de otro?  
+Cajas retornables que pueden encajar unas con otras  
+y eso facilita el reparto.  
+Para las cosas de los camiones, y esto son muchas cosillas  
+que van saliendo, para que no se vuelque la caja  
+porque los palets van sin estar retratilados,  
+dentro de los camiones van separados,  
+tienen sus separadores para evitar vuelcos de la mercancía.  
+Entonces, en la primera parada que hace el repartidor  
+tiene que buscar para un cliente y puede tener productos  
+en esa entrega que están en los 6 palets.  
+Parte del reto sería, en función de lo que le he repartido  
+a este cliente, ¿cómo puedo hacer optimizando esta preparación?  
+A lo mejor me tengo que saltar y hacer varias preparaciones,  
+no lo sé ahora, pero voy a ganar tiempo en la calle.  
+¿Por qué voy a ganar tiempo en la calle?  
+Porque ya voy a tener todo este palet preparado  
+y todo en un solo sitio para poder entregar a estos clientes.  
+Nuestra gente de almacén recibe, como decía Dani,  
+una hoja de carga con todos los productos  
+que van en el camión. ¿Cómo sale la hoja de carga?  
+La hoja de carga empieza aquí, con el primer producto  
+y lo que decía Dani.  
+Vamos dando la vuelta a todo el almacén para cargar.  
+Poner el caso de que en un camión solo hubiese un palet,  
+este es el camino que recorrería  
+el operario de almacén para la carga.  
+Nunca daría vueltas por aquí y luego se vendría por aquí.  
+Ya está puesto para que mirar de no mezclar productos  
+que en la pillebaridad no puedan cargarse.  
+Tinc una pregunta per fer l'entrega.  
+També tenim dins dels clients  
+que li hem de donar les caixes.  
+Ens diuen com la hora que volen que li entreguem  
+o és com una restricció?  
+Tenim aquesta restricció i s'adapten a la hora que...  
+No, tenim aquesta restricció.  
+Hi ha clients que tenen una restricció  
+i no tenen la hora que li donen les caixes.  
+Hi ha clients que no hi ha problema.  
+Per què no hi ha problema?  
+Potser perquè tenen el magatzem a part del bar.  
+Un client que té el bar i té el magatzem al costat  
+no té problema a l'hora que li anem.  
+Un client que fa molts esmorzars i té el magatzem  
+a dintre del bar ens dirà que des de les 8 fins a les 11  
+no podeu vindre a casa meva a descarregar.  
+I un que fa dinars et diu  
+que la ruta és l'última.  
+Per això en un dels moments que hem parlat  
+veiem que la ruta més òptima, físicament,  
+a vegades no és la millor ruta per repassir.  
+Perquè podem tindre dos locals, un al costat de l'altre,  
+un n'hem d'anar-hi a primera hora  
+i un altre n'hem d'anar-hi a última hora.  
+Últimes dues preguntes que ja esperen acabant.  
+N'hi havia una per aquí?  
+La gran mayoría lo tenemos informado  
+y los tenemos en los datos que les vamos a pasar.  
+En el documento que nos disteis  
+ponía como que había veces que sobraba carga.  
+Con esa cara que hacéis la volvéis a guardar en el almacén  
+o la dejáis en el camión,  
+y cuando cargáis los camiones  
+ya lo hacéis pensando en lo que quiere cada cliente  
+o cargáis una cantidad específica por defecto  
+y lo vais repartiendo.  
+En el modelo actual y en lo que le pasa,  
+solo cargamos lo que va a ir específicamente para el cliente,  
+pasan incidencias al cliente.  
+El comercial se puede haber equivocado,  
+el cliente se puede haber equivocado,  
+y ahora les puede pasar.  
+Tratamos de solucionarlos en el momento,  
+pero es muy probable que tengamos incidencia  
+y venga el producto para atrás.  
+Luego aquí vendría esta parte de la logística inversa  
+y esto es parte del proceso del repartidor.  
+El repartidor llega, se le descargará el envase,  
+luego hay unos procesos administrativos  
+donde tiene que cuadrar toda la carga,  
+y demostrar todo el proceso de la carga.  
+O sea que lo que sobra solo es porque ha sido un error  
+por el proceso o algo así, ¿no?  
+No debería sobrar producto,  
+hay errores humanos, a lo mejor se puede cargar una caja por otra,  
+pero el repartidor no sale a la calle ahora mismo  
+con mercancía para hacer una venta automática,  
+él va con un motivo específico  
+con una entrega específica por cliente.  
+Muchas gracias.  
+También es posible que un cliente esté cerrado,  
+que vayamos al cliente por lo que sea esté cerrado,  
+esa mercancía te la devuelves a casa.  
+Estaremos por aquí toda la mañana y toda la tarde,  
+así que cualquier pregunta...
