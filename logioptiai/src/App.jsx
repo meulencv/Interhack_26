@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Polyline, CircleMarker, Marker } from 'react-l
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
+import { VoiceAssistant } from './components/VoiceAssistant'
 
 const ORS_KEY = import.meta.env.VITE_ORS_KEY
 
@@ -293,31 +294,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="card voice-card">
-              <div className="voice-title">Asistente de voz</div>
-              <div className="voice-wave">
-                <svg width="100%" height="46" viewBox="0 0 280 46" preserveAspectRatio="none">
-                  <g fill="#7c6cff">
-                    {[2,8,14,20,26,32,38,44,50,56,62,68,74,80,86,92,98,104,110,116,122,128,134,140,146,152,158,164,170,176,182,188,194,200,206,212,218,224,230,236,242,248,254,260,266,272].map((x, i) => {
-                      const heights = [6,14,22,10,30,18,34,10,26,6,18,38,14,26,6,22,30,10,18,34,6,26,14,38,18,6,30,14,22,10,34,18,6,26,14,30,10,22,6,18,34,10,26,14,6,18]
-                      const h = heights[i] || 10
-                      const y = (46 - h) / 2
-                      return <rect key={x} x={x} y={y} width="2" height={h} rx="1"/>
-                    })}
-                  </g>
-                </svg>
-              </div>
-              <div className="voice-bottom">
-                <div className="listening">Escuchando...</div>
-                <button className="mic-btn">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="9" y="2" width="6" height="12" rx="3"/>
-                    <path d="M19 10v2a7 7 0 01-14 0v-2"/>
-                    <line x1="12" y1="19" x2="12" y2="23"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
+            <VoiceAssistant />
           </div>
         </section>
 
