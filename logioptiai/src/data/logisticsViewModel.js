@@ -29,7 +29,7 @@ const STATUS_LABEL = {
   'en-ruta': 'En ruta',
   completada: 'Completada',
   pendiente: 'Pendiente',
-  alerta: 'Alerta',
+  alerta: 'Revisar',
 }
 
 const VEHICLE_BY_TEMPLATE = {
@@ -117,10 +117,15 @@ function routeTownLine(stops) {
 }
 
 function routeStatus(route, row, index) {
-  if (row.alertCount >= 3 || row.loadPct >= 115) return 'alerta'
-  if (index % 9 === 5) return 'pendiente'
-  if (index % 8 === 2) return 'completada'
+  const explicit = route?.estado || route?.status
+  if (explicit && STATUS_LABEL[explicit]) return explicit
   return 'en-ruta'
+}
+
+function routeRiskLevel(row) {
+  if (row.loadPct > 100) return 'sobrecarga'
+  if (row.loadPct >= 90) return 'alta'
+  return 'normal'
 }
 
 function buildRouteRow(route, index) {
@@ -173,6 +178,7 @@ function buildRouteRow(route, index) {
   return {
     ...row,
     estado: routeStatus(route, row, index),
+    riskLevel: routeRiskLevel(row),
     eficiencia: Math.max(0, loadPct),
     carga: `${zce} ZCE`,
   }
@@ -256,6 +262,8 @@ function buildFleetVehicles(routes) {
     km: row.km,
     eficiencia: row.eficiencia,
     alertCount: row.alertCount,
+    loadPct: row.loadPct,
+    riskLevel: row.riskLevel,
   }))
 }
 
@@ -353,10 +361,13 @@ function buildAnalytics(routes, overview) {
       { label: 'Km totales recorridos', value: `${round(overview.distance_km, 0)} km`, sub: 'desde bundle operativo', color: '#38bdf8', pct: 64 },
       { label: 'Retornables recogidos', value: `${returnPct}%`, sub: '~60% objetivo Damm', color: '#fb923c', pct: Math.min(100, returnPct) },
     ],
-    zceByRoute: routes.slice(0, 10).map(route => ({
+    zceByRoute: routes.map(route => ({
       ruta: route.id,
       zce: route.zce,
       cap: route.pedidos * 60,
+      km: route.km,
+      loadPct: route.loadPct,
+      riskLevel: route.riskLevel,
     })),
     trend: [
       { dia: 'L', pct: Math.max(75, Math.round(windowPct - 4)) },
@@ -381,6 +392,13 @@ function buildAnalytics(routes, overview) {
     })),
     completed,
     planned,
+    totals: {
+      totalKm: round(overview.distance_km, 1),
+      totalZce: routes.reduce((sum, route) => sum + route.zce, 0),
+      avgLoad,
+      windowPct,
+      returnPct,
+    },
   }
 }
 

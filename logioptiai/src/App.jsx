@@ -148,9 +148,11 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
           markerRef.current.setLatLng(currentPos)
         }
 
-        // Continuously pan the map while in follow mode
+        // Continuously follow the truck — setView without animation so the
+        // camera is locked to the marker each frame. The smooth movement
+        // comes from the truck's own interpolation, not from Leaflet easing.
         if (isFollowed) {
-          map.panTo(currentPos, { animate: true, duration: 0.3, easeLinearity: 0.5, noMoveStart: true })
+          map.setView(currentPos, map.getZoom(), { animate: false, noMoveStart: true })
         }
       }
 

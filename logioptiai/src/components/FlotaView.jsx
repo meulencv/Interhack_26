@@ -104,7 +104,13 @@ const ESTADO_META = {
   'en-ruta':   { label: 'En ruta',   color: '#3b82f6', bg: 'rgba(59,130,246,.12)' },
   'entregado': { label: 'Entregado', color: '#22c55e', bg: 'rgba(34,197,94,.12)'  },
   'pendiente': { label: 'Pendiente', color: '#f59e0b', bg: 'rgba(245,158,11,.12)' },
-  'alerta':    { label: 'Alerta',    color: '#ef4444', bg: 'rgba(239,68,68,.12)'  },
+  'alerta':    { label: 'Revisar',   color: '#f59e0b', bg: 'rgba(245,158,11,.12)' },
+}
+
+const RISK_META = {
+  normal:     { label: 'Normal',      color: '#7c6cff', bg: 'rgba(124,108,255,.12)' },
+  alta:       { label: 'Carga alta',  color: '#22c55e', bg: 'rgba(34,197,94,.12)' },
+  sobrecarga: { label: 'Sobrecarga',  color: '#ef4444', bg: 'rgba(239,68,68,.12)' },
 }
 
 function EficienciaBar({ value, color }) {
@@ -169,7 +175,8 @@ function TipoSection({ tipo, rows }) {
 
         {/* Rows */}
         {rows.map((v, i) => {
-          const est = ESTADO_META[v.estado]
+          const est = ESTADO_META[v.estado] || ESTADO_META['en-ruta']
+          const risk = RISK_META[v.riskLevel || 'normal'] || RISK_META.normal
           return (
             <div
               key={v.id}
@@ -199,9 +206,14 @@ function TipoSection({ tipo, rows }) {
                 {est.label}
               </span>
               <span style={{ fontSize: 12.5, color: 'rgba(160,170,200,.7)' }}>{v.ruta}</span>
-              <span style={{ fontSize: 13, color: '#cfd5e6', fontWeight: 500 }}>{v.carga}</span>
+              <span>
+                <div style={{ fontSize: 13, color: '#cfd5e6', fontWeight: 500 }}>{v.carga}</div>
+                {v.riskLevel && v.riskLevel !== 'normal' && (
+                  <div style={{ fontSize: 10, color: risk.color, marginTop: 2, fontWeight: 700 }}>{risk.label}</div>
+                )}
+              </span>
               <span style={{ fontSize: 13, color: '#a78bfa', fontWeight: 600 }}>{v.entrega}</span>
-              <EficienciaBar value={v.eficiencia} color={meta.color} />
+              <EficienciaBar value={v.eficiencia} color={risk.color} />
             </div>
           )
         })}
@@ -216,7 +228,7 @@ export function FlotaView({ vehicles }) {
     { label: 'Total vehículos', value: data.length, color: '#cfd5e6' },
     { label: 'En ruta', value: data.filter(v => v.estado === 'en-ruta').length, color: '#3b82f6' },
     { label: 'Entregados', value: data.filter(v => v.estado === 'entregado').length, color: '#22c55e' },
-    { label: 'Alertas activas', value: data.filter(v => v.estado === 'alerta').length, color: '#ef4444' },
+    { label: 'Sobrecarga', value: data.filter(v => v.riskLevel === 'sobrecarga').length, color: '#ef4444' },
   ]
 
   return (

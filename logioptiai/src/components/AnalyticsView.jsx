@@ -178,12 +178,12 @@ function EventFeed({ events }) {
 
 function ZceChart({ routes }) {
   const barH = 110
-  const max = Math.max(...routes.map(r => r.cap))
+  const max = Math.max(1, ...routes.map(r => Math.max(r.cap, r.zce)))
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: barH + 28 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: barH + 34, overflow: 'hidden' }}>
       {routes.map((r, i) => {
-        const hZce  = (r.zce / max) * barH
-        const hCap  = (r.cap / max) * barH
+        const hZce  = Math.min(barH, (r.zce / max) * barH)
+        const hCap  = Math.min(barH - 1, (r.cap / max) * barH)
         const over  = r.zce > r.cap
         const fill  = over ? '#ef4444' : r.zce / r.cap > 0.90 ? '#22c55e' : '#7c6cff'
         return (
@@ -289,6 +289,19 @@ export function AnalyticsView({ analytics }) {
   const animClientes   = useCountUp(clientes,    { duration: 600  })
   const animZceProc    = useCountUp(zceProc,     { duration: 800  })
 
+  const chartRoutes = (analytics?.zceByRoute?.length ? analytics.zceByRoute : RUTAS).map(route => ({
+    id: route.ruta || route.id,
+    zce: route.zce,
+    cap: route.cap,
+    km: Number(route.km) || 0,
+    estado: route.riskLevel === 'sobrecarga' ? 'sobrecarga' : (route.estado || 'en-ruta'),
+  }))
+  const chartTotalZce = chartRoutes.reduce((sum, route) => sum + route.zce, 0)
+  const chartTotalKm = analytics?.totals?.totalKm || Math.round(chartRoutes.reduce((sum, route) => sum + route.km, 0))
+  const chartRiskCount = chartRoutes.filter(route => route.zce > route.cap).length
+  const chartOkPct = chartRoutes.length
+    ? Math.round(((chartRoutes.length - chartRiskCount) / chartRoutes.length) * 100)
+    : 100
   const ocupPct = Math.min(100, Math.round((zceProc / TOTAL_ZCE) * OPT.ocupPct * 1.15))
 
   return (
@@ -396,7 +409,7 @@ export function AnalyticsView({ analytics }) {
                 <span style={{ color: '#ef4444' }}>■ exceso</span>
               </div>
             </div>
-            <ZceChart routes={RUTAS} />
+            <ZceChart routes={chartRoutes} />
             <div style={{ fontSize: 10, color: 'rgba(160,170,200,.3)', marginTop: 6 }}>
               Línea punteada = capacidad máx. del vehículo · 1 pedido = 60 ZCE
             </div>
@@ -410,7 +423,7 @@ export function AnalyticsView({ analytics }) {
             <LiveBar label="Ventanas horarias cumplidas" value={ventPct} color="#f59e0b" blink />
             <LiveBar label="Ocupación media de flota" value={ocupPct} color="#a78bfa" />
             <LiveBar label="Retornables recogidos" value={62} color="#fb923c" />
-            <LiveBar label="Rutas sin incidencias" value={Math.round((RUTAS.filter(r => r.estado !== 'alerta').length / RUTAS.length) * 100)} color="#22c55e" />
+            <LiveBar label="Rutas dentro de capacidad" value={chartOkPct} color="#22c55e" />
             <div style={{ marginTop: 'auto', padding: '10px 12px', background: 'rgba(56,189,248,.06)', border: '1px solid rgba(56,189,248,.15)', borderRadius: 8 }}>
               <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 700 }}>
                 CO₂ real emitido hoy: {co2Live} kg
@@ -444,12 +457,12 @@ export function AnalyticsView({ analytics }) {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               {[
-                { label: 'En ruta', val: RUTAS.filter(r => r.estado === 'en-ruta').length, color: '#3b82f6' },
-                { label: 'Completadas', val: RUTAS.filter(r => r.estado === 'completada').length, color: '#22c55e' },
-                { label: 'Alertas', val: RUTAS.filter(r => r.estado === 'alerta').length, color: '#ef4444' },
-                { label: 'Pendientes', val: RUTAS.filter(r => r.estado === 'pendiente').length, color: '#f59e0b' },
-                { label: 'Total km', val: `${Math.round(TOTAL_KM)}`, color: '#38bdf8', unit: '' },
-                { label: 'ZCE total', val: TOTAL_ZCE.toLocaleString(), color: '#a78bfa', unit: '' },
+                { label: 'En ruta', val: chartRoutes.length, color: '#3b82f6' },
+                { label: 'Dentro capacidad', val: chartRoutes.length - chartRiskCount, color: '#22c55e' },
+                { label: 'Sobrecarga', val: chartRiskCount, color: '#ef4444' },
+                { label: 'Vehículos', val: chartRoutes.length, color: '#f59e0b' },
+                { label: 'Total km', val: `${Math.round(chartTotalKm)}`, color: '#38bdf8', unit: '' },
+                { label: 'ZCE total', val: chartTotalZce.toLocaleString(), color: '#a78bfa', unit: '' },
               ].map(item => (
                 <div key={item.label} style={{ background: 'rgba(255,255,255,.025)', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
                   <div style={{ fontSize: 20, fontWeight: 800, color: item.color, lineHeight: 1 }}>{item.val}</div>
@@ -461,7 +474,7 @@ export function AnalyticsView({ analytics }) {
               <span style={{ fontSize: 16 }}>📦</span>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#a78bfa' }}>
-                  {TOTAL_ZCE.toLocaleString()} cajas estadísticas · {RUTAS.length} vehículos activos
+                  {chartTotalZce.toLocaleString()} cajas estadísticas · {chartRoutes.length} vehículos activos
                 </div>
                 <div style={{ fontSize: 10, color: 'rgba(160,170,200,.4)', marginTop: 1 }}>
                   Retornables: 60% objetivo Damm · logística inversa activa
