@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -69,14 +69,14 @@ WEIGHT_PRESETS: dict[str, dict[str, float]] = {
 app = FastAPI(title="Smart Truck API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:4173"],
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
 class OptimizeRequest(BaseModel):
-    planning_date: str | None = None
+    planning_date: Optional[str] = None
     objective: Literal["time", "km", "unload", "balanced"] = "balanced"
     time_windows: bool = True
     reverse_logistics: bool = True
