@@ -1,0 +1,529 @@
+{
+  "audit": {
+    "sheets": [],
+    "joins": [
+      "`Detalle entrega.Material` -> `Materiales zubic.Material`",
+      "`Detalle entrega.Material` -> `ZM040.Sheet1.Material`",
+      "`Detalle entrega.Destinatario mcía.__2` -> `Direcciones.Cliente`",
+      "`Detalle entrega.Destinatario mcía.__2` -> `Horarios Entrega.Sheet1.Deudor`",
+      "`Detalle entrega.ZonaTransp` -> `ZONAS.ZonaTransp`"
+    ],
+    "warnings": [
+      "Some delivered materials are missing from ZM040 master data. Conservative imputations are active.",
+      "La demo actual usa ORS sintético porque no hay clave activa en el repositorio."
+    ],
+    "facts": {
+      "historical_days": 43,
+      "transport_count": 889,
+      "route_count": 18,
+      "used_material_count": 1489,
+      "used_client_count": 1184
+    }
+  },
+  "selected_date": "2026-02-27",
+  "overview": {
+    "routes": 3,
+    "distance_km": 123.4,
+    "duration_minutes": 686.0,
+    "pallet_load": 15.5,
+    "return_peak": 9.1,
+    "alerts": 3,
+    "ors_mode": "synthetic_fallback"
+  },
+  "routes": [
+    {
+      "route_code": "DA0216",
+      "vehicle": {
+        "vehicle_id": "DA0216-truck_6",
+        "template": "truck_6",
+        "pallet_capacity": 6.0,
+        "slot_names": ["left_front", "right_front", "left_mid", "right_mid", "left_rear", "right_rear"]
+      },
+      "date": "2026-02-27",
+      "stops": [
+        {
+          "stop_id": "DA0216:9100696143",
+          "route_code": "DA0216",
+          "parking_group_id": "DA0216:MOLLET",
+          "client_ids": ["9100696143"],
+          "client_names": ["LOS TERESITOS"],
+          "town": "MOLLET DEL VALLÈS",
+          "zone": "DD13100001",
+          "latitude": 41.5429,
+          "longitude": 2.2146,
+          "total_pallet_equivalent": 0.72,
+          "delivery_lines": [],
+          "service_minutes": 12,
+          "priority_score": 1.8,
+          "window_start_minutes": 480,
+          "window_end_minutes": 660,
+          "coordinate_source": "synthetic_fallback"
+        },
+        {
+          "stop_id": "DA0216:9100527972",
+          "route_code": "DA0216",
+          "parking_group_id": "DA0216:GRANOLLERS",
+          "client_ids": ["9100527972"],
+          "client_names": ["VALERO VALLES"],
+          "town": "GRANOLLERS",
+          "zone": "DD13100008",
+          "latitude": 41.6042,
+          "longitude": 2.2881,
+          "total_pallet_equivalent": 1.18,
+          "delivery_lines": [],
+          "service_minutes": 18,
+          "priority_score": 1.4,
+          "window_start_minutes": 450,
+          "window_end_minutes": 720,
+          "coordinate_source": "synthetic_fallback"
+        },
+        {
+          "stop_id": "DA0216:9100736471",
+          "route_code": "DA0216",
+          "parking_group_id": "DA0216:SABADELL",
+          "client_ids": ["9100736471"],
+          "client_names": ["AUTENTIK'S"],
+          "town": "SABADELL",
+          "zone": "DD13100020",
+          "latitude": 41.5533,
+          "longitude": 2.1059,
+          "total_pallet_equivalent": 2.43,
+          "delivery_lines": [],
+          "service_minutes": 26,
+          "priority_score": 1.2,
+          "window_start_minutes": 540,
+          "window_end_minutes": 840,
+          "coordinate_source": "synthetic_fallback"
+        }
+      ],
+      "sequence": ["DA0216:9100696143", "DA0216:9100527972", "DA0216:9100736471"],
+      "arrivals": ["08:03", "08:31", "09:26"],
+      "departures": ["08:15", "08:49", "09:52"],
+      "distance_km": 34.8,
+      "duration_minutes": 202.0,
+      "pallet_load": 4.33,
+      "return_peak": 2.6,
+      "slot_allocations": [
+        {
+          "slot_name": "left_front",
+          "mode": "client_priority",
+          "accessibility_rank": 1,
+          "client_names": ["LOS TERESITOS"],
+          "material_mix": ["BONKA ESSENTIA ESPRESSO 1KG", "XPLICIT AZUCAR 7GR"],
+          "pallet_equivalent": 0.72,
+          "return_reserve": 0.25,
+          "blocking_risk": 0.17
+        },
+        {
+          "slot_name": "right_front",
+          "mode": "client_priority",
+          "accessibility_rank": 2,
+          "client_names": ["VALERO VALLES"],
+          "material_mix": ["FONT D.OR NATURAL 1,5L", "RETORNABLE MIX"],
+          "pallet_equivalent": 1.18,
+          "return_reserve": 0.41,
+          "blocking_risk": 0.33
+        },
+        {
+          "slot_name": "left_mid",
+          "mode": "hybrid_reference",
+          "accessibility_rank": 3,
+          "client_names": ["AUTENTIK'S"],
+          "material_mix": ["BARRIL ESTRELLA DAMM", "CAJAS VARIAS"],
+          "pallet_equivalent": 1.2,
+          "return_reserve": 0.85,
+          "blocking_risk": 0.5
+        }
+      ],
+      "route_legs": [
+        {
+          "from_name": "DDI Mollet",
+          "to_name": "LOS TERESITOS",
+          "distance_km": 1.2,
+          "duration_minutes": 3.0,
+          "geometry": [[41.5412, 2.2137], [41.5429, 2.2146]]
+        },
+        {
+          "from_name": "LOS TERESITOS",
+          "to_name": "VALERO VALLES",
+          "distance_km": 8.9,
+          "duration_minutes": 16.0,
+          "geometry": [[41.5429, 2.2146], [41.6042, 2.2881]]
+        },
+        {
+          "from_name": "VALERO VALLES",
+          "to_name": "AUTENTIK'S",
+          "distance_km": 14.1,
+          "duration_minutes": 37.0,
+          "geometry": [[41.6042, 2.2881], [41.5533, 2.1059]]
+        },
+        {
+          "from_name": "AUTENTIK'S",
+          "to_name": "DDI Mollet",
+          "distance_km": 10.6,
+          "duration_minutes": 29.0,
+          "geometry": [[41.5533, 2.1059], [41.5412, 2.2137]]
+        }
+      ],
+      "alerts": [
+        "Hay mezcla de referencias en slots medios; revisar secuencia lateral de descarga."
+      ],
+      "rationale": [
+        "Se prioriza LOS TERESITOS al inicio por proximidad al depósito y ventana matinal.",
+        "La secuencia combina proximidad entre poblaciones con penalización por retraso.",
+        "La carga exterior se reserva a clientes tempranos y el resto pasa a modo híbrido por referencia."
+      ],
+      "objective_breakdown": {
+        "distance_cost": 34.8,
+        "travel_time_cost": 4.38,
+        "time_window_violation_penalty": 0.0,
+        "picking_path_penalty": 1.72,
+        "client_fragmentation_penalty": 0.84,
+        "return_space_risk_penalty": 1.01,
+        "vehicle_capacity_penalty": 0.0,
+        "load_instability_penalty": 1.19
+      }
+    },
+    {
+      "route_code": "DR0054",
+      "vehicle": {
+        "vehicle_id": "DR0054-truck_8",
+        "template": "truck_8",
+        "pallet_capacity": 8.0,
+        "slot_names": ["left_front", "right_front", "center_front", "left_mid", "right_mid", "center_mid", "left_rear", "right_rear"]
+      },
+      "date": "2026-02-27",
+      "stops": [
+        {
+          "stop_id": "DR0054:9100627990",
+          "route_code": "DR0054",
+          "parking_group_id": "DR0054:MANLLEU",
+          "client_ids": ["9100627990"],
+          "client_names": ["FELIUBADALO"],
+          "town": "MANLLEU",
+          "zone": "DD13100045",
+          "latitude": 42.0006,
+          "longitude": 2.2872,
+          "total_pallet_equivalent": 2.88,
+          "delivery_lines": [],
+          "service_minutes": 31,
+          "priority_score": 1.9,
+          "window_start_minutes": 420,
+          "window_end_minutes": 690,
+          "coordinate_source": "synthetic_fallback"
+        },
+        {
+          "stop_id": "DR0054:9100582098",
+          "route_code": "DR0054",
+          "parking_group_id": "DR0054:VIC",
+          "client_ids": ["9100582098"],
+          "client_names": ["HOSPITAL DE MANLLEU CUINA"],
+          "town": "VIC",
+          "zone": "DD13100059",
+          "latitude": 41.9311,
+          "longitude": 2.2559,
+          "total_pallet_equivalent": 2.16,
+          "delivery_lines": [],
+          "service_minutes": 27,
+          "priority_score": 1.6,
+          "window_start_minutes": 480,
+          "window_end_minutes": 780,
+          "coordinate_source": "synthetic_fallback"
+        },
+        {
+          "stop_id": "DR0054:9100681586",
+          "route_code": "DR0054",
+          "parking_group_id": "DR0054:VIC",
+          "client_ids": ["9100681586"],
+          "client_names": ["AREA TRUCK SHELL"],
+          "town": "VIC",
+          "zone": "DD13100059",
+          "latitude": 41.9458,
+          "longitude": 2.2703,
+          "total_pallet_equivalent": 1.94,
+          "delivery_lines": [],
+          "service_minutes": 22,
+          "priority_score": 1.3,
+          "window_start_minutes": 540,
+          "window_end_minutes": 900,
+          "coordinate_source": "synthetic_fallback"
+        }
+      ],
+      "sequence": ["DR0054:9100627990", "DR0054:9100582098", "DR0054:9100681586"],
+      "arrivals": ["08:41", "09:26", "10:04"],
+      "departures": ["09:12", "09:53", "10:26"],
+      "distance_km": 56.2,
+      "duration_minutes": 261.0,
+      "pallet_load": 6.98,
+      "return_peak": 4.2,
+      "slot_allocations": [
+        {
+          "slot_name": "left_front",
+          "mode": "client_priority",
+          "accessibility_rank": 1,
+          "client_names": ["FELIUBADALO"],
+          "material_mix": ["BARRIL ESTRELLA DAMM", "RETORNABLE MIX"],
+          "pallet_equivalent": 1.5,
+          "return_reserve": 1.0,
+          "blocking_risk": 0.12
+        },
+        {
+          "slot_name": "right_front",
+          "mode": "client_priority",
+          "accessibility_rank": 2,
+          "client_names": ["HOSPITAL DE MANLLEU CUINA"],
+          "material_mix": ["AGUA Y REFRESCO", "CAJAS MIX"],
+          "pallet_equivalent": 1.4,
+          "return_reserve": 0.75,
+          "blocking_risk": 0.25
+        },
+        {
+          "slot_name": "center_mid",
+          "mode": "hybrid_reference",
+          "accessibility_rank": 6,
+          "client_names": ["AREA TRUCK SHELL"],
+          "material_mix": ["LATA", "BOTELLA", "CAJA"],
+          "pallet_equivalent": 1.1,
+          "return_reserve": 0.65,
+          "blocking_risk": 0.75
+        }
+      ],
+      "route_legs": [
+        {
+          "from_name": "DDI Mollet",
+          "to_name": "FELIUBADALO",
+          "distance_km": 32.0,
+          "duration_minutes": 41.0,
+          "geometry": [[41.5412, 2.2137], [42.0006, 2.2872]]
+        },
+        {
+          "from_name": "FELIUBADALO",
+          "to_name": "HOSPITAL DE MANLLEU CUINA",
+          "distance_km": 10.1,
+          "duration_minutes": 14.0,
+          "geometry": [[42.0006, 2.2872], [41.9311, 2.2559]]
+        },
+        {
+          "from_name": "HOSPITAL DE MANLLEU CUINA",
+          "to_name": "AREA TRUCK SHELL",
+          "distance_km": 2.7,
+          "duration_minutes": 5.0,
+          "geometry": [[41.9311, 2.2559], [41.9458, 2.2703]]
+        },
+        {
+          "from_name": "AREA TRUCK SHELL",
+          "to_name": "DDI Mollet",
+          "distance_km": 11.4,
+          "duration_minutes": 21.0,
+          "geometry": [[41.9458, 2.2703], [41.5412, 2.2137]]
+        }
+      ],
+      "alerts": [
+        "La reserva de retornables es alta; conviene mantener libre la franja central.",
+        "Hay slots de baja accesibilidad con mezcla de referencias."
+      ],
+      "rationale": [
+        "Se prioriza FELIUBADALO por volumen y por horario matinal de descarga.",
+        "VIC y MANLLEU comparten corredor geográfico y permiten un barrido compacto.",
+        "Se asigna truck_8 para absorber carga y retorno sin desbordar laterales."
+      ],
+      "objective_breakdown": {
+        "distance_cost": 56.2,
+        "travel_time_cost": 5.66,
+        "time_window_violation_penalty": 0.0,
+        "picking_path_penalty": 2.43,
+        "client_fragmentation_penalty": 1.12,
+        "return_space_risk_penalty": 1.84,
+        "vehicle_capacity_penalty": 0.0,
+        "load_instability_penalty": 1.86
+      }
+    },
+    {
+      "route_code": "DA0131",
+      "vehicle": {
+        "vehicle_id": "DA0131-van_3",
+        "template": "van_3",
+        "pallet_capacity": 3.0,
+        "slot_names": ["front", "mid", "rear"]
+      },
+      "date": "2026-02-27",
+      "stops": [
+        {
+          "stop_id": "DA0131:9100642823",
+          "route_code": "DA0131",
+          "parking_group_id": "DA0131:VIC",
+          "client_ids": ["9100642823"],
+          "client_names": ["CAFETERIA PRADALS"],
+          "town": "VIC",
+          "zone": "DD13100059",
+          "latitude": 41.9346,
+          "longitude": 2.2541,
+          "total_pallet_equivalent": 0.56,
+          "delivery_lines": [],
+          "service_minutes": 10,
+          "priority_score": 1.5,
+          "window_start_minutes": 420,
+          "window_end_minutes": 660,
+          "coordinate_source": "synthetic_fallback"
+        },
+        {
+          "stop_id": "DA0131:9100673632",
+          "route_code": "DA0131",
+          "parking_group_id": "DA0131:VIC",
+          "client_ids": ["9100673632"],
+          "client_names": ["AREA VIC BP"],
+          "town": "VIC",
+          "zone": "DD13100059",
+          "latitude": 41.9368,
+          "longitude": 2.2486,
+          "total_pallet_equivalent": 0.71,
+          "delivery_lines": [],
+          "service_minutes": 11,
+          "priority_score": 1.2,
+          "window_start_minutes": 540,
+          "window_end_minutes": 900,
+          "coordinate_source": "synthetic_fallback"
+        },
+        {
+          "stop_id": "DA0131:9100648495",
+          "route_code": "DA0131",
+          "parking_group_id": "DA0131:VIC",
+          "client_ids": ["9100648495"],
+          "client_names": ["ZONA DIESEL URBAN"],
+          "town": "VIC",
+          "zone": "DD13100059",
+          "latitude": 41.9407,
+          "longitude": 2.2414,
+          "total_pallet_equivalent": 0.92,
+          "delivery_lines": [],
+          "service_minutes": 14,
+          "priority_score": 1.1,
+          "window_start_minutes": 600,
+          "window_end_minutes": 960,
+          "coordinate_source": "synthetic_fallback"
+        }
+      ],
+      "sequence": ["DA0131:9100642823", "DA0131:9100673632", "DA0131:9100648495"],
+      "arrivals": ["11:02", "11:19", "11:37"],
+      "departures": ["11:12", "11:30", "11:51"],
+      "distance_km": 32.4,
+      "duration_minutes": 223.0,
+      "pallet_load": 2.19,
+      "return_peak": 1.3,
+      "slot_allocations": [
+        {
+          "slot_name": "front",
+          "mode": "client_priority",
+          "accessibility_rank": 1,
+          "client_names": ["CAFETERIA PRADALS"],
+          "material_mix": ["CAJAS MIX", "LATA"],
+          "pallet_equivalent": 0.56,
+          "return_reserve": 0.2,
+          "blocking_risk": 0.2
+        },
+        {
+          "slot_name": "mid",
+          "mode": "hybrid_reference",
+          "accessibility_rank": 2,
+          "client_names": ["AREA VIC BP"],
+          "material_mix": ["AGUA", "REFRESCO"],
+          "pallet_equivalent": 0.71,
+          "return_reserve": 0.24,
+          "blocking_risk": 0.5
+        },
+        {
+          "slot_name": "rear",
+          "mode": "hybrid_reference",
+          "accessibility_rank": 3,
+          "client_names": ["ZONA DIESEL URBAN"],
+          "material_mix": ["BOTELLA", "CAJA"],
+          "pallet_equivalent": 0.92,
+          "return_reserve": 0.31,
+          "blocking_risk": 0.78
+        }
+      ],
+      "route_legs": [
+        {
+          "from_name": "DDI Mollet",
+          "to_name": "CAFETERIA PRADALS",
+          "distance_km": 28.1,
+          "duration_minutes": 39.0,
+          "geometry": [[41.5412, 2.2137], [41.9346, 2.2541]]
+        },
+        {
+          "from_name": "CAFETERIA PRADALS",
+          "to_name": "AREA VIC BP",
+          "distance_km": 0.7,
+          "duration_minutes": 3.0,
+          "geometry": [[41.9346, 2.2541], [41.9368, 2.2486]]
+        },
+        {
+          "from_name": "AREA VIC BP",
+          "to_name": "ZONA DIESEL URBAN",
+          "distance_km": 0.9,
+          "duration_minutes": 3.0,
+          "geometry": [[41.9368, 2.2486], [41.9407, 2.2414]]
+        },
+        {
+          "from_name": "ZONA DIESEL URBAN",
+          "to_name": "DDI Mollet",
+          "distance_km": 2.7,
+          "duration_minutes": 14.0,
+          "geometry": [[41.9407, 2.2414], [41.5412, 2.2137]]
+        }
+      ],
+      "alerts": [
+        "Los tres clientes comparten área y son candidatos claros a parada única con reparto a pie o transpaleta."
+      ],
+      "rationale": [
+        "Esta ruta muestra el caso típico de microcluster de clientes cercanos.",
+        "La furgoneta de 3 palets es suficiente y reduce ociosidad respecto a un camión mayor.",
+        "El slot trasero queda para cliente tardío y la parte frontal se reserva a descarga rápida."
+      ],
+      "objective_breakdown": {
+        "distance_cost": 32.4,
+        "travel_time_cost": 4.83,
+        "time_window_violation_penalty": 0.0,
+        "picking_path_penalty": 1.26,
+        "client_fragmentation_penalty": 0.61,
+        "return_space_risk_penalty": 0.74,
+        "vehicle_capacity_penalty": 0.0,
+        "load_instability_penalty": 1.44
+      }
+    }
+  ],
+  "assumptions": [
+    "Si ORS no está configurado con API key, el sistema cae a un proveedor sintético basado en geocodificación determinista y haversine.",
+    "La asignación inicial usa las rutas históricas como semilla y reoptimiza la secuencia dentro de cada ruta.",
+    "El interior del vehículo se modela con slots discretos porque no hay medidas interiores exactas en el dataset."
+  ],
+  "tradeoffs": [
+    "Se mantiene la ruta histórica como contenedor operativo para ganar velocidad y explicabilidad de hackathon.",
+    "Los clientes tempranos sacrifican algo de pureza por referencia para ganar accesibilidad lateral.",
+    "El layout del almacén se usa como heurística y no como plano métrico exacto."
+  ],
+  "actionable_alerts": [
+    "Hay mezcla de referencias en slots medios; revisar secuencia lateral de descarga.",
+    "La reserva de retornables es alta; conviene mantener libre la franja central.",
+    "Los tres clientes de Vic son candidatos a parada compartida."
+  ],
+  "weights": {
+    "distance_cost": 1.0,
+    "travel_time_cost": 1.3,
+    "time_window_violation_penalty": 4.5,
+    "late_delivery_penalty": 3.6,
+    "picking_path_penalty": 1.8,
+    "reference_fragmentation_penalty": 1.4,
+    "client_fragmentation_penalty": 1.2,
+    "unloading_search_penalty": 2.4,
+    "lateral_access_penalty": 1.9,
+    "return_space_risk_penalty": 2.2,
+    "vehicle_capacity_penalty": 7.0,
+    "stacking_incompatibility_penalty": 3.0,
+    "load_instability_penalty": 2.8,
+    "route_balance_penalty": 1.0,
+    "driver_knowledge_penalty": 0.8,
+    "extra_stop_penalty": 1.1,
+    "client_closed_or_failed_delivery_penalty": 3.3
+  }
+}
