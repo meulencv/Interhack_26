@@ -34,6 +34,8 @@ STACK_RESISTENTE = 0
 STACK_MEDIO = 1
 STACK_FRAGIL = 2
 
+RUTA_CATALOGO_ZM040_FIJO = Path(__file__).with_name("zm040_catalogo_fijo.csv")
+
 
 @dataclass(frozen=True)
 class ItemCarga:
@@ -564,6 +566,32 @@ def _estimar_peso_kg(descripcion: str, unidad_venta: str, volumen_cm3: float, es
 
 
 def _preparar_catalogo_dimensiones(df_zm040: pd.DataFrame) -> Tuple[Dict[Tuple[str, str], dict], Dict[str, List[dict]]]:
+    if {"material", "uma", "largo_cm", "ancho_cm", "alto_cm", "peso_kg"}.issubset(df_zm040.columns):
+        base = df_zm040.copy()
+        base["material"] = base["material"].astype(str).str.strip()
+        base["uma"] = base["uma"].astype(str).str.strip()
+        for col in ("largo_cm", "ancho_cm", "alto_cm", "peso_kg"):
+            base[col] = pd.to_numeric(base[col], errors="coerce").fillna(0.0)
+
+        registros_por_clave: Dict[Tuple[str, str], dict] = {}
+        registros_por_material: Dict[str, List[dict]] = defaultdict(list)
+        for _, fila in base.iterrows():
+            material = str(fila["material"]).strip()
+            uma = str(fila["uma"]).strip()
+            if not material:
+                continue
+            registro = {
+                "material": material,
+                "uma": uma,
+                "largo_cm": float(fila["largo_cm"]),
+                "ancho_cm": float(fila["ancho_cm"]),
+                "alto_cm": float(fila["alto_cm"]),
+                "peso_kg": float(fila["peso_kg"]),
+            }
+            registros_por_clave[(material, uma)] = registro
+            registros_por_material[material].append(registro)
+        return registros_por_clave, registros_por_material
+
     zm = df_zm040.copy()
     columnas_unidad = [c for c in zm.columns if str(c).startswith("Unidad")]
     col_u_largo = columnas_unidad[0] if len(columnas_unidad) > 0 else None
@@ -607,6 +635,16 @@ def _preparar_catalogo_dimensiones(df_zm040: pd.DataFrame) -> Tuple[Dict[Tuple[s
     return registros_por_clave, registros_por_material
 
 
+def _cargar_catalogo_zm040(ruta_zm040: Optional[str]) -> pd.DataFrame:
+    ruta_preferida = Path(ruta_zm040) if ruta_zm040 else RUTA_CATALOGO_ZM040_FIJO
+    if not ruta_preferida.exists():
+        raise FileNotFoundError(f"No se encontro el catalogo ZM040 en {ruta_preferida}")
+
+    if ruta_preferida.suffix.lower() == ".csv":
+        return pd.read_csv(ruta_preferida)
+    return pd.read_excel(ruta_preferida)
+
+
 def _buscar_dimensiones_y_peso(
     material: str,
     unidad_venta: str,
@@ -645,7 +683,7 @@ def _buscar_dimensiones_y_peso(
 
 def cargar_items_desde_excels(
     ruta_hackaton: str,
-    ruta_zm040: str,
+    ruta_zm040: Optional[str] = None,
     *,
     ruta_layout: Optional[str] = "Layout Mollet.xlsx",
     ruta: Optional[str] = None,
@@ -660,7 +698,7 @@ def cargar_items_desde_excels(
 
     df_detalle = pd.read_excel(ruta_hackaton, sheet_name="Detalle entrega")
     df_materiales = pd.read_excel(ruta_hackaton, sheet_name="Materiales zubic")
-    df_zm040 = pd.read_excel(ruta_zm040)
+    df_zm040 = _cargar_catalogo_zm040(ruta_zm040)
 
     if ruta:
         df_detalle = df_detalle[df_detalle["Ruta"].astype(str) == str(ruta)].copy()
@@ -1386,7 +1424,6 @@ def optimizar_carga_camion(
 def ejemplo_uso() -> None:
     items, _, _ = cargar_items_desde_excels(
         ruta_hackaton="Hackaton.xlsx",
-        ruta_zm040="ZM040.XLSX",
         ruta_layout="Layout Mollet.xlsx",
         ruta="DR0001",
         max_stops=5,
@@ -1401,7 +1438,7 @@ def ejemplo_uso() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Optimizador heuristico de carga por palets.")
     parser.add_argument("--hackaton", default="Hackaton.xlsx", help="Ruta al fichero Hackaton.xlsx")
-    parser.add_argument("--zm040", default="ZM040.XLSX", help="Ruta al fichero ZM040.XLSX")
+    parser.add_argument("--zm040", help="Ruta opcional al fichero o CSV de catalogo ZM040. Si no se indica, usa el catalogo fijo del proyecto.")
     parser.add_argument("--layout", default="Layout Mollet.xlsx", help="Ruta al layout del almacen")
     parser.add_argument("--ruta", help="Codigo de ruta a analizar")
     parser.add_argument("--transporte", help="Codigo de transporte a analizar")
