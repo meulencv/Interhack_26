@@ -1,0 +1,364 @@
+import { useEffect, useState } from 'react'
+import { MapContainer, TileLayer, Polyline, CircleMarker, Marker, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+import './App.css'
+
+// Fix leaflet default icon
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+})
+
+// Buenos Aires center
+const CENTER = [-34.608, -58.437]
+
+const ROUTES = [
+  { color: '#22d3ee', positions: [[-34.590, -58.380], [-34.600, -58.400], [-34.615, -58.420], [-34.625, -58.440], [-34.620, -58.460]] },
+  { color: '#3b82f6', positions: [[-34.588, -58.410], [-34.598, -58.425], [-34.610, -58.435]] },
+  { color: '#22c55e', positions: [[-34.595, -58.455], [-34.608, -58.465], [-34.618, -58.470], [-34.628, -58.478]] },
+  { color: '#f59e0b', positions: [[-34.620, -58.460], [-34.630, -58.475], [-34.640, -58.490], [-34.645, -58.510]], dashArray: '6 6' },
+  { color: '#a855f7', positions: [[-34.638, -58.395], [-34.628, -58.405], [-34.618, -58.415]], dashArray: '6 6' },
+  { color: '#f59e0b', positions: [[-34.598, -58.460], [-34.605, -58.480], [-34.612, -58.500]] },
+]
+
+const STOPS = [
+  { pos: [-34.590, -58.380], color: '#3b82f6' },
+  { pos: [-34.595, -58.455], color: '#22c55e' },
+  { pos: [-34.628, -58.478], color: '#22c55e' },
+  { pos: [-34.638, -58.395], color: '#a855f7' },
+  { pos: [-34.618, -58.415], color: '#a855f7' },
+  { pos: [-34.598, -58.460], color: '#22d3ee' },
+]
+
+const TRUCKS = [
+  { pos: [-34.593, -58.390] },
+  { pos: [-34.600, -58.460] },
+  { pos: [-34.615, -58.415] },
+  { pos: [-34.630, -58.465] },
+  { pos: [-34.622, -58.495] },
+  { pos: [-34.640, -58.505] },
+]
+
+function TruckIcon() {
+  return L.icon({
+    iconUrl: '/truck.png',
+    iconSize: [60, 46],
+    iconAnchor: [30, 46],
+  })
+}
+
+function AlertIcon() {
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:0;height:0;
+      border-left:12px solid transparent;
+      border-right:12px solid transparent;
+      border-bottom:22px solid #ef4444;
+      position:relative;
+      filter:drop-shadow(0 0 6px #ef4444);
+    ">
+      <span style="
+        position:absolute;top:6px;left:-4px;
+        color:white;font-weight:700;font-size:12px;
+      ">!</span>
+    </div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 24],
+  })
+}
+
+function Clock() {
+  const [time, setTime] = useState(() => {
+    const d = new Date()
+    return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+  })
+  useEffect(() => {
+    const t = setInterval(() => {
+      const d = new Date()
+      setTime(d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }))
+    }, 10000)
+    return () => clearInterval(t)
+  }, [])
+  return <span className="time">{time}</span>
+}
+
+const NAV_ITEMS = [
+  { label: 'Mapa en vivo', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg> },
+  { label: 'Flota', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 20a2 2 0 100-4 2 2 0 000 4zM17 20a2 2 0 100-4 2 2 0 000 4z"/></svg> },
+  { label: 'Entregas', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg> },
+  { label: 'Optimización', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l-.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> },
+  { label: 'Alertas', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg> },
+  { label: 'Analytics', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18M7 14l4-4 4 4 5-5"/></svg> },
+  { label: 'Configuración', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l-.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> },
+]
+
+export default function App() {
+  const [activeNav, setActiveNav] = useState(0)
+  const truckIcon = TruckIcon()
+  const alertIcon = AlertIcon()
+
+  return (
+    <div className="frame">
+      {/* SIDEBAR */}
+      <aside className="sidebar">
+        <div className="logo">
+          <div className="logo-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinejoin="round">
+              <path d="M12 2L3 7v10l9 5 9-5V7l-9-5z"/>
+              <path d="M3 7l9 5 9-5"/>
+              <path d="M12 12v10"/>
+            </svg>
+          </div>
+          <div className="logo-text">LogiOpti AI</div>
+        </div>
+
+        <nav className="nav">
+          {NAV_ITEMS.map((item, i) => (
+            <button key={i} className={`nav-item${activeNav === i ? ' active' : ''}`} onClick={() => setActiveNav(i)}>
+              {item.icon}
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-bottom">
+          <div className="status-pill">
+            <span className="status-dot"/>
+            Sistema operativo
+          </div>
+          <div className="user-card">
+            <div className="user-avatar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+            <div className="user-info">
+              <div className="user-name">Controlador</div>
+              <div className="user-role">Admin</div>
+            </div>
+            <svg className="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+        </div>
+      </aside>
+
+      {/* MAIN */}
+      <main className="main">
+        {/* Topbar */}
+        <header className="topbar">
+          <div className="top-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="4" fill="#f5b942" stroke="none"/>
+              <path d="M3 12h2M19 12h2M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>
+            </svg>
+            22°C
+          </div>
+          <button className="top-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+            </svg>
+          </button>
+          <button className="top-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+            </svg>
+          </button>
+          <Clock />
+        </header>
+
+        {/* Content */}
+        <section className="content">
+          {/* MAP */}
+          <div className="map-area">
+            <div className="fleet-card">
+              <div className="card-title">Flota en tiempo real</div>
+              <div className="fleet-list">
+                <div className="fleet-row"><div className="fleet-left"><span className="dot b"/>En ruta</div><div className="fleet-num">28</div></div>
+                <div className="fleet-row"><div className="fleet-left"><span className="dot g"/>Entregados</div><div className="fleet-num">15</div></div>
+                <div className="fleet-row"><div className="fleet-left"><span className="dot y"/>Pendientes</div><div className="fleet-num">7</div></div>
+                <div className="fleet-row"><div className="fleet-left"><span className="dot r"/>Alertas</div><div className="fleet-num">2</div></div>
+              </div>
+            </div>
+
+            <MapContainer
+              center={CENTER}
+              zoom={13}
+              scrollWheelZoom={true}
+              zoomControl={false}
+              attributionControl={false}
+              style={{ width: '100%', height: '100%' }}
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+
+              {/* Routes */}
+              {ROUTES.map((route, i) => (
+                <Polyline
+                  key={i}
+                  positions={route.positions}
+                  pathOptions={{
+                    color: route.color,
+                    weight: 3,
+                    opacity: 0.9,
+                    dashArray: route.dashArray,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }}
+                />
+              ))}
+
+              {/* Stop markers */}
+              {STOPS.map((s, i) => (
+                <CircleMarker
+                  key={i}
+                  center={s.pos}
+                  radius={5}
+                  pathOptions={{ color: s.color, fillColor: s.color, fillOpacity: 1, weight: 0 }}
+                />
+              ))}
+
+              {/* Trucks */}
+              {TRUCKS.map((t, i) => (
+                <Marker key={i} position={t.pos} icon={truckIcon} />
+              ))}
+
+              {/* Alert */}
+              <Marker position={[-34.606, -58.442]} icon={alertIcon} />
+            </MapContainer>
+          </div>
+
+          {/* RIGHT COL */}
+          <div className="right-col">
+            <div className="card">
+              <div className="opt-header">
+                <div className="opt-title">Optimización activa</div>
+                <svg className="pulse-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+              </div>
+              <div className="badge"><span className="b-dot"/>Simulated Annealing</div>
+
+              <div className="obj-block">
+                <div className="obj-label">Objetivo actual</div>
+                <div className="obj-value">Minimizar tiempo de entrega</div>
+              </div>
+
+              <div className="params">
+                <div className="params-title">Parámetros</div>
+                <div className="param-row"><span className="param-name">Temperatura inicial</span><span className="param-val">100.0</span></div>
+                <div className="param-row"><span className="param-name">Temperatura final</span><span className="param-val">0.1</span></div>
+                <div className="param-row"><span className="param-name">Tasa de enfriamiento</span><span className="param-val">0.95</span></div>
+                <div className="param-row"><span className="param-name">Iteraciones</span><span className="param-val">1,000</span></div>
+                <div className="param-row"><span className="param-name">Vecinos por iteración</span><span className="param-val">50</span></div>
+              </div>
+
+              <div className="progress-block">
+                <div className="progress-head"><span>Progreso</span><span>78%</span></div>
+                <div className="progress-bar"><div className="progress-fill"/></div>
+                <div className="iter-text">Iteración 780 / 1000</div>
+                <div className="best-sol">Mejor solución encontrada</div>
+              </div>
+            </div>
+
+            <div className="card voice-card">
+              <div className="voice-title">Asistente de voz</div>
+              <div className="voice-wave">
+                <svg width="100%" height="46" viewBox="0 0 280 46" preserveAspectRatio="none">
+                  <g fill="#7c6cff">
+                    {[2,8,14,20,26,32,38,44,50,56,62,68,74,80,86,92,98,104,110,116,122,128,134,140,146,152,158,164,170,176,182,188,194,200,206,212,218,224,230,236,242,248,254,260,266,272].map((x, i) => {
+                      const heights = [6,14,22,10,30,18,34,10,26,6,18,38,14,26,6,22,30,10,18,34,6,26,14,38,18,6,30,14,22,10,34,18,6,26,14,30,10,22,6,18,34,10,26,14,6,18]
+                      const h = heights[i] || 10
+                      const y = (46 - h) / 2
+                      return <rect key={x} x={x} y={y} width="2" height={h} rx="1"/>
+                    })}
+                  </g>
+                </svg>
+              </div>
+              <div className="voice-bottom">
+                <div className="listening">Escuchando...</div>
+                <button className="mic-btn">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="2" width="6" height="12" rx="3"/>
+                    <path d="M19 10v2a7 7 0 01-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Bottom row */}
+        <section className="bottom-row">
+          <div className="card events-card">
+            <div className="events-title">Eventos recientes <span className="more">⋯</span></div>
+
+            <div className="event">
+              <div className="ev-icon r">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <div className="ev-name">Corte de calle</div>
+              <div className="ev-detail">Av. Siempre Viva 742</div>
+              <div className="ev-time">10:40 AM</div>
+            </div>
+
+            <div className="event">
+              <div className="ev-icon y">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <div className="ev-name">Retraso en entrega</div>
+              <div className="ev-detail">Cliente: Distribuidora Norte</div>
+              <div className="ev-time">10:32 AM</div>
+            </div>
+
+            <div className="event">
+              <div className="ev-icon b">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
+                </svg>
+              </div>
+              <div className="ev-name">Nuevo pedido asignado</div>
+              <div className="ev-detail">Pedido #4587</div>
+              <div className="ev-time">10:28 AM</div>
+            </div>
+          </div>
+
+          <div className="card events-card">
+            <div className="events-title" style={{ marginBottom: 0 }}>Resumen de rendimiento</div>
+            <div className="summary-grid">
+              <div className="summary-cell">
+                <div className="summary-label">Entregas hoy</div>
+                <div className="summary-value">43</div>
+              </div>
+              <div className="summary-cell">
+                <div className="summary-label">Tiempo promedio</div>
+                <div className="summary-value">2h 45m</div>
+              </div>
+              <div className="summary-cell">
+                <div className="summary-label">Distancia total</div>
+                <div className="summary-value">1,246 km</div>
+              </div>
+              <div className="summary-cell">
+                <div className="summary-label">Eficiencia</div>
+                <div className="summary-value">92%</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  )
+}
