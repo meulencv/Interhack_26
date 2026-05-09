@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 import hashlib
 import json
+import re
 
 from .config import AppConfig
 
@@ -89,15 +90,48 @@ class ORSClient:
     # ── Geocoding ──────────────────────────────────────────────────────────────
 
     def _nominatim(self, address: str, postal_code: str, town: str) -> CoordinateResult | None:
-        parts = [p for p in (address, postal_code, town, "Spain") if p]
-        qs = urlencode({"q": " ".join(parts), "limit": 1})
+        for query in self._geocode_queries(address, postal_code, town):
+            result = self._photon(query)
+            if result:
+                return result
+        return None
+
+    def _geocode_queries(self, address: str, postal_code: str, town: str) -> list[str]:
+        addr_norm = self._normalize_address(address)
+        return [
+            f"{addr_norm} {postal_code} {town} Spain",
+            f"{postal_code} {town} Spain",
+        ]
+
+    def _normalize_address(self, address: str) -> str:
+        replacements = {
+            "CALLE ": "Carrer ", "CALLE": "Carrer",
+            "CARRER ": "Carrer ", "C/ ": "Carrer ",
+            "AVENIDA ": "Avinguda ", "AVDA ": "Avinguda ", "AV. ": "Avinguda ",
+            "PASEO ": "Passeig ", "PASSEIG ": "Passeig ",
+            "CARRETERA ": "Carretera ", "CTRA. ": "Carretera ", "CTRA ": "Carretera ",
+            "PLAZA ": "Plaça ", "PL. ": "Plaça ",
+            "RONDA ": "Ronda ",
+            " S/N": "", "S/N": "",
+            "LOCAL ": "", ", LOCAL": "",
+            " (NAU ": " ", ")": "",
+        }
+        result = address
+        for old, new in replacements.items():
+            result = result.replace(old, new)
+        # Remove highway km references that confuse geocoders
+        result = re.sub(r"\s+KM\s+[\d.,]+.*", "", result, flags=re.IGNORECASE)
+        result = re.sub(r"\s+N-\d+\s+\d+.*", "", result, flags=re.IGNORECASE)
+        return result.strip()
+
+    def _photon(self, query: str) -> CoordinateResult | None:
+        qs = urlencode({"q": query, "limit": 1})
         try:
             req = Request(f"{self.PHOTON}/api/?{qs}", headers={"User-Agent": "logioptiai/1.0"})
             with urlopen(req, timeout=8) as r:
                 data = json.loads(r.read().decode())
         except Exception:
             return None
-
         features = data.get("features", [])
         if not features:
             return None

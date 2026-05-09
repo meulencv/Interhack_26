@@ -1,18 +1,8 @@
 {
-  "1b76ff716cfc6bab471563f069a8152454b97ed4f8302edf23e9f68999f93462": {
-    "latitude": 41.578978,
-    "longitude": 2.246478,
-    "source": "synthetic_fallback"
-  },
   "0913ae639f22f928a73049effa3dd46299ac734af1a8c08ef5faa8b2b3e5b758": {
     "latitude": 41.5434709,
     "longitude": 2.2654263,
     "source": "photon"
-  },
-  "370b3c5e414bb2ba46c25e874e0ecf2aef57edfab122d43c3de9cdd1c155a26e": {
-    "latitude": 41.602825,
-    "longitude": 2.439911,
-    "source": "synthetic_fallback"
   },
   "1a04f8c63abced92164fa3853e988db67e139f1cb088ca3d8b7f1d591e08ee54": {
     "latitude": 41.5624896,
@@ -84,11 +74,6 @@
     "longitude": 2.3646919,
     "source": "photon"
   },
-  "61e62a0c6f47683679c96aa3597e3007dc14dbe7a9dfdc0a8fb55de470fc1e00": {
-    "latitude": 41.557209,
-    "longitude": 2.010202,
-    "source": "synthetic_fallback"
-  },
   "b7a8060bb5d7d8234a87f591e85858781fd7a5a226b7171f0895378c1f05149f": {
     "latitude": 41.5431161,
     "longitude": 2.2190261,
@@ -134,20 +119,10 @@
     "longitude": 2.2188869,
     "source": "photon"
   },
-  "e615fe2f076b02745cb1a76a268d4416ba45ecd912acc94ac681f0b6ad689429": {
-    "latitude": 41.308415,
-    "longitude": 2.055232,
-    "source": "synthetic_fallback"
-  },
   "c41d8627ae1f59054519984c36945c3c4d701b482ae96aee4f6a3c19484a26b7": {
     "latitude": 41.5727187,
     "longitude": 2.2365079,
     "source": "photon"
-  },
-  "d38b56ecf90793a2d2b4edb53365ca1943ad0f22cf7ee288f6ac8fe1d33f4b1d": {
-    "latitude": 41.524496,
-    "longitude": 2.145016,
-    "source": "synthetic_fallback"
   },
   "e051e56500530c51cb148b44255c152999180f5a22a21db51b98e8747db015a3": {
     "latitude": 41.5715166,
@@ -274,20 +249,10 @@
     "longitude": 2.2322911,
     "source": "photon"
   },
-  "7928888c4f4d955798f937bf51849761e2de75c50831ee744589399aa8172dda": {
-    "latitude": 41.49536,
-    "longitude": 2.17543,
-    "source": "synthetic_fallback"
-  },
   "6c3490f528a2746d2a869009a0dc2300d7a9057d64b72f0cbf26ed2a7a64209e": {
     "latitude": 41.6091422,
     "longitude": 2.2902828,
     "source": "photon"
-  },
-  "6a3822e1f3763c8896039ee144f7871e81983fb609b692f53d6047683f649f1a": {
-    "latitude": 41.51336,
-    "longitude": 2.275603,
-    "source": "synthetic_fallback"
   },
   "9476db8988abb592d455c20c3df616b9a171c823d77e1241499cbc7d7e6e7c59": {
     "latitude": 41.6031959,
@@ -319,11 +284,6 @@
     "longitude": 2.2930703,
     "source": "photon"
   },
-  "2cd90988fbb25481965dab0581d3390bd0ee0c8b9b34aa82e4739473c65ddf7b": {
-    "latitude": 41.66244,
-    "longitude": 2.260148,
-    "source": "synthetic_fallback"
-  },
   "0a09a582d9f609f16a499095922f8fde0b2bff83999fc05ef89aca0a3c80b931": {
     "latitude": 41.6120428,
     "longitude": 2.2900731,
@@ -333,11 +293,6 @@
     "latitude": 41.6050949,
     "longitude": 2.2905456,
     "source": "photon"
-  },
-  "e26f52abd72ea620ebfff8c8d821daaca4291fad44b1a1b472c1fec31727f88d": {
-    "latitude": 41.659276,
-    "longitude": 2.324161,
-    "source": "synthetic_fallback"
   },
   "78744d9eef160b506f491721ae71c833c8c450783fe7f264c07c65ded4d9b1f8": {
     "latitude": 41.6091422,
@@ -389,35 +344,15 @@
     "longitude": 2.3066306,
     "source": "photon"
   },
-  "99b0625184cd1458224e03581f2766c3b735c77ed3ce7dc89b6d0e7d50b1b95e": {
-    "latitude": 41.304191,
-    "longitude": 2.140595,
-    "source": "synthetic_fallback"
-  },
-  "51284892d58c6f3a6471cc2ba3969f45921210682e985f62ff19ba9629102ca1": {
-    "latitude": 41.747272,
-    "longitude": 2.184763,
-    "source": "synthetic_fallback"
-  },
   "9bce7334b6abb201568da7db5ce50ec7ad875d2dc5d5bb49d3c4cf8c6c0e5000": {
     "latitude": 41.6270188,
     "longitude": 2.2984117,
     "source": "photon"
   },
-  "06ac05a0cb74d3170682eadc7deb3f942448b3c2cf1a39bf362d3d640e9fdd5a": {
-    "latitude": 41.648161,
-    "longitude": 2.124403,
-    "source": "synthetic_fallback"
-  },
   "d4119c39c68164676d5920ec4ed5a57b840dff52680b6d134ed1a75e6a4a863d": {
     "latitude": 41.6091422,
     "longitude": 2.2902828,
     "source": "photon"
-  },
-  "ac9734f252fbc3165bf9b2295d256bf874b8088a2bd02bc9a84b8925cc3af493": {
-    "latitude": 41.431397,
-    "longitude": 2.448472,
-    "source": "synthetic_fallback"
   },
   "382aab42b2946170cf7b1fc09dfe4fb063af285692546c3483cfd49dde40c89d": {
     "latitude": 41.5914669,
@@ -429,20 +364,10 @@
     "longitude": 2.2778844,
     "source": "photon"
   },
-  "582ec3d831d0c981e614c9735410818708cb94d644f9303975af06a4d5616cdc": {
-    "latitude": 41.48194,
-    "longitude": 2.184883,
-    "source": "synthetic_fallback"
-  },
   "3d8dea095407d335aa8153de5cc68ddbbdabb1f738545538e9019655fb371665": {
     "latitude": 41.5873365,
     "longitude": 2.3260575,
     "source": "photon"
-  },
-  "53020ef061bd74dcb36e0e8200feca27cdf47e2c43fc8aa9cc9c4c3beb74d5f8": {
-    "latitude": 41.755184,
-    "longitude": 2.340987,
-    "source": "synthetic_fallback"
   },
   "258cd092245f17ba54e7a2dbd8105993baf477f3739f71f5e19398d29cf9ce0e": {
     "latitude": 41.6089721,
@@ -749,11 +674,6 @@
     "longitude": 2.2486437,
     "source": "photon"
   },
-  "af8b14f05f3f473fee0f1778136fabc942a532eff2edb0ba1552733434ab0822": {
-    "latitude": 41.592541,
-    "longitude": 2.354337,
-    "source": "synthetic_fallback"
-  },
   "3b33cdd2858834a1bc5ea241bea975898173234ccfc2b0df3301a38472241dac": {
     "latitude": 41.5522085,
     "longitude": 2.2422342,
@@ -769,25 +689,10 @@
     "longitude": 2.243719,
     "source": "photon"
   },
-  "3e6afd1f9880aaf1a053d246b0f47d67fb07e4407d334431367352e9120f00d0": {
-    "latitude": 41.664083,
-    "longitude": 2.389758,
-    "source": "synthetic_fallback"
-  },
   "cad847488759c59cd15cabe429276681047af3ba56e67207c402e4648a49d108": {
     "latitude": 41.5265353,
     "longitude": 2.2302474,
     "source": "photon"
-  },
-  "723c21bbf69f59578e309a2d4e88d8b6faa697bfd4b217d30a64bdb42e2de399": {
-    "latitude": 41.515415,
-    "longitude": 2.036471,
-    "source": "synthetic_fallback"
-  },
-  "a26fcc8207814a66c196765961edc2986d905539b4ce3443901cdc366e26a525": {
-    "latitude": 41.324022,
-    "longitude": 2.096468,
-    "source": "synthetic_fallback"
   },
   "151520cfe94426c04dfd9c43991f8780d24781dd45511864f6f679dea1fc7a4b": {
     "latitude": 41.5257639,
@@ -824,20 +729,10 @@
     "longitude": 2.2250134,
     "source": "photon"
   },
-  "6385812003c551c4d11596f333cce6429625791d0b6ee577446d5f70ad577cb6": {
-    "latitude": 41.661764,
-    "longitude": 2.392596,
-    "source": "synthetic_fallback"
-  },
   "45d983f82aec3ad5ef3b0703cebf74475f3c31de2f9120e420cf805e99a45281": {
     "latitude": 41.6057252,
     "longitude": 2.2389847,
     "source": "photon"
-  },
-  "51ba8f037078cf5610e3865a8f66f5f5faf4f64b9d3541c0918bc9ba07f6a057": {
-    "latitude": 41.358758,
-    "longitude": 2.110234,
-    "source": "synthetic_fallback"
   },
   "5fc8bc08416fac5521d88fe6e50e1b3724ebcf4256cc7c69dfa1f8d328054d8f": {
     "latitude": 41.6108773,
@@ -924,11 +819,6 @@
     "longitude": 2.2848378,
     "source": "photon"
   },
-  "39f090d8613a33764ca63b10a841298d995106ed428cfa59ccd18c7f58e48fe1": {
-    "latitude": 41.596879,
-    "longitude": 2.442646,
-    "source": "synthetic_fallback"
-  },
   "1ff56e1ed97f6e43dbf7e26a7757bba77936fd0a68ea6a63408d3ab9faf8b209": {
     "latitude": 41.586336,
     "longitude": 2.2809916,
@@ -978,11 +868,6 @@
     "latitude": 41.6119638,
     "longitude": 2.2857091,
     "source": "photon"
-  },
-  "91ed4dda8cf40d4ab7e5bb370c713fec745f671b49769b183e20ebe17a7e35a5": {
-    "latitude": 41.481987,
-    "longitude": 2.064915,
-    "source": "synthetic_fallback"
   },
   "eb7b1a11d723b829a55f4ecec655a980c2272dd7c1479a63d61fa6e9a8b81207": {
     "latitude": 41.5999439,
@@ -1039,11 +924,6 @@
     "longitude": 1.7238666,
     "source": "photon"
   },
-  "3880efeb89a9ac20762b6a2d40447d104fb06467f853e548a1b1323c0a434009": {
-    "latitude": 41.360277,
-    "longitude": 2.287601,
-    "source": "synthetic_fallback"
-  },
   "62356cbdafec2a85f16b77025b92b0f9cb8596b38d03beac6ba852ddb90b6e41": {
     "latitude": 41.9604417,
     "longitude": 2.2187303,
@@ -1063,11 +943,6 @@
     "latitude": 41.9201837,
     "longitude": 2.2570623,
     "source": "photon"
-  },
-  "5f37410d3d75694dfd1e9de51ffcce2babe0810eae09d74c6179e4bd1b03d6cf": {
-    "latitude": 41.442977,
-    "longitude": 2.128478,
-    "source": "synthetic_fallback"
   },
   "7e6c00c059382880cc50e90d86f4466f62546cb91229f96dd168815c794561ff": {
     "latitude": 41.9205837,
@@ -1094,11 +969,6 @@
     "longitude": 2.2423079,
     "source": "photon"
   },
-  "29eae94f529ba4652161d4134ca4d009f14a3b33b78305899f6f6872e1cddd60": {
-    "latitude": 41.612317,
-    "longitude": 1.902917,
-    "source": "synthetic_fallback"
-  },
   "b2ace8d71bfe24b49ff97c3b39473a6496df1528eba80ab765b753f2f0fe6595": {
     "latitude": 41.5525724,
     "longitude": 2.2275956,
@@ -1123,11 +993,6 @@
     "latitude": 41.534695,
     "longitude": 2.2084332,
     "source": "photon"
-  },
-  "b62ab329e6f9f0c47c0f26b210b4604b4f4454e9fd2ff30a3d8f9b63b35a2964": {
-    "latitude": 41.621283,
-    "longitude": 2.230646,
-    "source": "synthetic_fallback"
   },
   "8c0029745170d42bb485666819b02f047ef1a7d75c1f832b5b388b8e52e07125": {
     "latitude": 42.1015934,
@@ -1159,11 +1024,6 @@
     "longitude": 2.2165136,
     "source": "photon"
   },
-  "2d1259302a25ae8b48625b5837f755c71f7d5ac54d02f24c6948d79e2cb47811": {
-    "latitude": 41.570924,
-    "longitude": 2.438918,
-    "source": "synthetic_fallback"
-  },
   "3b992cc534bb13e2599fb323172ab03f83cdb68e7c79be35ac74029bb389099d": {
     "latitude": 42.0486035,
     "longitude": 2.264966,
@@ -1173,11 +1033,6 @@
     "latitude": 42.0514464,
     "longitude": 2.2583026,
     "source": "photon"
-  },
-  "a904577b78d87c1ff9900f44d0ba7120f20f674a7d6b7a1364237771cb0c8e79": {
-    "latitude": 41.558767,
-    "longitude": 2.404847,
-    "source": "synthetic_fallback"
   },
   "9f62ca6d47ca5c4810510e9a24abb5cfec1ca87b6f90bd5199df984f05f14548": {
     "latitude": 42.0736365,
@@ -1219,11 +1074,6 @@
     "longitude": 2.2485742,
     "source": "photon"
   },
-  "66b1cc2d1b2c24c8dd07838000487c79211e55a7695fd7f60a978a98934305dc": {
-    "latitude": 41.458089,
-    "longitude": 2.141589,
-    "source": "synthetic_fallback"
-  },
   "8aac615d9e3c1069167b0a5af94d18f4af208f0f7e8583719c18a46da70543f8": {
     "latitude": 41.9183319,
     "longitude": 2.2479155,
@@ -1264,25 +1114,10 @@
     "longitude": 2.7298228,
     "source": "photon"
   },
-  "2ecbbc80c48e8f7819e580c412d148e12f822089e258b1197b444ffd519ee5ff": {
-    "latitude": 41.346489,
-    "longitude": 2.308384,
-    "source": "synthetic_fallback"
-  },
   "364b9124b54e58fa24871cbf845cebfdde0cd62a80b34cf1600ebe61c00ee6f6": {
     "latitude": 41.9432061,
     "longitude": 2.2580752,
     "source": "photon"
-  },
-  "da75c98be5cfba077b5e82e1ceb93c5cb1d97092367ab1cbba0c32988334856a": {
-    "latitude": 41.611274,
-    "longitude": 2.120079,
-    "source": "synthetic_fallback"
-  },
-  "6e78ff1376feb30c0cef0da2f035b5f978efbfa58ba5b3a8a2902efa7801428c": {
-    "latitude": 41.517242,
-    "longitude": 2.4158,
-    "source": "synthetic_fallback"
   },
   "7e4d2d6a2e6c6aa51890912d8134ee8a341472b1c4cd9ded526f8515f0a4f283": {
     "latitude": 42.0084523,
@@ -1303,11 +1138,6 @@
     "latitude": 42.0049728,
     "longitude": 2.2831229,
     "source": "photon"
-  },
-  "039896acc7879bd59deca0c11e5d551eea3824289c849edc87afe1db5d4cd7f7": {
-    "latitude": 41.620509,
-    "longitude": 2.236223,
-    "source": "synthetic_fallback"
   },
   "88b9a0df9959a6fc76d4c9709e44f61dd7029ae72a7f91dcac066e157b0ba63e": {
     "latitude": 42.003418,
@@ -1337,6 +1167,171 @@
   "65587198ca4d004a12ebfb07b9f4785e3e7ae50542cdde110fe8774ac1bfe5b3": {
     "latitude": 41.9249503,
     "longitude": 2.2848041,
+    "source": "photon"
+  },
+  "370b3c5e414bb2ba46c25e874e0ecf2aef57edfab122d43c3de9cdd1c155a26e": {
+    "latitude": 41.5757382,
+    "longitude": 2.0249703,
+    "source": "photon"
+  },
+  "61e62a0c6f47683679c96aa3597e3007dc14dbe7a9dfdc0a8fb55de470fc1e00": {
+    "latitude": 41.6099253,
+    "longitude": 2.2781179,
+    "source": "photon"
+  },
+  "e615fe2f076b02745cb1a76a268d4416ba45ecd912acc94ac681f0b6ad689429": {
+    "latitude": 41.5744778,
+    "longitude": 2.2239254,
+    "source": "photon"
+  },
+  "d38b56ecf90793a2d2b4edb53365ca1943ad0f22cf7ee288f6ac8fe1d33f4b1d": {
+    "latitude": 41.5744778,
+    "longitude": 2.2239254,
+    "source": "photon"
+  },
+  "7928888c4f4d955798f937bf51849761e2de75c50831ee744589399aa8172dda": {
+    "latitude": 41.5275467,
+    "longitude": 2.2322911,
+    "source": "photon"
+  },
+  "6a3822e1f3763c8896039ee144f7871e81983fb609b692f53d6047683f649f1a": {
+    "latitude": 41.6080085,
+    "longitude": 2.2872441,
+    "source": "photon"
+  },
+  "2cd90988fbb25481965dab0581d3390bd0ee0c8b9b34aa82e4739473c65ddf7b": {
+    "latitude": 41.6080085,
+    "longitude": 2.2872441,
+    "source": "photon"
+  },
+  "e26f52abd72ea620ebfff8c8d821daaca4291fad44b1a1b472c1fec31727f88d": {
+    "latitude": 41.6080085,
+    "longitude": 2.2872441,
+    "source": "photon"
+  },
+  "99b0625184cd1458224e03581f2766c3b735c77ed3ce7dc89b6d0e7d50b1b95e": {
+    "latitude": 41.6362062,
+    "longitude": 2.2968737,
+    "source": "photon"
+  },
+  "51284892d58c6f3a6471cc2ba3969f45921210682e985f62ff19ba9629102ca1": {
+    "latitude": 41.6195559,
+    "longitude": 2.2977082,
+    "source": "photon"
+  },
+  "06ac05a0cb74d3170682eadc7deb3f942448b3c2cf1a39bf362d3d640e9fdd5a": {
+    "latitude": 41.6170671,
+    "longitude": 2.2941428,
+    "source": "photon"
+  },
+  "ac9734f252fbc3165bf9b2295d256bf874b8088a2bd02bc9a84b8925cc3af493": {
+    "latitude": 41.6061136,
+    "longitude": 2.3008107,
+    "source": "photon"
+  },
+  "582ec3d831d0c981e614c9735410818708cb94d644f9303975af06a4d5616cdc": {
+    "latitude": 41.598984,
+    "longitude": 2.3495103,
+    "source": "photon"
+  },
+  "53020ef061bd74dcb36e0e8200feca27cdf47e2c43fc8aa9cc9c4c3beb74d5f8": {
+    "latitude": 41.5901683,
+    "longitude": 2.3260918,
+    "source": "photon"
+  },
+  "af8b14f05f3f473fee0f1778136fabc942a532eff2edb0ba1552733434ab0822": {
+    "latitude": 41.5574271,
+    "longitude": 2.2523414,
+    "source": "photon"
+  },
+  "3e6afd1f9880aaf1a053d246b0f47d67fb07e4407d334431367352e9120f00d0": {
+    "latitude": 41.5516216,
+    "longitude": 2.2464762,
+    "source": "photon"
+  },
+  "723c21bbf69f59578e309a2d4e88d8b6faa697bfd4b217d30a64bdb42e2de399": {
+    "latitude": 41.5331437,
+    "longitude": 2.2353634,
+    "source": "photon"
+  },
+  "a26fcc8207814a66c196765961edc2986d905539b4ce3443901cdc366e26a525": {
+    "latitude": 41.52851,
+    "longitude": 2.2374755,
+    "source": "photon"
+  },
+  "6385812003c551c4d11596f333cce6429625791d0b6ee577446d5f70ad577cb6": {
+    "latitude": 41.651474,
+    "longitude": 2.2302096,
+    "source": "photon"
+  },
+  "51ba8f037078cf5610e3865a8f66f5f5faf4f64b9d3541c0918bc9ba07f6a057": {
+    "latitude": 41.6227828,
+    "longitude": 2.2272518,
+    "source": "photon"
+  },
+  "39f090d8613a33764ca63b10a841298d995106ed428cfa59ccd18c7f58e48fe1": {
+    "latitude": 41.6009244,
+    "longitude": 2.2866014,
+    "source": "photon"
+  },
+  "91ed4dda8cf40d4ab7e5bb370c713fec745f671b49769b183e20ebe17a7e35a5": {
+    "latitude": 41.6164059,
+    "longitude": 2.277552,
+    "source": "photon"
+  },
+  "3880efeb89a9ac20762b6a2d40447d104fb06467f853e548a1b1323c0a434009": {
+    "latitude": 41.9430039,
+    "longitude": 2.247379,
+    "source": "photon"
+  },
+  "5f37410d3d75694dfd1e9de51ffcce2babe0810eae09d74c6179e4bd1b03d6cf": {
+    "latitude": 41.9251994,
+    "longitude": 2.2537958,
+    "source": "photon"
+  },
+  "29eae94f529ba4652161d4134ca4d009f14a3b33b78305899f6f6872e1cddd60": {
+    "latitude": 41.5331437,
+    "longitude": 2.2353634,
+    "source": "photon"
+  },
+  "b62ab329e6f9f0c47c0f26b210b4604b4f4454e9fd2ff30a3d8f9b63b35a2964": {
+    "latitude": 42.0989151,
+    "longitude": 2.2032849,
+    "source": "photon"
+  },
+  "2d1259302a25ae8b48625b5837f755c71f7d5ac54d02f24c6948d79e2cb47811": {
+    "latitude": 42.0507703,
+    "longitude": 2.2565465,
+    "source": "photon"
+  },
+  "a904577b78d87c1ff9900f44d0ba7120f20f674a7d6b7a1364237771cb0c8e79": {
+    "latitude": 42.0688515,
+    "longitude": 2.290817,
+    "source": "photon"
+  },
+  "66b1cc2d1b2c24c8dd07838000487c79211e55a7695fd7f60a978a98934305dc": {
+    "latitude": 41.9453465,
+    "longitude": 2.2558641,
+    "source": "photon"
+  },
+  "2ecbbc80c48e8f7819e580c412d148e12f822089e258b1197b444ffd519ee5ff": {
+    "latitude": 41.9393541,
+    "longitude": 2.2541149,
+    "source": "photon"
+  },
+  "da75c98be5cfba077b5e82e1ceb93c5cb1d97092367ab1cbba0c32988334856a": {
+    "latitude": 41.9280651,
+    "longitude": 2.2556061,
+    "source": "photon"
+  },
+  "6e78ff1376feb30c0cef0da2f035b5f978efbfa58ba5b3a8a2902efa7801428c": {
+    "latitude": 41.9585704,
+    "longitude": 2.249585,
+    "source": "photon"
+  },
+  "039896acc7879bd59deca0c11e5d551eea3824289c849edc87afe1db5d4cd7f7": {
+    "latitude": 42.0035765,
+    "longitude": 2.2835745,
     "source": "photon"
   }
 }
