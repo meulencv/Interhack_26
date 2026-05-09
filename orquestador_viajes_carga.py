@@ -8,17 +8,49 @@ from typing import Dict, Optional, Sequence
 
 import pandas as pd
 
-from margen_variable_viajes import FactibilidadViajeConMargen, evaluar_factibilidad_viaje_con_margen
+from margen_variable_viajes import calcular_margen_variable_viaje
 from optimizador_carga_camion import (
-    RUTA_HACKATON_DEFECTO,
-    RUTA_LAYOUT_DEFECTO,
-    RUTA_ZM040_DEFECTO,
+    RUTA_CATALOGO_ZM040_FIJO,
     STACK_FRAGIL,
     STACK_RESISTENTE,
     ItemCarga,
     cargar_items_desde_excels,
     optimizar_carga_camion,
 )
+
+RUTA_HACKATON_DEFECTO = Path(__file__).with_name("Hackaton.xlsx")
+RUTA_LAYOUT_DEFECTO = Path(__file__).with_name("Layout Mollet.xlsx")
+RUTA_ZM040_DEFECTO = RUTA_CATALOGO_ZM040_FIJO
+
+
+@dataclass
+class FactibilidadViajeConMargen:
+    resumen_viaje: pd.DataFrame
+    detalle_paradas: pd.DataFrame
+
+    @property
+    def cabe_con_margen(self) -> bool:
+        if self.resumen_viaje.empty:
+            return False
+        return bool(self.resumen_viaje.loc[0, "cabe_con_margen"])
+
+    @property
+    def margen_variable_pct(self) -> float:
+        if self.resumen_viaje.empty:
+            return 0.0
+        return float(self.resumen_viaje.loc[0, "margen_variable_pct"])
+
+    @property
+    def holgura_con_margen_cm3(self) -> float:
+        if self.resumen_viaje.empty:
+            return 0.0
+        return float(self.resumen_viaje.loc[0, "holgura_con_margen_cm3"])
+
+    @property
+    def capacidad_planeable_entregas_cm3(self) -> float:
+        if self.resumen_viaje.empty:
+            return 0.0
+        return float(self.resumen_viaje.loc[0, "capacidad_planeable_entregas_cm3"])
 
 
 @dataclass
@@ -30,8 +62,36 @@ class ResultadoViajeOrquestado:
     motivo_rechazo: Optional[str] = None
 
     @property
+    def carga_factible_total(self) -> bool:
+        if not self.resultado_carga or "metricas" not in self.resultado_carga:
+            return False
+        metricas = self.resultado_carga["metricas"]
+        if metricas.empty or "factible_total" not in metricas.columns:
+            return False
+        return bool(metricas.loc[0, "factible_total"])
+
+    @property
     def factible(self) -> bool:
-        return self.motivo_rechazo is None and self.factibilidad.cabe_con_margen
+        return self.motivo_rechazo is None and self.factibilidad.cabe_con_margen and self.carga_factible_total
+
+    def resumen_orquestacion(self) -> pd.DataFrame:
+        metricas_carga = self.resultado_carga["metricas"].iloc[0].to_dict() if self.resultado_carga and not self.resultado_carga["metricas"].empty else {}
+        return pd.DataFrame(
+            [
+                {
+                    "viaje_id": self.viaje_id,
+                    "num_palets": self.num_palets,
+                    "viaje_cabe_con_margen": self.factibilidad.cabe_con_margen,
+                    "margen_variable_pct": self.factibilidad.margen_variable_pct,
+                    "capacidad_planeable_entregas_cm3": self.factibilidad.capacidad_planeable_entregas_cm3,
+                    "holgura_con_margen_cm3": self.factibilidad.holgura_con_margen_cm3,
+                    "carga_factible_total": self.carga_factible_total,
+                    "factible_final": self.factible,
+                    "motivo_rechazo": self.motivo_rechazo or "",
+                    **metricas_carga,
+                }
+            ]
+        )
 
 
 def construir_resumen_paradas_desde_items(items: Sequence[ItemCarga]) -> pd.DataFrame:
@@ -89,6 +149,11 @@ def construir_resumen_paradas_desde_items(items: Sequence[ItemCarga]) -> pd.Data
     return pd.DataFrame(registros).sort_values("stop_index")
 
 
+def evaluar_factibilidad_viaje_con_margen(df_paradas: pd.DataFrame, num_palets: int) -> FactibilidadViajeConMargen:
+    resumen_viaje, detalle_paradas = calcular_margen_variable_viaje(df_paradas, num_palets)
+    return FactibilidadViajeConMargen(resumen_viaje=resumen_viaje, detalle_paradas=detalle_paradas)
+
+
 def validar_factibilidad_viaje(items: Sequence[ItemCarga], num_palets: int) -> FactibilidadViajeConMargen:
     df_paradas = construir_resumen_paradas_desde_items(items)
     return evaluar_factibilidad_viaje_con_margen(df_paradas, num_palets)
@@ -111,6 +176,15 @@ def orquestar_items_viaje(
         return ResultadoViajeOrquestado(viaje_id, num_palets, factibilidad, None, motivo)
 
     resultado_carga = optimizar_carga_camion(items, num_palets=num_palets, pesos_objetivo=pesos_objetivo)
+    metricas = resultado_carga["metricas"]
+    if metricas.empty or not bool(metricas.loc[0, "factible_total"]):
+        items_fuera_plan = int(metricas.loc[0, "items_fuera_plan"]) if not metricas.empty and "items_fuera_plan" in metricas.columns else -1
+        motivo = (
+            "El viaje cabe con margen, pero la carga fisica no es totalmente factible: "
+            f"items_fuera_plan={items_fuera_plan}."
+        )
+        return ResultadoViajeOrquestado(viaje_id, num_palets, factibilidad, resultado_carga, motivo)
+
     return ResultadoViajeOrquestado(viaje_id, num_palets, factibilidad, resultado_carga)
 
 
@@ -187,6 +261,7 @@ def _slug(texto: str) -> str:
 
 def _exportar_resultado(resultado: ResultadoViajeOrquestado, salida_prefix: str) -> None:
     base = f"{salida_prefix}_{_slug(resultado.viaje_id)}"
+    resultado.resumen_orquestacion().to_csv(f"{base}_orquestacion_resumen.csv", index=False)
     resultado.factibilidad.resumen_viaje.to_csv(f"{base}_margen_resumen.csv", index=False)
     resultado.factibilidad.detalle_paradas.to_csv(f"{base}_margen_detalle.csv", index=False)
     if not resultado.resultado_carga:
@@ -207,7 +282,7 @@ def _parse_lista_csv(valores: Sequence[str] | None) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Orquesta factibilidad dinamica y optimizacion de carga por viaje.")
     parser.add_argument("--hackaton", default=str(RUTA_HACKATON_DEFECTO), help="Ruta al fichero Hackaton.xlsx.")
-    parser.add_argument("--zm040", default=str(RUTA_ZM040_DEFECTO), help="Ruta al fichero ZM040.XLSX o CSV equivalente.")
+    parser.add_argument("--zm040", default=str(RUTA_ZM040_DEFECTO), help="Ruta al catalogo ZM040 fijo o a un override CSV/XLSX.")
     parser.add_argument("--layout", default=str(RUTA_LAYOUT_DEFECTO), help="Ruta al layout del almacen.")
     parser.add_argument("--ruta", action="append", help="Ruta a orquestar. Repetible o separada por comas.")
     parser.add_argument("--transporte", action="append", help="Transporte a orquestar. Repetible o separado por comas.")
@@ -234,11 +309,9 @@ def main() -> None:
     for resultado in resultados:
         estado = "FACTIBLE" if resultado.factible else "NO FACTIBLE"
         print(f"{resultado.viaje_id} | {estado} | palets={resultado.num_palets}")
-        print(resultado.factibilidad.resumen_viaje.to_string(index=False))
+        print(resultado.resumen_orquestacion().to_string(index=False))
         if resultado.motivo_rechazo:
             print(resultado.motivo_rechazo)
-        elif resultado.resultado_carga:
-            print(resultado.resultado_carga["metricas"].to_string(index=False))
         print()
         if args.salida_prefix:
             Path(args.salida_prefix).parent.mkdir(parents=True, exist_ok=True)
