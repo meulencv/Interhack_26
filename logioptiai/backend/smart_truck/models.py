@@ -124,6 +124,9 @@ class Vehicle:
     vehicle_id: str
     template: str
     pallet_capacity: float
+    volume_capacity_m3: float
+    effective_volume_capacity_m3: float
+    dynamic_volume_factor: float
     slot_names: list[str]
 
 
@@ -140,6 +143,33 @@ class SlotAllocation:
 
 
 @dataclass
+class StopInsight:
+    stop_id: str
+    client_name: str
+    arrival: str
+    departure: str
+    travel_km: float
+    travel_minutes: float
+    wait_minutes: float
+    late_minutes: float
+    delivered_pallets: float
+    return_pickup_pallets: float
+    delivered_volume_m3: float
+    return_pickup_volume_m3: float
+    load_before: float
+    load_after: float
+    load_ratio_before: float
+    load_ratio_after: float
+    volume_before_m3: float
+    volume_after_m3: float
+    volume_ratio_before: float
+    volume_ratio_after: float
+    score: float
+    score_components: dict[str, float]
+    explanation: list[str]
+
+
+@dataclass
 class RouteLeg:
     from_name: str
     to_name: str
@@ -151,6 +181,7 @@ class RouteLeg:
 @dataclass
 class RoutePlan:
     route_code: str
+    source_route_codes: list[str]
     vehicle: Vehicle
     date: date
     stops: list[Stop]
@@ -160,7 +191,22 @@ class RoutePlan:
     distance_km: float
     duration_minutes: float
     pallet_load: float
+    load_volume_m3: float
     return_peak: float
+    return_peak_volume_m3: float
+    objective_score: float
+    projected_peak_load: float
+    projected_peak_fill_ratio: float
+    capacity_headroom_pallets: float
+    projected_peak_volume_m3: float
+    projected_peak_volume_ratio: float
+    effective_volume_capacity_m3: float
+    volume_headroom_m3: float
+    dynamic_volume_factor: float
+    cargo_mix_profile: dict[str, float]
+    window_compliance_rate: float
+    stop_insights: list[StopInsight]
+    live_metrics: dict[str, float]
     slot_allocations: list[SlotAllocation]
     route_legs: list[RouteLeg]
     alerts: list[str]
@@ -172,7 +218,11 @@ class RoutePlan:
 class OptimizationBundle:
     audit: DataAudit
     selected_date: str
+    generated_at: str
+    objective: str
+    constraints: dict[str, object]
     overview: dict[str, object]
+    scorecard: dict[str, object]
     routes: list[RoutePlan]
     assumptions: list[str]
     tradeoffs: list[str]

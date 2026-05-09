@@ -54,13 +54,16 @@ class ORSClient:
         self.geocode_cache = JsonCache(config.paths.cache_dir / "geocode_cache.json")
         self.matrix_cache = JsonCache(config.paths.cache_dir / "matrix_cache.json")
         self.directions_cache = JsonCache(config.paths.cache_dir / "directions_cache.json")
+        self._photon_available = True
+        self._osrm_matrix_available = True
+        self._osrm_directions_available = True
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
     def geocode(self, address: str, postal_code: str, town: str) -> CoordinateResult:
         key = self._key({"a": address, "p": postal_code, "t": town})
         cached = self.geocode_cache.get(key)
-        if cached and cached.get("source") not in ("synthetic_fallback", None):
+        if cached:
             return CoordinateResult(**cached)
 
         result = self._nominatim(address, postal_code, town)
@@ -125,12 +128,15 @@ class ORSClient:
         return result.strip()
 
     def _photon(self, query: str) -> CoordinateResult | None:
+        if not self._photon_available:
+            return None
         qs = urlencode({"q": query, "limit": 1})
         try:
             req = Request(f"{self.PHOTON}/api/?{qs}", headers={"User-Agent": "logioptiai/1.0"})
-            with urlopen(req, timeout=8) as r:
+            with urlopen(req, timeout=2) as r:
                 data = json.loads(r.read().decode())
         except Exception:
+            self._photon_available = False
             return None
         features = data.get("features", [])
         if not features:
@@ -155,22 +161,28 @@ class ORSClient:
     # ── OSRM routing ───────────────────────────────────────────────────────────
 
     def _osrm_matrix(self, coordinates: list[tuple[float, float]]) -> dict | None:
+        if not self._osrm_matrix_available:
+            return None
         coords_str = ";".join(f"{lon},{lat}" for lat, lon in coordinates)
         try:
-            with urlopen(f"{self.OSRM}/table/v1/driving/{coords_str}?annotations=duration,distance", timeout=20) as r:
+            with urlopen(f"{self.OSRM}/table/v1/driving/{coords_str}?annotations=duration,distance", timeout=4) as r:
                 data = json.loads(r.read().decode())
         except Exception:
+            self._osrm_matrix_available = False
             return None
         if data.get("code") != "Ok":
             return None
         return {"durations": data["durations"], "distances": data.get("distances", []), "source": "osrm"}
 
     def _osrm_directions(self, coordinates: list[tuple[float, float]]) -> dict | None:
+        if not self._osrm_directions_available:
+            return None
         coords_str = ";".join(f"{lon},{lat}" for lat, lon in coordinates)
         try:
-            with urlopen(f"{self.OSRM}/route/v1/driving/{coords_str}?overview=full&geometries=geojson", timeout=20) as r:
+            with urlopen(f"{self.OSRM}/route/v1/driving/{coords_str}?overview=full&geometries=geojson", timeout=4) as r:
                 data = json.loads(r.read().decode())
         except Exception:
+            self._osrm_directions_available = False
             return None
         if data.get("code") != "Ok" or not data.get("routes"):
             return None
