@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useMicrophoneVolume } from '../hooks/useMicrophoneVolume'
 import { synthesizeSpeech } from '../services/elevenlabs'
 import { getAIResponse } from '../services/ai'
@@ -273,7 +274,7 @@ export function VoiceAssistant({ lang = 'es-ES', showCard = true }) {
         </div>
       </div>
 
-      <BottomWave active={isActive} volume={waveVolume} />
+      {createPortal(<BottomWave active={isActive} volume={waveVolume} />, document.body)}
     </>
   )
 }

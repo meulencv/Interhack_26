@@ -9,9 +9,9 @@ import { EntregasView } from './components/EntregasView'
 import { OptimizacionView } from './components/OptimizacionView'
 import { AlertasView } from './components/AlertasView'
 import { AnalyticsView } from './components/AnalyticsView'
+import { TruckViewer3D } from './components/TruckViewer3D'
 import { loadStaticBundle } from './services/api'
 
-// Fix leaflet default icon
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -19,12 +19,34 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-// DDI Mollet del Vallès depot
 const CENTER = [41.5412, 2.2137]
-const DEPOT = [41.5412, 2.2137]
+const DEPOT  = [41.5412, 2.2137]
 const ORS_KEY = import.meta.env.VITE_ORS_KEY
 
-const ROUTE_COLORS = ['#22d3ee', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#ef4444', '#ec4899', '#14b8a6', '#f97316', '#84cc16', '#06b6d4', '#8b5cf6', '#f43f5e', '#10b981', '#eab308', '#6366f1', '#0ea5e9', '#d946ef']
+// 11 × 6P · 4 × 8P · 1 × FURGO
+const TIPOS_BY_IDX = [
+  '6P','6P','6P','6P','6P','6P','6P','6P','6P','6P','6P',
+  '8P','8P','8P','8P',
+  'FURGO',
+]
+const CONDUCTORES = [
+  'P. Martínez','J. Herrera','C. Vega','F. Navarro','H. Suárez',
+  'T. Peralta','M. García','L. Romero','A. Díaz','R. López',
+  'E. Torres','B. Molina','S. Campos','N. Fuentes','O. Ramos','D. Santos',
+]
+
+const ROUTE_COLORS = [
+  '#22d3ee','#3b82f6','#22c55e','#f59e0b','#a855f7','#ef4444',
+  '#ec4899','#14b8a6','#f97316','#84cc16','#06b6d4','#8b5cf6',
+  '#f43f5e','#10b981','#eab308','#6366f1','#0ea5e9','#d946ef',
+]
+
+const GLASS = {
+  background: 'rgba(11,18,38,.82)',
+  backdropFilter: 'blur(14px)',
+  WebkitBackdropFilter: 'blur(14px)',
+  border: '1px solid rgba(255,255,255,.09)',
+}
 
 async function fetchOrsGeometry(waypoints) {
   if (!ORS_KEY || waypoints.length < 2) return null
@@ -49,7 +71,6 @@ function bundleToMapData(bundle) {
     const legs = r.route_legs || []
     let positions = legs.flatMap(leg => leg.geometry || [])
     if (positions.length < 2) {
-      // fallback: straight lines between stops
       const validStops = (r.stops || []).filter(s => s.latitude !== 0 && s.longitude !== 0)
       positions = [DEPOT, ...validStops.map(s => [s.latitude, s.longitude])]
     }
@@ -64,52 +85,49 @@ function bundleToMapData(bundle) {
     const [lat, lon] = s.pos
     return lat !== 0 && lon !== 0 && lat > 40.5 && lat < 43.0 && lon > 0.15 && lon < 3.35
   })
-  const trucks = bundle.routes.slice(0, 18).map((r) => {
+  const trucks = bundle.routes.slice(0, 16).map((r, i) => {
     const firstStop = (r.stops || []).find(s => s.latitude !== 0 && s.longitude !== 0)
-    return firstStop ? { pos: [firstStop.latitude, firstStop.longitude] } : null
+    if (!firstStop) return null
+    const tipo   = TIPOS_BY_IDX[i] || '6P'
+    const palets = tipo === '8P' ? 8 : tipo === 'FURGO' ? 3 : 6
+    return {
+      pos: [firstStop.latitude, firstStop.longitude],
+      ruta: {
+        id: `R-${String(i + 1).padStart(2, '0')}`,
+        conductor: CONDUCTORES[i] || `Conductor ${i + 1}`,
+        tipo,
+        palets,
+        zce: palets * 60,
+        retornables: Math.round(palets * 60 * 0.6),
+        estado: 'en-ruta',
+      },
+    }
   }).filter(Boolean)
   return { routes, stops, trucks }
 }
 
-function TruckIcon() {
-  return L.icon({
-    iconUrl: '/truck.png',
-    iconSize: [60, 46],
-    iconAnchor: [30, 46],
-  })
+function makeTruckIcon(tipo) {
+  const cfg = {
+    '6P':    { url: '/truck6p.png', w: 64, h: 46 },
+    '8P':    { url: '/truck.png',   w: 70, h: 50 },
+    'FURGO': { url: '/furgo.png',   w: 56, h: 40 },
+  }[tipo] || { url: '/truck.png', w: 64, h: 46 }
+  return L.icon({ iconUrl: cfg.url, iconSize: [cfg.w, cfg.h], iconAnchor: [cfg.w / 2, cfg.h] })
 }
 
 function AlertIcon() {
   return L.divIcon({
     className: '',
-    html: `<div style="
-      width:0;height:0;
-      border-left:12px solid transparent;
-      border-right:12px solid transparent;
-      border-bottom:22px solid #ef4444;
-      position:relative;
-      filter:drop-shadow(0 0 6px #ef4444);
-    ">
-      <span style="
-        position:absolute;top:6px;left:-4px;
-        color:white;font-weight:700;font-size:12px;
-      ">!</span>
-    </div>`,
+    html: `<div style="width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-bottom:22px solid #ef4444;position:relative;filter:drop-shadow(0 0 6px #ef4444);"><span style="position:absolute;top:6px;left:-4px;color:white;font-weight:700;font-size:12px;">!</span></div>`,
     iconSize: [24, 24],
     iconAnchor: [12, 24],
   })
 }
 
 function Clock() {
-  const [time, setTime] = useState(() => {
-    const d = new Date()
-    return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
-  })
+  const [time, setTime] = useState(() => new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }))
   useEffect(() => {
-    const t = setInterval(() => {
-      const d = new Date()
-      setTime(d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }))
-    }, 10000)
+    const t = setInterval(() => setTime(new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })), 10000)
     return () => clearInterval(t)
   }, [])
   return <span className="time">{time}</span>
@@ -131,12 +149,13 @@ const LANGS = [
 ]
 
 export default function App() {
-  const [activeNav, setActiveNav] = useState(0)
-  const [lang, setLang] = useState('es-ES')
-  const truckIcon = TruckIcon()
-  const alertIcon = AlertIcon()
-  const [mapData, setMapData] = useState({ routes: [], stops: [], trucks: [] })
+  const [activeNav, setActiveNav]     = useState(0)
+  const [lang, setLang]               = useState('es-ES')
+  const [selectedRuta, setSelectedRuta] = useState(null)
+  const icons = { '6P': makeTruckIcon('6P'), '8P': makeTruckIcon('8P'), 'FURGO': makeTruckIcon('FURGO') }
+  const [mapData, setMapData]           = useState({ routes: [], stops: [], trucks: [] })
   const [bundleOverview, setBundleOverview] = useState(null)
+  const mapMode = activeNav === 0
 
   useEffect(() => {
     loadStaticBundle()
@@ -148,9 +167,20 @@ export default function App() {
   }, [])
 
   return (
-    <div className="frame">
-      {/* SIDEBAR */}
-      <aside className="sidebar">
+    <div className="frame" style={{
+      position: 'fixed', inset: 0,
+      width: '100%', height: '100%',
+      maxWidth: 'none', maxHeight: 'none',
+      borderRadius: 0, border: 'none', boxShadow: 'none',
+    }}>
+
+      {/* ── SIDEBAR ── */}
+      <aside className="sidebar" style={{
+        background: 'rgba(10,14,24,.78)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        zIndex: 10,
+      }}>
         <div className="logo">
           <div className="logo-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinejoin="round">
@@ -191,13 +221,22 @@ export default function App() {
               <polyline points="6 9 12 15 18 9"/>
             </svg>
           </div>
+          <VoiceAssistant lang={lang} showCard={mapMode} />
         </div>
       </aside>
 
-      {/* MAIN */}
-      <main className="main">
+      {/* ── MAIN ── */}
+      <main className="main" style={{ position: 'relative', overflow: 'hidden' }}>
+
         {/* Topbar */}
-        <header className="topbar">
+        <header className="topbar" style={{
+          background: 'rgba(10,14,24,.65)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderBottom: '1px solid rgba(255,255,255,.06)',
+          position: 'relative',
+          zIndex: 10,
+        }}>
           <div className="top-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="4" fill="#f5b942" stroke="none"/>
@@ -221,54 +260,40 @@ export default function App() {
                 key={l.code}
                 onClick={() => setLang(l.code)}
                 style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  padding: '3px 8px',
-                  borderRadius: 6,
-                  border: 'none',
-                  cursor: 'pointer',
+                  fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 6,
+                  border: 'none', cursor: 'pointer',
                   background: lang === l.code ? 'rgba(56,189,248,0.18)' : 'transparent',
                   color: lang === l.code ? '#38bdf8' : '#6b7280',
                   transition: 'background 0.2s, color 0.2s',
                 }}
-              >
-                {l.label}
-              </button>
+              >{l.label}</button>
             ))}
           </div>
           <Clock />
         </header>
 
-        {/* Full-page views */}
-        {activeNav === 1 ? (
-          <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <FlotaView />
-          </div>
-        ) : null}
-        {activeNav === 2 ? (
-          <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <EntregasView />
-          </div>
-        ) : null}
-        {activeNav === 3 ? (
-          <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <OptimizacionView />
-          </div>
-        ) : null}
-        {activeNav === 4 ? (
-          <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <AlertasView />
-          </div>
-        ) : null}
-        {activeNav === 5 ? (
-          <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <AnalyticsView />
-          </div>
-        ) : null}
-        <section className="content" style={activeNav !== 0 ? { display: 'none' } : {}}>
-          {/* MAP */}
-          <div className="map-area">
-            <div className="fleet-card">
+        {/* ── Full-page views (non-map) ── */}
+        {activeNav === 1 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><FlotaView /></div>}
+        {activeNav === 2 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><EntregasView /></div>}
+        {activeNav === 3 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><OptimizacionView /></div>}
+        {activeNav === 4 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><AlertasView /></div>}
+        {activeNav === 5 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><AnalyticsView /></div>}
+
+        {/* ── MAP VIEW (full-screen) ── */}
+        <section
+          className="content"
+          style={!mapMode ? { display: 'none' } : {
+            gridRow: '2 / 4',
+            padding: 0,
+            display: 'block',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <div className="map-area" style={{ position: 'absolute', inset: 0, borderRadius: 0, border: 'none' }}>
+
+            {/* Fleet card — top-left overlay */}
+            <div className="fleet-card" style={GLASS}>
               <div className="card-title">Flota en tiempo real</div>
               <div className="fleet-list">
                 <div className="fleet-row"><div className="fleet-left"><span className="dot b"/>Rutas</div><div className="fleet-num">{bundleOverview?.routes ?? '—'}</div></div>
@@ -278,6 +303,80 @@ export default function App() {
               </div>
             </div>
 
+            {/* Right panel overlay — optimización */}
+            <div style={{
+              position: 'absolute', right: 18, top: 18, bottom: 170,
+              width: 280, zIndex: 1000,
+              overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 16,
+            }}>
+              <div className="card" style={GLASS}>
+                <div className="opt-header">
+                  <div className="opt-title">Optimización activa</div>
+                  <svg className="pulse-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                  </svg>
+                </div>
+                <div className="badge"><span className="b-dot"/>VRP Greedy · Equilibrado</div>
+                <div className="obj-block">
+                  <div className="obj-label">Objetivo activo</div>
+                  <div className="obj-value">Equilibrado (tiempo + distancia + carga)</div>
+                </div>
+                <div className="params">
+                  <div className="params-title">Resultado del modelo</div>
+                  <div className="param-row"><span className="param-name">Rutas planificadas</span><span className="param-val">{bundleOverview?.routes ?? '—'}</span></div>
+                  <div className="param-row"><span className="param-name">Distancia total</span><span className="param-val">{bundleOverview ? `${bundleOverview.distance_km} km` : '—'}</span></div>
+                  <div className="param-row"><span className="param-name">Palés cargados</span><span className="param-val">{bundleOverview?.pallet_load ?? '—'}</span></div>
+                  <div className="param-row"><span className="param-name">Retornables pico</span><span className="param-val">{bundleOverview?.return_peak ?? '—'}</span></div>
+                  <div className="param-row"><span className="param-name">Modo geocoding</span><span className="param-val">{bundleOverview?.ors_mode ?? '—'}</span></div>
+                </div>
+                <div className="progress-block">
+                  <div className="progress-head"><span>Cobertura de rutas</span><span>100%</span></div>
+                  <div className="progress-bar"><div className="progress-fill" style={{ width: '100%' }}/></div>
+                  <div className="iter-text">{bundleOverview ? `${bundleOverview.routes} rutas · ${bundleOverview.distance_km} km` : 'Cargando datos…'}</div>
+                  <div className="best-sol">Solución cargada desde bundle</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom overlays — eventos + rendimiento */}
+            <div style={{
+              position: 'absolute', bottom: 18, left: 18, right: 314,
+              zIndex: 1000, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14,
+            }}>
+              <div className="card events-card" style={GLASS}>
+                <div className="events-title">Eventos recientes <span className="more">⋯</span></div>
+                <div className="event">
+                  <div className="ev-icon r"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+                  <div className="ev-name">Corte de calle</div>
+                  <div className="ev-detail">Av. Siempre Viva 742</div>
+                  <div className="ev-time">10:40 AM</div>
+                </div>
+                <div className="event">
+                  <div className="ev-icon y"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+                  <div className="ev-name">Retraso en entrega</div>
+                  <div className="ev-detail">Cliente: Distribuidora Norte</div>
+                  <div className="ev-time">10:32 AM</div>
+                </div>
+                <div className="event">
+                  <div className="ev-icon b"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></div>
+                  <div className="ev-name">Nuevo pedido asignado</div>
+                  <div className="ev-detail">Pedido #4587</div>
+                  <div className="ev-time">10:28 AM</div>
+                </div>
+              </div>
+
+              <div className="card events-card" style={GLASS}>
+                <div className="events-title" style={{ marginBottom: 0 }}>Resumen de rendimiento</div>
+                <div className="summary-grid">
+                  <div className="summary-cell"><div className="summary-label">Entregas hoy</div><div className="summary-value">43</div></div>
+                  <div className="summary-cell"><div className="summary-label">Tiempo promedio</div><div className="summary-value">2h 45m</div></div>
+                  <div className="summary-cell"><div className="summary-label">Distancia total</div><div className="summary-value">1,246 km</div></div>
+                  <div className="summary-cell"><div className="summary-label">Eficiencia</div><div className="summary-value">92%</div></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Leaflet map */}
             <MapContainer
               center={CENTER}
               zoom={13}
@@ -286,26 +385,16 @@ export default function App() {
               attributionControl={false}
               style={{ width: '100%', height: '100%' }}
             >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-              {/* Routes from smart_truck bundle */}
               {mapData.routes.map((route, i) => (
                 <Polyline
                   key={i}
                   positions={route.positions}
-                  pathOptions={{
-                    color: route.color,
-                    weight: 3,
-                    opacity: 0.85,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }}
+                  pathOptions={{ color: route.color, weight: 3, opacity: 0.85, lineCap: 'round', lineJoin: 'round' }}
                 />
               ))}
 
-              {/* Stop markers */}
               {mapData.stops.map((s, i) => (
                 <CircleMarker
                   key={i}
@@ -315,114 +404,22 @@ export default function App() {
                 />
               ))}
 
-              {/* Trucks at first stop of each route */}
               {mapData.trucks.map((t, i) => (
-                <Marker key={i} position={t.pos} icon={truckIcon} />
+                <Marker
+                  key={i}
+                  position={t.pos}
+                  icon={icons[t.ruta?.tipo] || icons['6P']}
+                  eventHandlers={{ click: () => t.ruta && setSelectedRuta(t.ruta) }}
+                />
               ))}
             </MapContainer>
           </div>
-
-          {/* RIGHT COL */}
-          <div className="right-col">
-            <div className="card">
-              <div className="opt-header">
-                <div className="opt-title">Optimización activa</div>
-                <svg className="pulse-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                </svg>
-              </div>
-              <div className="badge"><span className="b-dot"/>VRP Greedy · Equilibrado</div>
-
-              <div className="obj-block">
-                <div className="obj-label">Objetivo activo</div>
-                <div className="obj-value">Equilibrado (tiempo + distancia + carga)</div>
-              </div>
-
-              <div className="params">
-                <div className="params-title">Resultado del modelo</div>
-                <div className="param-row"><span className="param-name">Rutas planificadas</span><span className="param-val">{bundleOverview?.routes ?? '—'}</span></div>
-                <div className="param-row"><span className="param-name">Distancia total</span><span className="param-val">{bundleOverview ? `${bundleOverview.distance_km} km` : '—'}</span></div>
-                <div className="param-row"><span className="param-name">Palés cargados</span><span className="param-val">{bundleOverview?.pallet_load ?? '—'}</span></div>
-                <div className="param-row"><span className="param-name">Retornables pico</span><span className="param-val">{bundleOverview?.return_peak ?? '—'}</span></div>
-                <div className="param-row"><span className="param-name">Modo geocoding</span><span className="param-val">{bundleOverview?.ors_mode ?? '—'}</span></div>
-              </div>
-
-              <div className="progress-block">
-                <div className="progress-head"><span>Cobertura de rutas</span><span>100%</span></div>
-                <div className="progress-bar"><div className="progress-fill" style={{ width: '100%' }}/></div>
-                <div className="iter-text">{bundleOverview ? `${bundleOverview.routes} rutas · ${bundleOverview.distance_km} km` : 'Cargando datos…'}</div>
-                <div className="best-sol">Solución cargada desde bundle</div>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        {/* Bottom row */}
-        <section className="bottom-row" style={activeNav !== 0 ? { display: 'none' } : {}}>
-          <div className="card events-card">
-            <div className="events-title">Eventos recientes <span className="more">⋯</span></div>
-
-            <div className="event">
-              <div className="ev-icon r">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-                </svg>
-              </div>
-              <div className="ev-name">Corte de calle</div>
-              <div className="ev-detail">Av. Siempre Viva 742</div>
-              <div className="ev-time">10:40 AM</div>
-            </div>
-
-            <div className="event">
-              <div className="ev-icon y">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                </svg>
-              </div>
-              <div className="ev-name">Retraso en entrega</div>
-              <div className="ev-detail">Cliente: Distribuidora Norte</div>
-              <div className="ev-time">10:32 AM</div>
-            </div>
-
-            <div className="event">
-              <div className="ev-icon b">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/>
-                  <line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
-                </svg>
-              </div>
-              <div className="ev-name">Nuevo pedido asignado</div>
-              <div className="ev-detail">Pedido #4587</div>
-              <div className="ev-time">10:28 AM</div>
-            </div>
-          </div>
-
-          <div className="card events-card">
-            <div className="events-title" style={{ marginBottom: 0 }}>Resumen de rendimiento</div>
-            <div className="summary-grid">
-              <div className="summary-cell">
-                <div className="summary-label">Entregas hoy</div>
-                <div className="summary-value">43</div>
-              </div>
-              <div className="summary-cell">
-                <div className="summary-label">Tiempo promedio</div>
-                <div className="summary-value">2h 45m</div>
-              </div>
-              <div className="summary-cell">
-                <div className="summary-label">Distancia total</div>
-                <div className="summary-value">1,246 km</div>
-              </div>
-              <div className="summary-cell">
-                <div className="summary-label">Eficiencia</div>
-                <div className="summary-value">92%</div>
-              </div>
-            </div>
-          </div>
         </section>
       </main>
-      <VoiceAssistant lang={lang} showCard={activeNav === 0} />
+
+      {selectedRuta && (
+        <TruckViewer3D ruta={selectedRuta} onClose={() => setSelectedRuta(null)} />
+      )}
     </div>
   )
 }
