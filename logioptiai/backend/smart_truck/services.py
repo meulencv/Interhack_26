@@ -17,8 +17,6 @@ from .optimizer import optimize_routes_for_date
 from .routing import ORSClient
 
 _ROUTE_STOPS_CACHE: dict[tuple[str, str], dict[str, list]] = {}
-_GEOCODED_STOPS_CACHE: dict[tuple[str, str], dict[str, list]] = {}
-_ORS_CLIENT_CACHE: dict[str, "ORSClient"] = {}
 
 
 def busiest_date_from_audit(audit_dict: dict[str, object]) -> str | None:
@@ -51,9 +49,6 @@ def _config_cache_key(config: AppConfig) -> str:
 @lru_cache(maxsize=2)
 def _cached_audit(data_dir_key: str) -> object:
     config = AppConfig.discover()
-    cached_path = config.paths.generated_dir / "data_audit.json"
-    if cached_path.exists():
-        return load_json_artifact(cached_path)
     return build_repo_audit(config)
 
 
@@ -67,55 +62,28 @@ def _get_audit(config: AppConfig):
     return _cached_audit(_config_cache_key(config))
 
 
-def _audit_facts(audit) -> dict[str, object]:
-    if hasattr(audit, "facts"):
-        return audit.facts
-    if isinstance(audit, dict):
-        return audit.get("facts", {})
-    return {}
-
-
 def _get_dataset(config: AppConfig):
     return _cached_dataset(_config_cache_key(config))
 
 
 def _get_route_stops(config: AppConfig, dataset, parsed_date: date):
     cache_key = (_config_cache_key(config), parsed_date.isoformat())
-
-    geocoded = _GEOCODED_STOPS_CACHE.get(cache_key)
-    if geocoded is not None:
-        return deepcopy(geocoded)
-
-    raw = _ROUTE_STOPS_CACHE.get(cache_key)
-    if raw is None:
-        raw = build_route_stops(dataset, parsed_date)
-        _ROUTE_STOPS_CACHE[cache_key] = raw
-    return deepcopy(raw)
-
-
-def _cache_geocoded_stops(config: AppConfig, parsed_date: date, geocoded_route_stops: dict):
-    cache_key = (_config_cache_key(config), parsed_date.isoformat())
-    if cache_key not in _GEOCODED_STOPS_CACHE:
-        _GEOCODED_STOPS_CACHE[cache_key] = deepcopy(geocoded_route_stops)
-
-
-def _get_ors_client(config: AppConfig) -> "ORSClient":
-    key = _config_cache_key(config)
-    if key not in _ORS_CLIENT_CACHE:
-        _ORS_CLIENT_CACHE[key] = ORSClient(config)
-    return _ORS_CLIENT_CACHE[key]
+    cached = _ROUTE_STOPS_CACHE.get(cache_key)
+    if cached is None:
+        cached = build_route_stops(dataset, parsed_date)
+        _ROUTE_STOPS_CACHE[cache_key] = cached
+    return deepcopy(cached)
 
 
 def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None = None) -> OptimizationBundle:
     app_config = config or AppConfig.discover()
     audit = _get_audit(app_config)
     dataset = _get_dataset(app_config)
-    selected_date = planning_date or busiest_date_from_audit(_audit_facts(audit)) or dataset.dates[-1].isoformat()
+    selected_date = planning_date or busiest_date_from_audit(audit.facts) or dataset.dates[-1].isoformat()
     parsed_date = date.fromisoformat(selected_date)
     route_stops = _get_route_stops(app_config, dataset, parsed_date)
-    ors = _get_ors_client(app_config)
+    ors = ORSClient(app_config)
     route_results = optimize_routes_for_date(app_config, dataset, route_stops, parsed_date, ors)
-    _cache_geocoded_stops(app_config, parsed_date, route_stops)
 
     total_distance = round(sum(route.distance_km for route in route_results), 2)
     total_duration = round(sum(route.duration_minutes for route in route_results), 1)
@@ -159,7 +127,7 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
         "dynamic_recalculation": app_config.dynamic_recalculation,
         "minimize_truck_count_first": app_config.prioritize_minimum_trucks,
         "van_only_for_emergency": True,
-        "dynamic_volume_function": "margen_variable_viajes.py + capacidad_interna",
+        "dynamic_volume_function": "funcion_porcentaje.py",
     }
     scorecard = {
         "objective_score": total_objective_score,
@@ -182,7 +150,7 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
         "La asignacion inicial usa las rutas historicas como semillas, pero intenta consolidar rutas pequenas si eso reduce camiones activos.",
         "La carga interna del camion se representa por slots discretos porque el dataset no trae medidas interiores exactas.",
         "La logistica inversa se aproxima con una razon media sobre el volumen entregado y se usa para reservar hueco operativo.",
-        "La factibilidad volumetrica se decide con margen_variable_viajes.py y solo se aceptan viajes donde cabe_con_margen es verdadero.",
+        "La capacidad volumetrica operativa combina el porcentaje manual de ocupacion con la funcion dinamica de estiba cargada desde funcion_porcentaje.py.",
     ]
     tradeoffs = [
         "La prioridad global es reducir camiones activos; los objetivos de tiempo, km o descarga actuan despues dentro de cada ruta final.",
@@ -230,7 +198,7 @@ def export_bundle(config: AppConfig | None = None, planning_date: str | None = N
     app_config = config or AppConfig.discover()
     bundle = build_demo_bundle(app_config, planning_date=planning_date)
     bundle_payload = bundle.to_dict()
-    audit_payload = bundle.audit.to_dict() if hasattr(bundle.audit, "to_dict") else bundle.audit
+    audit_payload = bundle.audit.to_dict()
 
     output_paths = {
         "bundle": app_config.paths.generated_dir / "demo_bundle.json",
@@ -312,7 +280,7 @@ def save_optimization_run(
         "bundle": bundle_payload,
     }
     run_path = _history_dir(config) / file_name
-    run_path.write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
+    run_path.write_text(json.dumps(record, indent=2, ensure_ascii=False), encoding="utf-8")
 
     summary = {
         "id": run_id,
@@ -339,5 +307,5 @@ def save_optimization_run(
     history = load_optimization_history(config, limit=50)
     history = [summary] + [item for item in history if item.get("id") != run_id]
     history = history[:30]
-    _history_index_path(config).write_text(json.dumps(history, ensure_ascii=False), encoding="utf-8")
+    _history_index_path(config).write_text(json.dumps(history, indent=2, ensure_ascii=False), encoding="utf-8")
     return summary

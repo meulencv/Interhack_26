@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
-import { MapContainer, TileLayer, Polyline, CircleMarker, Marker, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Polyline, CircleMarker, Marker } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
@@ -35,12 +35,7 @@ function makeTruckIcon(tipo) {
     '8P':    { url: '/truck.png',   w: 70, h: 50 },
     'FURGO': { url: '/furgo.png',   w: 56, h: 40 },
   }[tipo] || { url: '/truck.png', w: 64, h: 46 }
-  return L.divIcon({
-    className: 'truck-marker',
-    html: `<img src="${cfg.url}" style="width: 100%; height: 100%; display: block; transition: transform 0.3s ease;" />`,
-    iconSize: [cfg.w, cfg.h],
-    iconAnchor: [cfg.w / 2, cfg.h]
-  })
+  return L.icon({ iconUrl: cfg.url, iconSize: [cfg.w, cfg.h], iconAnchor: [cfg.w / 2, cfg.h] })
 }
 
 function Clock() {
@@ -52,16 +47,8 @@ function Clock() {
   return <span className="time">{time}</span>
 }
 
-function MovingTruck({ truck, icon, onClick, focusTarget }) {
+function MovingTruck({ truck, icon, onClick }) {
   const markerRef = useRef(null)
-  const map = useMap()
-  const currentPosRef = useRef(truck.pos ? L.latLng(truck.pos) : null)
-
-  useEffect(() => {
-    if (focusTarget && focusTarget.id === truck.ruta?.id && currentPosRef.current) {
-      map.flyTo(currentPosRef.current, 17, { duration: 1.8, easeLinearity: 0.25 })
-    }
-  }, [focusTarget, truck.ruta?.id, map])
 
   useEffect(() => {
     if (!markerRef.current || !truck.path || truck.path.length < 2) return
@@ -90,7 +77,6 @@ function MovingTruck({ truck, icon, onClick, focusTarget }) {
 
     let stopTimer = 0
     let animationFrameId
-    let lastDirection = 1
 
     const animate = (time) => {
       const dt = Math.min(time - lastTime, 100) // cap dt at 100ms
@@ -107,13 +93,6 @@ function MovingTruck({ truck, icon, onClick, focusTarget }) {
 
         const p1 = currentPos
         const p2 = pathLatLngs[currentSegment + 1]
-
-        if (p2.lng < p1.lng) {
-          lastDirection = -1
-        } else if (p2.lng > p1.lng) {
-          lastDirection = 1
-        }
-
         const distToNext = p1.distanceTo(p2)
         const moveDist = speedMps * (dt / 1000)
 
@@ -134,17 +113,8 @@ function MovingTruck({ truck, icon, onClick, focusTarget }) {
           currentSegment++
         }
 
-        currentPosRef.current = currentPos
-
         if (markerRef.current) {
           markerRef.current.setLatLng(currentPos)
-          const el = markerRef.current.getElement()
-          if (el) {
-            const img = el.querySelector('img')
-            if (img) {
-              img.style.transform = lastDirection === -1 ? 'scaleX(-1)' : 'scaleX(1)'
-            }
-          }
         }
       }
 
@@ -185,7 +155,6 @@ export default function App() {
   const [activeNav, setActiveNav]     = useState(0)
   const [lang, setLang]               = useState('es-ES')
   const [selectedRuta, setSelectedRuta] = useState(null)
-  const [focusTruckTarget, setFocusTruckTarget] = useState(null)
   const icons = { '6P': makeTruckIcon('6P'), '8P': makeTruckIcon('8P'), 'FURGO': makeTruckIcon('FURGO') }
   const [bundle, setBundle]             = useState(null)
   const viewModel = useMemo(() => buildDashboardViewModel(bundle), [bundle])
@@ -258,12 +227,7 @@ export default function App() {
               <polyline points="6 9 12 15 18 9"/>
             </svg>
           </div>
-          <VoiceAssistant 
-            lang={lang} 
-            showCard={mapMode} 
-            context={assistantContext} 
-            onZoomTruck={(id) => setFocusTruckTarget({ id, ts: Date.now() })} 
-          />
+          <VoiceAssistant lang={lang} showCard={mapMode} context={assistantContext} />
         </div>
       </aside>
 
@@ -452,7 +416,6 @@ export default function App() {
                   truck={t}
                   icon={icons[t.ruta?.tipo] || icons['6P']}
                   onClick={() => t.ruta && setSelectedRuta(t.ruta)}
-                  focusTarget={focusTruckTarget}
                 />
               ))}
             </MapContainer>

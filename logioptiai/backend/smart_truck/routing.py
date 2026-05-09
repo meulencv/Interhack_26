@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import atexit
 from dataclasses import dataclass
-import hashlib
-import json
 from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
-import re
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+import hashlib
+import json
+import re
 
 from .config import AppConfig
 
@@ -32,24 +31,13 @@ class JsonCache:
     def __init__(self, path: Path):
         self.path = path
         self._data: dict = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-        self._dirty = False
-        atexit.register(self.flush)
 
     def get(self, key: str):
         return self._data.get(key)
 
     def set(self, key: str, value):
-        if self._data.get(key) == value:
-            return
         self._data[key] = value
-        self._dirty = True
-
-    def flush(self):
-        if not self._dirty:
-            return
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(self._data, ensure_ascii=False), encoding="utf-8")
-        self._dirty = False
+        self.path.write_text(json.dumps(self._data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 class ORSClient:

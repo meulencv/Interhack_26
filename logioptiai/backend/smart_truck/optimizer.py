@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from statistics import mean
-from typing import Callable
 
 from .config import AppConfig, VehicleTemplate
 from .models import RouteLeg, RoutePlan, SlotAllocation, Stop, StopInsight, Vehicle
@@ -73,7 +71,6 @@ class RouteBatch:
     stops: list[Stop]
     pallet_load: float
     load_volume_m3: float
-    effective_load_volume_m3: float
     volume_candidates: list[VolumeCandidate]
     cargo_mix_profile: dict[str, float]
     centroid_latitude: float
@@ -97,21 +94,6 @@ class VehicleLoadProfile:
     cargo_mix_profile: dict[str, float]
 
 
-@dataclass(frozen=True)
-class MargenFactibilidad:
-    cabe_con_margen: bool
-    margen_variable_pct: float
-    capacidad_planeable_entregas_cm3: float
-    volumen_entregas_cm3: float
-    volumen_objetivo_con_margen_cm3: float
-    holgura_con_margen_cm3: float
-    pico_retorno_cm3: float
-
-    @property
-    def volumen_objetivo_con_margen_m3(self) -> float:
-        return self.volumen_objetivo_con_margen_cm3 / 1_000_000
-
-
 def _template_by_label(config: AppConfig, label: str) -> VehicleTemplate:
     return next(item for item in config.fleet_templates if item.label == label)
 
@@ -124,60 +106,14 @@ def _normal_templates(config: AppConfig) -> list[VehicleTemplate]:
 
 
 @lru_cache(maxsize=1)
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
-
-
-def _capacidad_dinamica_interna(volume_candidates: list[VolumeCandidate], capacidad_nominal_m3: float) -> float:
-    volumen_total = sum(max(0.0, item.volumen) for item in volume_candidates)
-    if capacidad_nominal_m3 <= 0:
-        return 0.0
-    if volumen_total <= 0:
-        return round(capacidad_nominal_m3 * 0.92, 3)
-
-    volumen_resistente = sum(item.volumen for item in volume_candidates if item.fragilidad == 0)
-    ratio_resistente = volumen_resistente / max(volumen_total, 1e-9)
-    fragmentacion = min(1.0, len(volume_candidates) / 180.0)
-    factor_util = max(0.72, min(0.94, 0.91 - 0.14 * ratio_resistente - 0.04 * fragmentacion))
-    return round(capacidad_nominal_m3 * factor_util, 3)
-
-
-@lru_cache(maxsize=1)
-def _dynamic_capacity_loader() -> Callable[[list[VolumeCandidate], float], float]:
-    source_path = _repo_root() / "funcion_porcentaje.py"
-    if source_path.exists():
-        spec = spec_from_file_location("smart_truck_dynamic_capacity", source_path)
-        if spec is not None and spec.loader is not None:
-            module = module_from_spec(spec)
-            sys.modules[spec.name] = module
-            spec.loader.exec_module(module)
-            loaded = getattr(module, "calcular_capacidad_dinamica_viaje", None)
-            if callable(loaded):
-                return loaded
-    return _capacidad_dinamica_interna
-
-
-@lru_cache(maxsize=1)
-def _margen_variable_loader():
-    try:
-        from margen_variable_viajes import evaluar_factibilidad_viaje_con_margen  # type: ignore[import]
-
-        return evaluar_factibilidad_viaje_con_margen
-    except Exception:
-        source_path = _repo_root() / "margen_variable_viajes.py"
-        if not source_path.exists():
-            return None
-        spec = spec_from_file_location("margen_variable_viajes_local", source_path)
-        if spec is None or spec.loader is None:
-            return None
-        module = module_from_spec(spec)
-        sys.modules[spec.name] = module
-        try:
-            spec.loader.exec_module(module)
-        except Exception:
-            return None
-        loaded = getattr(module, "evaluar_factibilidad_viaje_con_margen", None)
-        return loaded if callable(loaded) else None
+def _dynamic_capacity_loader():
+    source_path = Path(__file__).resolve().parents[4] / "funcion_porcentaje.py"
+    spec = spec_from_file_location("smart_truck_dynamic_capacity", source_path)
+    if spec is None or spec.loader is None:
+        raise FileNotFoundError(f"No se pudo cargar {source_path}")
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return getattr(module, "calcular_capacidad_dinamica_viaje")
 
 
 def _line_volume_m3(dataset: CanonicalDataset, line) -> float:
@@ -209,125 +145,6 @@ def _line_fragility(dataset: CanonicalDataset, line) -> int:
     if sale_unit in {"CAJ", "ZPR", "ZCE", "UN"}:
         return 1
     return 1
-
-
-_MARGEN_FACTIBILIDAD_CACHE: dict[tuple[float, int, tuple[str, ...]], MargenFactibilidad] = {}
-
-
-def _estimate_return_volume_m3(
-    config: AppConfig,
-    dataset: CanonicalDataset,
-    stop: Stop,
-    delivered_volume_m3: float,
-) -> float:
-    if config.reverse_logistics_ratio <= 0:
-        return 0.0
-    returnable_lines = 0
-    for line in stop.delivery_lines:
-        material = dataset.materials.get(line.material_id)
-        if material and material.returnable:
-            returnable_lines += 1
-    returnable_share = returnable_lines / max(len(stop.delivery_lines), 1)
-    base_ratio = 0.45 + returnable_share * 0.55
-    return round(delivered_volume_m3 * config.reverse_logistics_ratio * base_ratio, 6)
-
-
-def _fallback_factibilidad(stops: list[Stop], num_palets: int, margen_pct: float = 0.15) -> MargenFactibilidad:
-    capacidad_nominal_cm3 = num_palets * 2_040_000.0
-    volumen_entregas_cm3 = sum(stop.total_pallet_equivalent for stop in stops) * 2_040_000.0
-    volumen_objetivo_cm3 = volumen_entregas_cm3 * (1.0 + margen_pct)
-    return MargenFactibilidad(
-        cabe_con_margen=volumen_objetivo_cm3 <= capacidad_nominal_cm3,
-        margen_variable_pct=margen_pct,
-        capacidad_planeable_entregas_cm3=capacidad_nominal_cm3 / (1.0 + margen_pct),
-        volumen_entregas_cm3=volumen_entregas_cm3,
-        volumen_objetivo_con_margen_cm3=volumen_objetivo_cm3,
-        holgura_con_margen_cm3=capacidad_nominal_cm3 - volumen_objetivo_cm3,
-        pico_retorno_cm3=0.0,
-    )
-
-
-def _factibilidad_paradas_con_margen(
-    config: AppConfig,
-    dataset: CanonicalDataset,
-    stops: list[Stop],
-    num_palets: int,
-) -> MargenFactibilidad:
-    cache_key = (
-        round(config.reverse_logistics_ratio, 3),
-        num_palets,
-        tuple(stop.stop_id for stop in stops),
-    )
-    cached = _MARGEN_FACTIBILIDAD_CACHE.get(cache_key)
-    if cached is not None:
-        return cached
-
-    evaluar_factibilidad = _margen_variable_loader()
-    if evaluar_factibilidad is None:
-        factibilidad = _fallback_factibilidad(stops, num_palets)
-        _MARGEN_FACTIBILIDAD_CACHE[cache_key] = factibilidad
-        return factibilidad
-
-    try:
-        import pandas as _pd  # noqa: PLC0415
-
-        registros = []
-        for idx, stop in enumerate(stops, start=1):
-            volumenes = [_line_volume_m3(dataset, line) for line in stop.delivery_lines]
-            vol_entrega_m3 = sum(volumenes)
-            vol_retorno_m3 = _estimate_return_volume_m3(config, dataset, stop, vol_entrega_m3)
-            vol_resistente = sum(
-                volumen
-                for volumen, line in zip(volumenes, stop.delivery_lines)
-                if _line_fragility(dataset, line) == 0
-            )
-            vol_fragil = sum(
-                volumen
-                for volumen, line in zip(volumenes, stop.delivery_lines)
-                if _line_fragility(dataset, line) >= 1
-            )
-            total_e = max(1e-9, vol_entrega_m3)
-            formatos = {
-                dataset.materials[line.material_id].stack_class
-                for line in stop.delivery_lines
-                if line.material_id in dataset.materials
-            }
-            registros.append(
-                {
-                    "stop_id": stop.stop_id,
-                    "stop_name": (stop.client_names[0] if stop.client_names else stop.stop_id),
-                    "stop_index": idx,
-                    "volumen_entrega_cm3": vol_entrega_m3 * 1_000_000,
-                    "volumen_retorno_cm3": vol_retorno_m3 * 1_000_000,
-                    "peso_kg": sum(line.pallet_equivalent * 350.0 for line in stop.delivery_lines),
-                    "ratio_resistente": vol_resistente / total_e,
-                    "ratio_fragil": vol_fragil / total_e,
-                    "ratio_bultos_grandes": 0.0,
-                    "diversidad_formato_pct": min(1.0, len(formatos) / max(1, len(stop.delivery_lines))),
-                    "diversidad_material_pct": min(
-                        1.0,
-                        len({line.material_id for line in stop.delivery_lines}) / max(1, len(stop.delivery_lines)),
-                    ),
-                }
-            )
-        if not registros:
-            factibilidad = _fallback_factibilidad(stops, num_palets)
-        else:
-            resultado = evaluar_factibilidad(_pd.DataFrame(registros), num_palets)
-            factibilidad = MargenFactibilidad(
-                cabe_con_margen=bool(resultado.cabe_con_margen),
-                margen_variable_pct=float(resultado.margen_variable_pct),
-                capacidad_planeable_entregas_cm3=float(resultado.capacidad_planeable_entregas_cm3),
-                volumen_entregas_cm3=float(resultado.volumen_entregas_cm3),
-                volumen_objetivo_con_margen_cm3=float(resultado.volumen_objetivo_con_margen_cm3),
-                holgura_con_margen_cm3=float(resultado.holgura_con_margen_cm3),
-                pico_retorno_cm3=float(resultado.pico_retorno_cm3),
-            )
-    except Exception:
-        factibilidad = _fallback_factibilidad(stops, num_palets)
-
-    _MARGEN_FACTIBILIDAD_CACHE[cache_key] = factibilidad
-    return factibilidad
 
 
 def _volume_candidates_for_stops(dataset: CanonicalDataset, stops: list[Stop]) -> list[VolumeCandidate]:
@@ -382,29 +199,24 @@ def _vehicle_for_load(
     required_load: float,
     required_volume_m3: float,
     volume_candidates: list[VolumeCandidate],
-    dataset: CanonicalDataset | None = None,
-    stops: list[Stop] | None = None,
 ) -> Vehicle:
     template: VehicleTemplate | None = None
     preferred_templates = _normal_templates(config)
-
-    def cabe_en(candidate: VehicleTemplate, *, permitir_sobre_limite_operativo: bool = False) -> bool:
-        if required_load > candidate.pallet_capacity + 1e-6:
-            return False
-        if not permitir_sobre_limite_operativo and required_load > candidate.usable_capacity(config.max_vehicle_fill_ratio) + 1e-6:
-            return False
-        if dataset is not None and stops is not None:
-            return _factibilidad_paradas_con_margen(config, dataset, stops, int(candidate.pallet_capacity)).cabe_con_margen
-        load_profile = _vehicle_load_profile(config, candidate, volume_candidates, required_volume_m3)
-        return required_volume_m3 <= load_profile.effective_volume_capacity_m3 + 1e-6
-
     for candidate in preferred_templates:
-        if cabe_en(candidate):
+        load_profile = _vehicle_load_profile(config, candidate, volume_candidates, required_volume_m3)
+        if (
+            required_load <= candidate.usable_capacity(config.max_vehicle_fill_ratio) + 1e-6
+            and required_volume_m3 <= load_profile.effective_volume_capacity_m3 + 1e-6
+        ):
             template = candidate
             break
     if template is None:
         for candidate in sorted(preferred_templates, key=lambda item: (item.pallet_capacity, item.permit_rank)):
-            if cabe_en(candidate, permitir_sobre_limite_operativo=True):
+            load_profile = _vehicle_load_profile(config, candidate, volume_candidates, required_volume_m3)
+            if (
+                required_load <= candidate.pallet_capacity + 1e-6
+                and required_volume_m3 <= load_profile.effective_volume_capacity_m3 + 1e-6
+            ):
                 template = candidate
                 break
     if template is None:
@@ -413,7 +225,11 @@ def _vehicle_for_load(
             key=lambda item: (item.permit_rank, item.pallet_capacity),
         )
         for candidate in emergency_templates:
-            if cabe_en(candidate, permitir_sobre_limite_operativo=True):
+            load_profile = _vehicle_load_profile(config, candidate, volume_candidates, required_volume_m3)
+            if (
+                required_load <= candidate.pallet_capacity + 1e-6
+                and required_volume_m3 <= load_profile.effective_volume_capacity_m3 + 1e-6
+            ):
                 template = candidate
                 break
     if template is None:
@@ -435,7 +251,6 @@ def _cluster_parking_candidates(stops: list[Stop]) -> list[Stop]:
 
 
 def _make_route_batch(
-    config: AppConfig,
     route_code: str,
     source_route_codes: list[str],
     stops: list[Stop],
@@ -452,17 +267,12 @@ def _make_route_batch(
             zone_counts[zone_key] = zone_counts.get(zone_key, 0) + 1
     dominant_zone = max(zone_counts, key=zone_counts.get) if zone_counts else ""
     avg_window_start = mean(stop.window_start_minutes for stop in stops)
-    load_volume_m3 = round(cargo_mix["total_volume_m3"], 3)
-    num_palets_estimado = 8 if load_volume_m3 > 10.8 else (6 if load_volume_m3 > 7.2 else 3)
-    factibilidad = _factibilidad_paradas_con_margen(config, dataset, stops, num_palets_estimado)
-    effective_load_volume_m3 = round(factibilidad.volumen_objetivo_con_margen_m3, 3)
     return RouteBatch(
         route_code=route_code,
         source_route_codes=sorted(source_route_codes),
         stops=stops,
         pallet_load=round(sum(stop.total_pallet_equivalent for stop in stops), 3),
-        load_volume_m3=load_volume_m3,
-        effective_load_volume_m3=effective_load_volume_m3,
+        load_volume_m3=round(cargo_mix["total_volume_m3"], 3),
         volume_candidates=volume_candidates,
         cargo_mix_profile=cargo_mix,
         centroid_latitude=centroid_latitude,
@@ -472,27 +282,27 @@ def _make_route_batch(
     )
 
 
-def _merge_batches(config: AppConfig, left: RouteBatch, right: RouteBatch, dataset: CanonicalDataset) -> RouteBatch:
+def _merge_batches(left: RouteBatch, right: RouteBatch, dataset: CanonicalDataset) -> RouteBatch:
     merged_codes = sorted({*left.source_route_codes, *right.source_route_codes})
     merged_route_code = " + ".join(merged_codes)
     merged_stops = left.stops + right.stops
-    return _make_route_batch(config, merged_route_code, merged_codes, merged_stops, dataset)
+    return _make_route_batch(merged_route_code, merged_codes, merged_stops, dataset)
 
 
 def _batch_merge_score(
     config: AppConfig,
-    dataset: CanonicalDataset,
     source: RouteBatch,
     target: RouteBatch,
+    truck_6_profile: VehicleLoadProfile,
+    truck_8_profile: VehicleLoadProfile,
 ) -> tuple[int, int, float, int, float] | None:
     if source.route_code == target.route_code:
         return None
     combined_load = source.pallet_load + target.pallet_load
-    combined_stops = source.stops + target.stops
-    factibilidad_8 = _factibilidad_paradas_con_margen(config, dataset, combined_stops, 8)
-    if combined_load > _template_by_label(config, "truck_8").pallet_capacity + 1e-6:
+    combined_volume = round(source.load_volume_m3 + target.load_volume_m3, 3)
+    if combined_load > _template_by_label(config, "truck_8").usable_capacity(config.max_vehicle_fill_ratio) + 1e-6:
         return None
-    if not factibilidad_8.cabe_con_margen:
+    if combined_volume > truck_8_profile.effective_volume_capacity_m3 + 1e-6:
         return None
     combined_stop_count = len(source.stops) + len(target.stops)
     if combined_stop_count > 28:
@@ -506,11 +316,10 @@ def _batch_merge_score(
     same_zone = bool(source.dominant_zone and source.dominant_zone == target.dominant_zone)
     if distance > config.route_merge_distance_km and not same_zone:
         return None
-    factibilidad_6 = _factibilidad_paradas_con_margen(config, dataset, combined_stops, 6)
     return (
         0 if (
-            combined_load <= _template_by_label(config, "truck_6").pallet_capacity + 1e-6
-            and factibilidad_6.cabe_con_margen
+            combined_load <= _template_by_label(config, "truck_6").usable_capacity(config.max_vehicle_fill_ratio) + 1e-6
+            and combined_volume <= truck_6_profile.effective_volume_capacity_m3 + 1e-6
         ) else 1,
         0 if same_zone else 1,
         round(distance, 3),
@@ -539,7 +348,20 @@ def _consolidate_route_batches(
             for target_index, target in enumerate(batches):
                 if source_index == target_index:
                     continue
-                score = _batch_merge_score(config, dataset, source, target)
+                merged_volume_candidates = source.volume_candidates + target.volume_candidates
+                truck_6_profile = _vehicle_load_profile(
+                    config,
+                    _template_by_label(config, "truck_6"),
+                    merged_volume_candidates,
+                    source.load_volume_m3 + target.load_volume_m3,
+                )
+                truck_8_profile = _vehicle_load_profile(
+                    config,
+                    _template_by_label(config, "truck_8"),
+                    merged_volume_candidates,
+                    source.load_volume_m3 + target.load_volume_m3,
+                )
+                score = _batch_merge_score(config, source, target, truck_6_profile, truck_8_profile)
                 if score is None:
                     continue
                 if best_score is None or score < best_score:
@@ -548,7 +370,7 @@ def _consolidate_route_batches(
             if best_target_index is None:
                 continue
             target = batches[best_target_index]
-            merged_batch = _merge_batches(config, source, target, dataset)
+            merged_batch = _merge_batches(source, target, dataset)
             remaining = [
                 batch
                 for idx, batch in enumerate(batches)
@@ -1130,7 +952,7 @@ def optimize_routes_for_date(
             stop.longitude = geocoded.longitude
             stop.coordinate_source = geocoded.source
         clustered = _cluster_parking_candidates(stops)
-        route_batches.append(_make_route_batch(config, route_code, [route_code], clustered, dataset))
+        route_batches.append(_make_route_batch(route_code, [route_code], clustered, dataset))
 
     route_batches = _consolidate_route_batches(config, dataset, route_batches)
 
@@ -1138,8 +960,6 @@ def optimize_routes_for_date(
     for batch in route_batches:
         pallet_load = round(batch.pallet_load, 3)
         load_volume_m3 = round(batch.load_volume_m3, 3)
-        # Usar el volumen efectivo con margen variable para seleccionar el vehiculo inicial
-        effective_load_volume_m3 = round(batch.effective_load_volume_m3, 3)
         stop_returns = {stop.stop_id: _estimate_return_pickup(config, dataset, stop) for stop in batch.stops}
         stop_volumes_m3 = {
             stop.stop_id: round(sum(_line_volume_m3(dataset, line) for line in stop.delivery_lines), 3)
@@ -1159,15 +979,7 @@ def optimize_routes_for_date(
             )
             for stop in batch.stops
         }
-        vehicle = _vehicle_for_load(
-            config,
-            batch.route_code,
-            pallet_load,
-            effective_load_volume_m3,
-            batch.volume_candidates,
-            dataset=dataset,
-            stops=batch.stops,
-        )
+        vehicle = _vehicle_for_load(config, batch.route_code, pallet_load, load_volume_m3, batch.volume_candidates)
         (
             ordered,
             distance_km,
@@ -1190,8 +1002,6 @@ def optimize_routes_for_date(
                 projected_peak_load,
                 projected_peak_volume_m3,
                 batch.volume_candidates,
-                dataset=dataset,
-                stops=batch.stops,
             )
             if upgraded_vehicle.vehicle_id != vehicle.vehicle_id:
                 vehicle = upgraded_vehicle
