@@ -4,7 +4,7 @@ import { synthesizeSpeech } from '../services/elevenlabs'
 import { getAIResponse } from '../services/ai'
 import { BottomWave } from './BottomWave'
 
-export function VoiceAssistant() {
+export function VoiceAssistant({ lang = 'es-ES' }) {
   const [listening, setListening] = useState(false)
   const [resolveState, setResolveState] = useState('idle') // idle | resolving
   const [ttsState, setTtsState] = useState('idle') // idle | connecting | speaking | error
@@ -34,7 +34,7 @@ export function VoiceAssistant() {
     setTranscript('')
 
     const recognition = new SpeechRecognition()
-    recognition.lang = 'es-ES'
+    recognition.lang = lang
     recognition.continuous = true
     recognition.interimResults = true
 
@@ -70,7 +70,7 @@ export function VoiceAssistant() {
 
     recognition.start()
     recognitionRef.current = recognition
-  }, [])
+  }, [lang])
 
   const processAndSpeak = useCallback(async (text) => {
     if (!text.trim()) return

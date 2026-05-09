@@ -1,6 +1,6 @@
 const API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY
-const VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID || 'EXAVITQu4vr4xnSDxMaL'
-const MODEL_ID = import.meta.env.VITE_ELEVENLABS_TTS_MODEL || 'eleven_flash_v2_5'
+const VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID || 'TX3LPaxmHKxFdv7VOQHJ'
+const MODEL_ID = import.meta.env.VITE_ELEVENLABS_TTS_MODEL || 'eleven_v3'
 
 export async function synthesizeSpeech(text, signal) {
   const response = await fetch(

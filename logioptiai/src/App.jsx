@@ -4,6 +4,11 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
 import { VoiceAssistant } from './components/VoiceAssistant'
+import { FlotaView } from './components/FlotaView'
+import { EntregasView } from './components/EntregasView'
+import { OptimizacionView } from './components/OptimizacionView'
+import { AlertasView } from './components/AlertasView'
+import { AnalyticsView } from './components/AnalyticsView'
 
 const ORS_KEY = import.meta.env.VITE_ORS_KEY
 
@@ -109,11 +114,17 @@ const NAV_ITEMS = [
   { label: 'Optimización', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l-.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> },
   { label: 'Alertas', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg> },
   { label: 'Analytics', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18M7 14l4-4 4 4 5-5"/></svg> },
-  { label: 'Configuración', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l-.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> },
+]
+
+const LANGS = [
+  { code: 'es-ES', label: 'ES' },
+  { code: 'ca-ES', label: 'CA' },
+  { code: 'en-US', label: 'EN' },
 ]
 
 export default function App() {
   const [activeNav, setActiveNav] = useState(0)
+  const [lang, setLang] = useState('es-ES')
   const truckIcon = TruckIcon()
   const alertIcon = AlertIcon()
   const [routes, setRoutes] = useState(ROUTE_DEFS.map(d => ({ ...d, positions: d.waypoints })))
@@ -196,11 +207,57 @@ export default function App() {
               <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
             </svg>
           </button>
+          <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '2px 3px' }}>
+            {LANGS.map(l => (
+              <button
+                key={l.code}
+                onClick={() => setLang(l.code)}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: '3px 8px',
+                  borderRadius: 6,
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: lang === l.code ? 'rgba(56,189,248,0.18)' : 'transparent',
+                  color: lang === l.code ? '#38bdf8' : '#6b7280',
+                  transition: 'background 0.2s, color 0.2s',
+                }}
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
           <Clock />
         </header>
 
-        {/* Content */}
-        <section className="content">
+        {/* Full-page views */}
+        {activeNav === 1 ? (
+          <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <FlotaView />
+          </div>
+        ) : null}
+        {activeNav === 2 ? (
+          <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <EntregasView />
+          </div>
+        ) : null}
+        {activeNav === 3 ? (
+          <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <OptimizacionView />
+          </div>
+        ) : null}
+        {activeNav === 4 ? (
+          <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <AlertasView />
+          </div>
+        ) : null}
+        {activeNav === 5 ? (
+          <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <AnalyticsView />
+          </div>
+        ) : null}
+        <section className="content" style={activeNav !== 0 ? { display: 'none' } : {}}>
           {/* MAP */}
           <div className="map-area">
             <div className="fleet-card">
@@ -294,12 +351,12 @@ export default function App() {
               </div>
             </div>
 
-            <VoiceAssistant />
+            <VoiceAssistant lang={lang} />
           </div>
         </section>
 
         {/* Bottom row */}
-        <section className="bottom-row">
+        <section className="bottom-row" style={activeNav !== 0 ? { display: 'none' } : {}}>
           <div className="card events-card">
             <div className="events-title">Eventos recientes <span className="more">⋯</span></div>
 
