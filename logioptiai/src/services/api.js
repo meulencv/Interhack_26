@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000/api'
+const BASE = import.meta.env.VITE_API_BASE || '/api'
 
 export async function runOptimization({ planningDate, objective, timeWindows, reverseLogistics }) {
   const res = await fetch(`${BASE}/optimize`, {
