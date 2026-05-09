@@ -96,6 +96,13 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
     total_stops = sum(len(route.stops) for route in route_results)
     on_time_stops = sum(route.live_metrics.get("on_time_stops", 0) for route in route_results)
     vehicle_mix = Counter(route.vehicle.template for route in route_results)
+    fleet_counts = dict(app_config.fleet_counts)
+    fleet_limit = sum(fleet_counts.values())
+    fleet_limit_violations = {
+        label: max(0, count - fleet_counts.get(label, 0))
+        for label, count in vehicle_mix.items()
+        if count > fleet_counts.get(label, 0)
+    }
     merged_routes_saved = sum(max(0, len(route.source_route_codes) - 1) for route in route_results)
     avg_wait_minutes = round(
         sum(route.live_metrics.get("wait_minutes_total", 0.0) for route in route_results) / max(len(route_results), 1),
@@ -128,6 +135,8 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
         "minimize_truck_count_first": app_config.prioritize_minimum_trucks,
         "van_only_for_emergency": True,
         "dynamic_volume_function": "funcion_porcentaje.py",
+        "fleet_counts": fleet_counts,
+        "max_active_vehicles": fleet_limit,
     }
     scorecard = {
         "objective_score": total_objective_score,
@@ -142,6 +151,7 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
         "dynamic_ready": True,
         "vehicle_count": len(route_results),
         "vehicle_mix": dict(vehicle_mix),
+        "fleet_limit_violations": fleet_limit_violations,
         "merged_routes_saved": merged_routes_saved,
     }
 
@@ -151,10 +161,11 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
         "La carga interna del camion se representa por slots discretos porque el dataset no trae medidas interiores exactas.",
         "La logistica inversa se aproxima con una razon media sobre el volumen entregado y se usa para reservar hueco operativo.",
         "La capacidad volumetrica operativa combina el porcentaje manual de ocupacion con la funcion dinamica de estiba cargada desde funcion_porcentaje.py.",
+        "La flota de Mollet queda limitada a 11 camiones de 6 palets, 4 camiones de 8 palets y 1 furgoneta de 3 palets.",
     ]
     tradeoffs = [
         "La prioridad global es reducir camiones activos; los objetivos de tiempo, km o descarga actuan despues dentro de cada ruta final.",
-        "Los camiones de 6 palets son preferentes y la furgoneta se deja como recurso de emergencia si no queda otra alternativa razonable.",
+        "Los camiones de 6 palets son preferentes, pero la asignacion se hace contra cupos reales por tipo de vehiculo.",
         "La restriccion del 85% puede forzar vehiculos mayores o alertas cuando la ruta historica ya nace muy cargada.",
         "La nueva restriccion geometrica por volumen puede recortar mas la capacidad disponible si predominan barriles o formatos poco apilables.",
         "El layout del almacen se trata como una heuristica de picking, no como un plano metrico exacto.",
@@ -182,6 +193,8 @@ def build_demo_bundle(config: AppConfig | None = None, planning_date: str | None
             "objective_score": total_objective_score,
             "vehicle_count": len(route_results),
             "vehicle_mix": dict(vehicle_mix),
+            "fleet_limit": fleet_limit,
+            "fleet_limit_violations": fleet_limit_violations,
             "merged_routes_saved": merged_routes_saved,
         },
         scorecard=scorecard,

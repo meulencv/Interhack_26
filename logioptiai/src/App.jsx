@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
-import { MapContainer, TileLayer, Polyline, CircleMarker, Marker } from 'react-leaflet'
+import { MapContainer, TileLayer, Polyline, CircleMarker, Marker, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
@@ -47,8 +47,36 @@ function Clock() {
   return <span className="time">{time}</span>
 }
 
-function MovingTruck({ truck, icon, onClick }) {
+// Watches for any user interaction with the map to cancel follow mode
+function MapInteractionWatcher({ followingTruckId, onCancel }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!followingTruckId) return
+    const cancel = () => onCancel()
+    map.on('dragstart', cancel)
+    map.on('zoomstart', cancel)
+    return () => {
+      map.off('dragstart', cancel)
+      map.off('zoomstart', cancel)
+    }
+  }, [followingTruckId, map, onCancel])
+  return null
+}
+
+function MovingTruck({ truck, icon, onClick, followingTruckId }) {
   const markerRef = useRef(null)
+  const map = useMap()
+  const currentPosRef = useRef(truck.pos ? L.latLng(truck.pos) : null)
+
+  const isFollowed = followingTruckId === truck.ruta?.id
+
+  // Initial fly-to when follow starts
+  useEffect(() => {
+    if (isFollowed && currentPosRef.current) {
+      map.flyTo(currentPosRef.current, 17, { duration: 1.8, easeLinearity: 0.25 })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followingTruckId])
 
   useEffect(() => {
     if (!markerRef.current || !truck.path || truck.path.length < 2) return
@@ -69,17 +97,17 @@ function MovingTruck({ truck, icon, onClick }) {
     let currentSegment = Math.floor(Math.random() * (pathLatLngs.length - 1))
     let currentPos = pathLatLngs[currentSegment]
     let lastTime = performance.now()
-    
+
     // 60 km/h in m/s
-    const speedMps = 60 * (1000 / 3600) 
+    const speedMps = 60 * (1000 / 3600)
     // 5 mins in ms
-    const stopDurationMs = 5 * 60 * 1000 
+    const stopDurationMs = 5 * 60 * 1000
 
     let stopTimer = 0
     let animationFrameId
 
     const animate = (time) => {
-      const dt = Math.min(time - lastTime, 100) // cap dt at 100ms
+      const dt = Math.min(time - lastTime, 100)
       lastTime = time
 
       if (stopTimer > 0) {
@@ -113,8 +141,16 @@ function MovingTruck({ truck, icon, onClick }) {
           currentSegment++
         }
 
+        // Keep a live reference of current position for zoom/follow
+        currentPosRef.current = currentPos
+
         if (markerRef.current) {
           markerRef.current.setLatLng(currentPos)
+        }
+
+        // Continuously pan the map while in follow mode
+        if (isFollowed) {
+          map.panTo(currentPos, { animate: true, duration: 0.3, easeLinearity: 0.5, noMoveStart: true })
         }
       }
 
@@ -155,6 +191,7 @@ export default function App() {
   const [activeNav, setActiveNav]     = useState(0)
   const [lang, setLang]               = useState('es-ES')
   const [selectedRuta, setSelectedRuta] = useState(null)
+  const [followingTruckId, setFollowingTruckId] = useState(null)
   const icons = { '6P': makeTruckIcon('6P'), '8P': makeTruckIcon('8P'), 'FURGO': makeTruckIcon('FURGO') }
   const [bundle, setBundle]             = useState(null)
   const viewModel = useMemo(() => buildDashboardViewModel(bundle), [bundle])
@@ -171,6 +208,11 @@ export default function App() {
       .then(setBundle)
       .catch(() => {})
   }, [])
+
+  // Cancel follow when the user navigates away from the map
+  useEffect(() => {
+    if (activeNav !== 0) setFollowingTruckId(null)
+  }, [activeNav])
 
   return (
     <div className="frame" style={{
@@ -227,7 +269,12 @@ export default function App() {
               <polyline points="6 9 12 15 18 9"/>
             </svg>
           </div>
-          <VoiceAssistant lang={lang} showCard={mapMode} context={assistantContext} />
+          <VoiceAssistant
+            lang={lang}
+            showCard={mapMode}
+            context={assistantContext}
+            onZoomTruck={(id) => setFollowingTruckId(id)}
+          />
         </div>
       </aside>
 
@@ -297,6 +344,39 @@ export default function App() {
           }}
         >
           <div className="map-area" style={{ position: 'absolute', inset: 0, borderRadius: 0, border: 'none' }}>
+
+            {/* Follow-mode badge */}
+            {followingTruckId && (
+              <div style={{
+                position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)',
+                zIndex: 1200,
+                background: 'rgba(56,189,248,0.15)',
+                border: '1px solid rgba(56,189,248,0.45)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                borderRadius: 24,
+                padding: '6px 16px 6px 12px',
+                display: 'flex', alignItems: 'center', gap: 8,
+                fontSize: 12, fontWeight: 600, color: '#38bdf8',
+                pointerEvents: 'auto',
+                boxShadow: '0 0 20px rgba(56,189,248,0.2)',
+                animation: 'fadeInDown 0.3s ease',
+              }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 6px #38bdf8', flexShrink: 0 }} />
+                Siguiendo {followingTruckId}
+                <button
+                  onClick={() => setFollowingTruckId(null)}
+                  style={{
+                    marginLeft: 4, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 12, padding: '2px 8px', fontSize: 11, color: '#94a3b8',
+                    cursor: 'pointer', fontWeight: 500,
+                  }}
+                  title="Cancelar seguimiento"
+                >
+                  ✕ cancelar
+                </button>
+              </div>
+            )}
 
             {/* Fleet card — top-left overlay */}
             <div className="fleet-card" style={GLASS}>
@@ -416,8 +496,14 @@ export default function App() {
                   truck={t}
                   icon={icons[t.ruta?.tipo] || icons['6P']}
                   onClick={() => t.ruta && setSelectedRuta(t.ruta)}
+                  followingTruckId={followingTruckId}
                 />
               ))}
+
+              <MapInteractionWatcher
+                followingTruckId={followingTruckId}
+                onCancel={() => setFollowingTruckId(null)}
+              />
             </MapContainer>
           </div>
         </section>

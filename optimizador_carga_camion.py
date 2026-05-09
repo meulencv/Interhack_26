@@ -36,6 +36,11 @@ STACK_FRAGIL = 2
 
 RUTA_CATALOGO_ZM040_FIJO = Path(__file__).with_name("zm040_catalogo_fijo.csv")
 
+DATA_DIR_DEFECTO = Path(__file__).resolve().parent / "logioptiai" / "backend" / "data"
+RUTA_HACKATON_DEFECTO = DATA_DIR_DEFECTO / "Hackaton.xlsx"
+RUTA_ZM040_DEFECTO = DATA_DIR_DEFECTO / "ZM040.XLSX"
+RUTA_LAYOUT_DEFECTO = DATA_DIR_DEFECTO / "Layout Mollet.xlsx"
+
 
 @dataclass(frozen=True)
 class ItemCarga:
@@ -635,10 +640,23 @@ def _preparar_catalogo_dimensiones(df_zm040: pd.DataFrame) -> Tuple[Dict[Tuple[s
     return registros_por_clave, registros_por_material
 
 
+def _resolver_archivo_entrada(ruta: Optional[str], fallback: Optional[Path] = None) -> Optional[Path]:
+    if ruta:
+        ruta_path = Path(ruta)
+        if ruta_path.exists():
+            return ruta_path
+        if fallback and ruta_path.name == fallback.name and fallback.exists():
+            return fallback
+        return ruta_path
+    return fallback if fallback and fallback.exists() else None
+
+
 def _cargar_catalogo_zm040(ruta_zm040: Optional[str]) -> pd.DataFrame:
-    ruta_preferida = Path(ruta_zm040) if ruta_zm040 else RUTA_CATALOGO_ZM040_FIJO
-    if not ruta_preferida.exists():
-        raise FileNotFoundError(f"No se encontro el catalogo ZM040 en {ruta_preferida}")
+    ruta_preferida = _resolver_archivo_entrada(ruta_zm040, RUTA_CATALOGO_ZM040_FIJO)
+    if ruta_preferida is None or not ruta_preferida.exists():
+        ruta_preferida = RUTA_ZM040_DEFECTO if RUTA_ZM040_DEFECTO.exists() else ruta_preferida
+    if ruta_preferida is None or not ruta_preferida.exists():
+        raise FileNotFoundError(f"No se encontro el catalogo ZM040 en {ruta_zm040 or RUTA_CATALOGO_ZM040_FIJO}")
 
     if ruta_preferida.suffix.lower() == ".csv":
         return pd.read_csv(ruta_preferida)
@@ -696,8 +714,13 @@ def cargar_items_desde_excels(
     if not ruta and not transporte:
         raise ValueError("Debes indicar una ruta o un transporte para construir un camion concreto.")
 
-    df_detalle = pd.read_excel(ruta_hackaton, sheet_name="Detalle entrega")
-    df_materiales = pd.read_excel(ruta_hackaton, sheet_name="Materiales zubic")
+    ruta_hackaton_path = _resolver_archivo_entrada(ruta_hackaton, RUTA_HACKATON_DEFECTO)
+    if ruta_hackaton_path is None or not ruta_hackaton_path.exists():
+        raise FileNotFoundError(f"No se encontro Hackaton.xlsx en {ruta_hackaton}")
+    ruta_layout_path = _resolver_archivo_entrada(ruta_layout, RUTA_LAYOUT_DEFECTO) if ruta_layout else None
+
+    df_detalle = pd.read_excel(ruta_hackaton_path, sheet_name="Detalle entrega")
+    df_materiales = pd.read_excel(ruta_hackaton_path, sheet_name="Materiales zubic")
     df_zm040 = _cargar_catalogo_zm040(ruta_zm040)
 
     if ruta:
@@ -728,7 +751,7 @@ def cargar_items_desde_excels(
 
     df_base = df_detalle.merge(df_materiales[[col_material, "Ubic."]], on=col_material, how="left")
     catalogo_exacto, catalogo_material = _preparar_catalogo_dimensiones(df_zm040)
-    warehouse_layout = _construir_layout_modelo(ruta_layout)
+    warehouse_layout = _construir_layout_modelo(str(ruta_layout_path) if ruta_layout_path else None)
 
     if stop_sequence:
         mapa_paradas = {str(stop): idx + 1 for idx, stop in enumerate(stop_sequence)}
@@ -1423,8 +1446,9 @@ def optimizar_carga_camion(
 
 def ejemplo_uso() -> None:
     items, _, _ = cargar_items_desde_excels(
-        ruta_hackaton="Hackaton.xlsx",
-        ruta_layout="Layout Mollet.xlsx",
+        ruta_hackaton=str(RUTA_HACKATON_DEFECTO),
+        ruta_zm040=str(RUTA_ZM040_DEFECTO),
+        ruta_layout=str(RUTA_LAYOUT_DEFECTO),
         ruta="DR0001",
         max_stops=5,
     )
@@ -1437,9 +1461,9 @@ def ejemplo_uso() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Optimizador heuristico de carga por palets.")
-    parser.add_argument("--hackaton", default="Hackaton.xlsx", help="Ruta al fichero Hackaton.xlsx")
+    parser.add_argument("--hackaton", default=str(RUTA_HACKATON_DEFECTO), help="Ruta al fichero Hackaton.xlsx")
     parser.add_argument("--zm040", help="Ruta opcional al fichero o CSV de catalogo ZM040. Si no se indica, usa el catalogo fijo del proyecto.")
-    parser.add_argument("--layout", default="Layout Mollet.xlsx", help="Ruta al layout del almacen")
+    parser.add_argument("--layout", default=str(RUTA_LAYOUT_DEFECTO), help="Ruta al layout del almacen")
     parser.add_argument("--ruta", help="Codigo de ruta a analizar")
     parser.add_argument("--transporte", help="Codigo de transporte a analizar")
     parser.add_argument("--palets", type=int, default=6, choices=[3, 6, 8], help="Numero de huecos de palet del camion")

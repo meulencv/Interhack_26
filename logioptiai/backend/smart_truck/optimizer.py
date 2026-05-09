@@ -105,15 +105,37 @@ def _normal_templates(config: AppConfig) -> list[VehicleTemplate]:
     )
 
 
+def _fleet_availability(config: AppConfig) -> dict[str, int]:
+    return {
+        template.label: max(0, int(config.fleet_counts.get(template.label, 0)))
+        for template in config.fleet_templates
+    }
+
+
+def _total_fleet_vehicles(config: AppConfig) -> int:
+    return sum(_fleet_availability(config).values())
+
+
 @lru_cache(maxsize=1)
 def _dynamic_capacity_loader():
     source_path = Path(__file__).resolve().parents[4] / "funcion_porcentaje.py"
-    spec = spec_from_file_location("smart_truck_dynamic_capacity", source_path)
-    if spec is None or spec.loader is None:
-        raise FileNotFoundError(f"No se pudo cargar {source_path}")
-    module = module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return getattr(module, "calcular_capacidad_dinamica_viaje")
+    if source_path.exists():
+        spec = spec_from_file_location("smart_truck_dynamic_capacity", source_path)
+        if spec is not None and spec.loader is not None:
+            module = module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return getattr(module, "calcular_capacidad_dinamica_viaje")
+
+    def fallback(volume_candidates: list[VolumeCandidate], nominal_capacity_m3: float) -> float:
+        if not volume_candidates:
+            return nominal_capacity_m3
+        total_volume = sum(item.volumen for item in volume_candidates)
+        resistant_volume = sum(item.volumen for item in volume_candidates if item.fragilidad == 0)
+        resistant_ratio = resistant_volume / max(total_volume, 1e-6)
+        dynamic_factor = 0.92 - resistant_ratio * 0.14
+        return round(nominal_capacity_m3 * max(0.72, min(dynamic_factor, 0.95)), 3)
+
+    return fallback
 
 
 def _line_volume_m3(dataset: CanonicalDataset, line) -> float:
@@ -193,6 +215,25 @@ def _vehicle_load_profile(
     )
 
 
+def _vehicle_from_template(
+    config: AppConfig,
+    route_code: str,
+    template: VehicleTemplate,
+    volume_candidates: list[VolumeCandidate],
+    load_volume_m3: float,
+) -> Vehicle:
+    load_profile = _vehicle_load_profile(config, template, volume_candidates, load_volume_m3)
+    return Vehicle(
+        vehicle_id=f"{route_code}-{template.label}",
+        template=template.label,
+        pallet_capacity=template.pallet_capacity,
+        volume_capacity_m3=template.volume_capacity_m3,
+        effective_volume_capacity_m3=load_profile.effective_volume_capacity_m3,
+        dynamic_volume_factor=load_profile.dynamic_volume_factor,
+        slot_names=list(template.slot_names),
+    )
+
+
 def _vehicle_for_load(
     config: AppConfig,
     route_code: str,
@@ -233,16 +274,16 @@ def _vehicle_for_load(
                 template = candidate
                 break
     if template is None:
-        template = sorted(config.fleet_templates, key=lambda item: (item.emergency_only, item.pallet_capacity))[-1]
-    load_profile = _vehicle_load_profile(config, template, volume_candidates, required_volume_m3)
-    return Vehicle(
-        vehicle_id=f"{route_code}-{template.label}",
-        template=template.label,
-        pallet_capacity=template.pallet_capacity,
-        volume_capacity_m3=template.volume_capacity_m3,
-        effective_volume_capacity_m3=load_profile.effective_volume_capacity_m3,
-        dynamic_volume_factor=load_profile.dynamic_volume_factor,
-        slot_names=list(template.slot_names),
+        template = max(
+            config.fleet_templates,
+            key=lambda item: (item.pallet_capacity, item.volume_capacity_m3, -item.permit_rank),
+        )
+    return _vehicle_from_template(
+        config,
+        route_code,
+        template,
+        volume_candidates,
+        required_volume_m3,
     )
 
 
@@ -382,6 +423,131 @@ def _consolidate_route_batches(
             break
 
     return sorted(batches, key=lambda batch: (batch.avg_window_start, -batch.pallet_load, batch.route_code))
+
+
+def _fleet_forced_merge_score(config: AppConfig, left: RouteBatch, right: RouteBatch) -> tuple[float, ...]:
+    merged_volume_candidates = left.volume_candidates + right.volume_candidates
+    combined_load = round(left.pallet_load + right.pallet_load, 3)
+    combined_volume = round(left.load_volume_m3 + right.load_volume_m3, 3)
+    largest_template = max(
+        _normal_templates(config) or list(config.fleet_templates),
+        key=lambda item: (item.pallet_capacity, item.volume_capacity_m3),
+    )
+    load_profile = _vehicle_load_profile(config, largest_template, merged_volume_candidates, combined_volume)
+    load_over_operational = max(0.0, combined_load - largest_template.usable_capacity(config.max_vehicle_fill_ratio))
+    load_over_physical = max(0.0, combined_load - largest_template.pallet_capacity)
+    volume_over_operational = max(0.0, combined_volume - load_profile.effective_volume_capacity_m3)
+    volume_over_physical = max(0.0, combined_volume - largest_template.volume_capacity_m3)
+    distance = haversine_km(
+        left.centroid_latitude,
+        left.centroid_longitude,
+        right.centroid_latitude,
+        right.centroid_longitude,
+    )
+    same_zone = bool(left.dominant_zone and left.dominant_zone == right.dominant_zone)
+    window_gap = abs(left.avg_window_start - right.avg_window_start)
+    return (
+        0.0 if load_over_operational <= 1e-6 and volume_over_operational <= 1e-6 else 1.0,
+        round(load_over_physical, 3),
+        round(volume_over_physical / max(largest_template.volume_capacity_m3, 1e-6), 3),
+        0.0 if same_zone else 1.0,
+        round(load_over_operational, 3),
+        round(volume_over_operational / max(load_profile.effective_volume_capacity_m3, 1e-6), 3),
+        round(distance, 3),
+        float(len(left.stops) + len(right.stops)),
+        round(window_gap, 1),
+    )
+
+
+def _consolidate_to_fleet_limit(
+    config: AppConfig,
+    dataset: CanonicalDataset,
+    route_batches: list[RouteBatch],
+) -> list[RouteBatch]:
+    fleet_limit = _total_fleet_vehicles(config)
+    if fleet_limit <= 0:
+        raise ValueError("La flota disponible no contiene ningun vehiculo utilizable.")
+    if len(route_batches) <= fleet_limit:
+        return route_batches
+
+    batches = route_batches[:]
+    while len(batches) > fleet_limit:
+        best_pair: tuple[int, int] | None = None
+        best_score: tuple[float, ...] | None = None
+        for left_index in range(len(batches) - 1):
+            for right_index in range(left_index + 1, len(batches)):
+                score = _fleet_forced_merge_score(config, batches[left_index], batches[right_index])
+                if best_score is None or score < best_score:
+                    best_score = score
+                    best_pair = (left_index, right_index)
+        if best_pair is None:
+            raise ValueError("No se pudo consolidar rutas para ajustarlas a la flota disponible.")
+        left_index, right_index = best_pair
+        merged_batch = _merge_batches(batches[left_index], batches[right_index], dataset)
+        batches = [
+            batch
+            for index, batch in enumerate(batches)
+            if index not in {left_index, right_index}
+        ]
+        batches.append(merged_batch)
+
+    return sorted(batches, key=lambda batch: (batch.avg_window_start, -batch.pallet_load, batch.route_code))
+
+
+def _template_assignment_cost(config: AppConfig, batch: RouteBatch, template: VehicleTemplate) -> float:
+    load_profile = _vehicle_load_profile(config, template, batch.volume_candidates, batch.load_volume_m3)
+    load_over_operational = max(0.0, batch.pallet_load - template.usable_capacity(config.max_vehicle_fill_ratio))
+    load_over_physical = max(0.0, batch.pallet_load - template.pallet_capacity)
+    volume_over_operational = max(0.0, batch.load_volume_m3 - load_profile.effective_volume_capacity_m3)
+    volume_over_physical = max(0.0, batch.load_volume_m3 - template.volume_capacity_m3)
+    spare_operational_pallets = max(0.0, template.usable_capacity(config.max_vehicle_fill_ratio) - batch.pallet_load)
+    emergency_penalty = 500.0 if template.emergency_only else 0.0
+    return (
+        load_over_physical * 100000.0
+        + load_over_operational * 10000.0
+        + volume_over_physical * 100.0
+        + volume_over_operational * 10.0
+        + emergency_penalty
+        + template.permit_rank * 3.0
+        + template.pallet_capacity * 0.1
+        + spare_operational_pallets * 0.2
+    )
+
+
+def _assign_vehicle_templates(config: AppConfig, route_batches: list[RouteBatch]) -> list[VehicleTemplate]:
+    availability = _fleet_availability(config)
+    templates = tuple(
+        template
+        for template in config.fleet_templates
+        if availability.get(template.label, 0) > 0
+    )
+    if len(route_batches) > sum(availability.values()):
+        raise ValueError("La planificacion necesita mas vehiculos que la flota real disponible.")
+    if route_batches and not templates:
+        raise ValueError("No hay plantillas de vehiculo disponibles para asignar rutas.")
+
+    zero_state = tuple(0 for _ in templates)
+    dp: dict[tuple[int, ...], tuple[float, tuple[str, ...]]] = {zero_state: (0.0, tuple())}
+    for batch in route_batches:
+        next_dp: dict[tuple[int, ...], tuple[float, tuple[str, ...]]] = {}
+        for state, (current_cost, labels) in dp.items():
+            for template_index, template in enumerate(templates):
+                if state[template_index] >= availability[template.label]:
+                    continue
+                next_state = list(state)
+                next_state[template_index] += 1
+                next_state_tuple = tuple(next_state)
+                candidate_cost = current_cost + _template_assignment_cost(config, batch, template)
+                current_best = next_dp.get(next_state_tuple)
+                if current_best is None or candidate_cost < current_best[0] - 1e-9:
+                    next_dp[next_state_tuple] = (candidate_cost, labels + (template.label,))
+        dp = next_dp
+        if not dp:
+            raise ValueError("No se pudo asignar la planificacion dentro de los limites de flota.")
+
+    template_by_label = {template.label: template for template in config.fleet_templates}
+    _, assigned_labels = min(dp.values(), key=lambda item: item[0])
+    return [template_by_label[label] for label in assigned_labels]
 
 
 def _minutes_to_clock(total_minutes: float) -> str:
@@ -955,9 +1121,11 @@ def optimize_routes_for_date(
         route_batches.append(_make_route_batch(route_code, [route_code], clustered, dataset))
 
     route_batches = _consolidate_route_batches(config, dataset, route_batches)
+    route_batches = _consolidate_to_fleet_limit(config, dataset, route_batches)
+    assigned_templates = _assign_vehicle_templates(config, route_batches)
 
     results: list[RoutePlan] = []
-    for batch in route_batches:
+    for batch, assigned_template in zip(route_batches, assigned_templates):
         pallet_load = round(batch.pallet_load, 3)
         load_volume_m3 = round(batch.load_volume_m3, 3)
         stop_returns = {stop.stop_id: _estimate_return_pickup(config, dataset, stop) for stop in batch.stops}
@@ -979,7 +1147,13 @@ def optimize_routes_for_date(
             )
             for stop in batch.stops
         }
-        vehicle = _vehicle_for_load(config, batch.route_code, pallet_load, load_volume_m3, batch.volume_candidates)
+        vehicle = _vehicle_from_template(
+            config,
+            batch.route_code,
+            assigned_template,
+            batch.volume_candidates,
+            load_volume_m3,
+        )
         (
             ordered,
             distance_km,
@@ -992,39 +1166,6 @@ def optimize_routes_for_date(
             projected_peak_load,
             projected_peak_volume_m3,
         ) = _sequence_stops(config, ors, batch.stops, vehicle, stop_returns, stop_volumes_m3, stop_return_volumes_m3)
-        if (
-            projected_peak_load > vehicle.pallet_capacity * config.max_vehicle_fill_ratio + 1e-6
-            or projected_peak_volume_m3 > vehicle.effective_volume_capacity_m3 + 1e-6
-        ):
-            upgraded_vehicle = _vehicle_for_load(
-                config,
-                batch.route_code,
-                projected_peak_load,
-                projected_peak_volume_m3,
-                batch.volume_candidates,
-            )
-            if upgraded_vehicle.vehicle_id != vehicle.vehicle_id:
-                vehicle = upgraded_vehicle
-                (
-                    ordered,
-                    distance_km,
-                    duration_minutes,
-                    route_legs,
-                    arrivals,
-                    departures,
-                    stop_insights,
-                    live_metrics,
-                    projected_peak_load,
-                    projected_peak_volume_m3,
-                ) = _sequence_stops(
-                    config,
-                    ors,
-                    batch.stops,
-                    vehicle,
-                    stop_returns,
-                    stop_volumes_m3,
-                    stop_return_volumes_m3,
-                )
         slot_allocations = _build_slot_allocations(config, vehicle, ordered)
         route_breakdown = {
             key: round(sum(item.score_components.get(key, 0.0) for item in stop_insights), 3)

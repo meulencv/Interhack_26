@@ -38,6 +38,16 @@ def make_config() -> AppConfig:
     return AppConfig(paths=paths)
 
 
+def _run_is_at_least_as_fresh(latest_run: dict[str, object], cached_bundle: dict[str, object]) -> bool:
+    run_generated_at = str(
+        latest_run.get("generated_at")
+        or latest_run.get("bundle", {}).get("generated_at")
+        or ""
+    )
+    cached_generated_at = str(cached_bundle.get("generated_at") or "")
+    return bool(run_generated_at and run_generated_at >= cached_generated_at)
+
+
 WEIGHT_PRESETS: dict[str, dict[str, float]] = {
     "time": {
         "distance_cost": 0.55,
@@ -135,8 +145,9 @@ async def optimize(req: OptimizeRequest):
 async def latest():
     try:
         config = make_config()
+        cached_bundle = load_cached_bundle(config)
         latest_run = load_latest_optimization_run(config)
-        if latest_run is not None:
+        if latest_run is not None and _run_is_at_least_as_fresh(latest_run, cached_bundle):
             return {
                 "status": "success",
                 "bundle": latest_run["bundle"],
@@ -150,7 +161,7 @@ async def latest():
             }
         return {
             "status": "success",
-            "bundle": load_cached_bundle(config),
+            "bundle": cached_bundle,
             "history": load_optimization_history(config, limit=12),
         }
     except FileNotFoundError:

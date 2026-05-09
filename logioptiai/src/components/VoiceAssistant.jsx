@@ -5,7 +5,7 @@ import { synthesizeSpeech } from '../services/elevenlabs'
 import { getAIResponse } from '../services/ai'
 import { BottomWave } from './BottomWave'
 
-export function VoiceAssistant({ lang = 'es-ES', showCard = true, context = null }) {
+export function VoiceAssistant({ lang = 'es-ES', showCard = true, context = null, onZoomTruck }) {
   const [listening, setListening] = useState(false)
   const [resolveState, setResolveState] = useState('idle') // idle | resolving
   const [ttsState, setTtsState] = useState('idle') // idle | connecting | speaking | error
@@ -80,7 +80,16 @@ export function VoiceAssistant({ lang = 'es-ES', showCard = true, context = null
     setResolveState('resolving')
     try {
       const history = conversationRef.current.slice(-4)
-      const reply = await getAIResponse(text, context, history)
+      const rawReply = await getAIResponse(text, context, history)
+
+      let reply = rawReply
+      let zoomTruckId = null
+      const zoomMatch = reply.match(/\[ZOOM_TRUCK:\s*(.+?)\]/)
+      if (zoomMatch) {
+        zoomTruckId = zoomMatch[1].trim()
+        reply = reply.replace(zoomMatch[0], '').trim()
+      }
+
       conversationRef.current = [
         ...history,
         { role: 'user', content: text },
@@ -88,6 +97,10 @@ export function VoiceAssistant({ lang = 'es-ES', showCard = true, context = null
       ].slice(-4)
       setLastReply(reply)
       setResolveState('idle')
+
+      if (zoomTruckId && onZoomTruck) {
+        onZoomTruck(zoomTruckId)
+      }
 
       setTtsState('connecting')
       abortRef.current = new AbortController()

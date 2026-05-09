@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { TruckViewer3D } from './TruckViewer3D'
 
 const RUTAS = [
-  // 13 camiones 6 palets — rutas DR serie
+  // 11 camiones 6 palets — rutas DR serie
   { id: 'DR0001', conductor: '850012', zona: 'ZM040-BCN-01', clientes: 19, pedidos: 6, zce: 306, retornables: 184, estado: 'en-ruta',    horaInicio: '06:45', ventanas: 17, cumplidas: 14, km: 38.4, tipo: '6P' },
   { id: 'DR0006', conductor: '850006', zona: 'ZM040-BCN-06', clientes: 20, pedidos: 6, zce: 327, retornables: 196, estado: 'en-ruta',    horaInicio: '06:30', ventanas: 18, cumplidas: 15, km: 41.2, tipo: '6P' },
   { id: 'DR0010', conductor: '850010', zona: 'ZM040-BCN-10', clientes: 19, pedidos: 6, zce: 416, retornables: 249, estado: 'en-ruta',    horaInicio: '06:30', ventanas: 17, cumplidas: 13, km: 44.8, tipo: '6P' },
@@ -14,8 +14,6 @@ const RUTAS = [
   { id: 'DR0038', conductor: '850011', zona: 'ZM040-BCN-38', clientes: 23, pedidos: 6, zce: 519, retornables: 311, estado: 'en-ruta',    horaInicio: '06:30', ventanas: 21, cumplidas: 17, km: 51.6, tipo: '6P' },
   { id: 'DR0045', conductor: '850000', zona: 'ZM040-BCN-45', clientes:  6, pedidos: 6, zce: 177, retornables: 106, estado: 'completada', horaInicio: '06:20', ventanas:  5, cumplidas:  5, km: 19.8, tipo: '6P' },
   { id: 'DR0050', conductor: '855189', zona: 'ZM040-BCN-50', clientes: 12, pedidos: 6, zce: 307, retornables: 184, estado: 'en-ruta',    horaInicio: '07:00', ventanas: 10, cumplidas:  8, km: 35.2, tipo: '6P' },
-  { id: 'DR0051', conductor: '855190', zona: 'ZM040-BCN-51', clientes: 13, pedidos: 6, zce: 442, retornables: 265, estado: 'en-ruta',    horaInicio: '06:45', ventanas: 11, cumplidas:  9, km: 39.7, tipo: '6P' },
-  { id: 'DR0054', conductor: '855205', zona: 'ZM040-BCN-54', clientes: 17, pedidos: 6, zce: 211, retornables: 127, estado: 'en-ruta',    horaInicio: '07:00', ventanas: 15, cumplidas: 12, km: 33.5, tipo: '6P' },
   // 4 camiones 8 palets — rutas de mayor carga
   { id: 'DR0023', conductor: '850013', zona: 'ZM040-BCN-23', clientes: 14, pedidos: 8, zce: 602, retornables: 361, estado: 'en-ruta',    horaInicio: '06:30', ventanas: 12, cumplidas: 10, km: 58.4, tipo: '8P' },
   { id: 'DR0027', conductor: '850004', zona: 'ZM040-BCN-27', clientes: 15, pedidos: 8, zce: 655, retornables: 393, estado: 'en-ruta',    horaInicio: '06:30', ventanas: 13, cumplidas: 11, km: 61.7, tipo: '8P' },

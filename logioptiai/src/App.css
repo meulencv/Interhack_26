@@ -291,3 +291,9 @@
 .leaflet-tile { filter: brightness(0.35) saturate(0.6) hue-rotate(190deg); }
 .leaflet-control-attribution { display: none; }
 .leaflet-control-zoom { display: none; }
+
+/* Follow-mode badge animation */
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
