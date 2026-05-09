@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -66,6 +68,8 @@ WEIGHT_PRESETS: dict[str, dict[str, float]] = {
     "balanced": {},
 }
 
+_executor = ThreadPoolExecutor(max_workers=2)
+
 app = FastAPI(title="Smart Truck API")
 app.add_middleware(
     CORSMiddleware,
@@ -85,48 +89,50 @@ class OptimizeRequest(BaseModel):
     dynamic_mode: bool = True
 
 
+def _run_optimization_sync(req: OptimizeRequest) -> dict:
+    config = make_config()
+    config.active_objective = req.objective
+    config.client_priority_factor = round(req.client_priority / 100.0, 3)
+    config.max_vehicle_fill_ratio = req.max_vehicle_fill_ratio
+    config.enforce_time_windows = req.time_windows
+    config.dynamic_recalculation = req.dynamic_mode
+    for key, val in WEIGHT_PRESETS.get(req.objective, {}).items():
+        setattr(config.weights, key, val)
+    if not req.time_windows:
+        config.weights.time_window_violation_penalty = 0.0
+        config.weights.late_delivery_penalty = 0.0
+    if not req.reverse_logistics:
+        config.reverse_logistics_ratio = 0.0
+
+    start = time.time()
+    bundle = build_demo_bundle(config, planning_date=req.planning_date)
+    elapsed = round(time.time() - start, 2)
+
+    payload = bundle.to_dict()
+    payload_compact = json.dumps(payload, ensure_ascii=False)
+    (config.paths.generated_dir / "demo_bundle.json").write_text(payload_compact, encoding="utf-8")
+    (config.paths.frontend_public_data_dir / "demo_bundle.json").write_text(payload_compact, encoding="utf-8")
+    saved_run = save_optimization_run(
+        config=config,
+        bundle_payload=payload,
+        request_payload=req.model_dump(),
+        execution_time_seconds=elapsed,
+    )
+    history = load_optimization_history(config, limit=12)
+    return {
+        "status": "success",
+        "bundle": payload,
+        "execution_time_seconds": elapsed,
+        "saved_run": saved_run,
+        "history": history,
+    }
+
+
 @app.post("/api/optimize")
 async def optimize(req: OptimizeRequest):
     try:
-        config = make_config()
-        config.active_objective = req.objective
-        config.client_priority_factor = round(req.client_priority / 100.0, 3)
-        config.max_vehicle_fill_ratio = req.max_vehicle_fill_ratio
-        config.enforce_time_windows = req.time_windows
-        config.dynamic_recalculation = req.dynamic_mode
-        for key, val in WEIGHT_PRESETS.get(req.objective, {}).items():
-            setattr(config.weights, key, val)
-        if not req.time_windows:
-            config.weights.time_window_violation_penalty = 0.0
-            config.weights.late_delivery_penalty = 0.0
-        if not req.reverse_logistics:
-            config.reverse_logistics_ratio = 0.0
-
-        start = time.time()
-        bundle = build_demo_bundle(config, planning_date=req.planning_date)
-        elapsed = round(time.time() - start, 2)
-
-        payload = bundle.to_dict()
-        (config.paths.generated_dir / "demo_bundle.json").write_text(
-            json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-        (config.paths.frontend_public_data_dir / "demo_bundle.json").write_text(
-            json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-        saved_run = save_optimization_run(
-            config=config,
-            bundle_payload=payload,
-            request_payload=req.model_dump(),
-            execution_time_seconds=elapsed,
-        )
-        history = load_optimization_history(config, limit=12)
-        return {
-            "status": "success",
-            "bundle": payload,
-            "execution_time_seconds": elapsed,
-            "saved_run": saved_run,
-            "history": history,
-        }
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_executor, _run_optimization_sync, req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

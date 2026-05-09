@@ -636,7 +636,7 @@ export function OptimizacionView() {
     window.clearTimeout(autoRunTimerRef.current)
     autoRunTimerRef.current = window.setTimeout(() => {
       handleRun({ auto: true })
-    }, 700)
+    }, 150)
     return () => window.clearTimeout(autoRunTimerRef.current)
   }, [objetivo, ventanas, retornables, cargaCliente, maxFillRatio, dynamicMode])
 

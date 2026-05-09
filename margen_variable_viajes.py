@@ -27,6 +27,30 @@ class ParadaViaje:
     diversidad_material_pct: float
 
 
+@dataclass(frozen=True)
+class FactibilidadViajeConMargen:
+    cabe_con_margen: bool
+    margen_variable_pct: float
+    capacidad_planeable_entregas_cm3: float
+    volumen_entregas_cm3: float
+    volumen_objetivo_con_margen_cm3: float
+    holgura_con_margen_cm3: float
+    pico_retorno_cm3: float
+    resumen_viaje: pd.DataFrame
+    detalle_paradas: pd.DataFrame
+
+    def to_dict(self) -> Dict[str, float | bool]:
+        return {
+            "cabe_con_margen": self.cabe_con_margen,
+            "margen_variable_pct": self.margen_variable_pct,
+            "capacidad_planeable_entregas_cm3": self.capacidad_planeable_entregas_cm3,
+            "volumen_entregas_cm3": self.volumen_entregas_cm3,
+            "volumen_objetivo_con_margen_cm3": self.volumen_objetivo_con_margen_cm3,
+            "holgura_con_margen_cm3": self.holgura_con_margen_cm3,
+            "pico_retorno_cm3": self.pico_retorno_cm3,
+        }
+
+
 def _limitar(valor: float, minimo: float, maximo: float) -> float:
     return max(minimo, min(maximo, valor))
 
@@ -273,15 +297,88 @@ def calcular_margen_variable_viaje(df_paradas: pd.DataFrame, num_palets: int) ->
     return resumen_viaje, pd.DataFrame(detalle_paradas).sort_values("stop_index")
 
 
+def evaluar_factibilidad_viaje_con_margen(
+    df_paradas_o_lineas: pd.DataFrame,
+    num_palets: int,
+    *,
+    lineas_detalladas: bool = False,
+) -> FactibilidadViajeConMargen:
+    """Valida un viaje con margen dinamico.
+
+    Si `lineas_detalladas=True`, primero agrega las lineas por parada con
+    `construir_resumen_paradas_desde_lineas`. El viaje solo se acepta cuando
+    `cabe_con_margen` es True.
+    """
+    df_paradas = (
+        construir_resumen_paradas_desde_lineas(df_paradas_o_lineas)
+        if lineas_detalladas
+        else df_paradas_o_lineas
+    )
+    resumen, detalle = calcular_margen_variable_viaje(df_paradas, num_palets)
+    fila = resumen.iloc[0]
+    return FactibilidadViajeConMargen(
+        cabe_con_margen=bool(fila["cabe_con_margen"]),
+        margen_variable_pct=float(fila["margen_variable_pct"]),
+        capacidad_planeable_entregas_cm3=float(fila["capacidad_planeable_entregas_cm3"]),
+        volumen_entregas_cm3=float(fila["volumen_entregas_cm3"]),
+        volumen_objetivo_con_margen_cm3=float(fila["volumen_objetivo_con_margen_cm3"]),
+        holgura_con_margen_cm3=float(fila["holgura_con_margen_cm3"]),
+        pico_retorno_cm3=float(fila["pico_retorno_cm3"]),
+        resumen_viaje=resumen,
+        detalle_paradas=detalle,
+    )
+
+
+def ejemplo_minimo_uso() -> FactibilidadViajeConMargen:
+    df_paradas = pd.DataFrame(
+        [
+            {
+                "stop_id": "C001",
+                "stop_name": "Cliente 1",
+                "stop_index": 1,
+                "volumen_entrega_cm3": 900_000,
+                "volumen_retorno_cm3": 120_000,
+                "peso_kg": 180,
+                "ratio_resistente": 0.25,
+                "ratio_fragil": 0.10,
+                "ratio_bultos_grandes": 0.15,
+                "diversidad_formato_pct": 0.40,
+                "diversidad_material_pct": 0.50,
+            },
+            {
+                "stop_id": "C002",
+                "stop_name": "Cliente 2",
+                "stop_index": 2,
+                "volumen_entrega_cm3": 750_000,
+                "volumen_retorno_cm3": 80_000,
+                "peso_kg": 150,
+                "ratio_resistente": 0.10,
+                "ratio_fragil": 0.30,
+                "ratio_bultos_grandes": 0.05,
+                "diversidad_formato_pct": 0.30,
+                "diversidad_material_pct": 0.40,
+            },
+        ]
+    )
+    return evaluar_factibilidad_viaje_con_margen(df_paradas, num_palets=3)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Calcula el margen variable de un viaje completo para el algoritmo de asignacion de clientes.")
-    parser.add_argument("--csv", required=True, help="CSV con una fila por parada y columnas agregadas de volumen/complejidad.")
+    parser.add_argument("--csv", required=True, help="CSV con una fila por parada agregada o con lineas detalladas.")
     parser.add_argument("--palets", type=int, required=True, choices=[3, 6, 8], help="Capacidad del camion en huecos de palet.")
+    parser.add_argument("--lineas-detalladas", action="store_true", help="Agrega primero lineas detalladas con construir_resumen_paradas_desde_lineas.")
     parser.add_argument("--salida-prefix", help="Prefijo opcional para exportar resumen y detalle.")
     args = parser.parse_args()
 
-    df_paradas = pd.read_csv(args.csv)
-    resumen, detalle = calcular_margen_variable_viaje(df_paradas, args.palets)
+    df_entrada = pd.read_csv(args.csv)
+    factibilidad = evaluar_factibilidad_viaje_con_margen(
+        df_entrada,
+        args.palets,
+        lineas_detalladas=args.lineas_detalladas,
+    )
+    resumen = factibilidad.resumen_viaje
+    detalle = factibilidad.detalle_paradas
     print(resumen.to_string(index=False))
     print()
     print(detalle.to_string(index=False))
