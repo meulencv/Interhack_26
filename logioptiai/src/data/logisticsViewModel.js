@@ -53,6 +53,8 @@ const VEHICLE_BY_TEMPLATE = {
   },
 }
 
+const ZCE_CAPACITY_PER_PALLET = 180
+
 const LANGUAGE_NAMES = {
   'es-ES': 'espanol',
   'ca-ES': 'catala',
@@ -126,6 +128,30 @@ function routeRiskLevel(row) {
   if (row.loadPct > 100) return 'sobrecarga'
   if (row.loadPct >= 90) return 'alta'
   return 'normal'
+}
+
+function routeZceCapacity(vehicle) {
+  return Math.max(1, vehicle.pedidos * ZCE_CAPACITY_PER_PALLET)
+}
+
+function sanitizeRouteAlerts(alerts = [], loadPct = 0) {
+  if (loadPct > 100) return alerts
+  const capacityTokens = [
+    'ocupacion',
+    'capacidad fisica',
+    'volumen util',
+    'volumen teorico',
+    'geometria de carga',
+    'capacidad prevista',
+  ]
+  return alerts.filter(alert => {
+    const lower = String(alert || '').toLowerCase()
+    return !capacityTokens.some(token => lower.includes(token))
+  })
+}
+
+function isCapacityOnlyAlert(text) {
+  return sanitizeRouteAlerts([text], 0).length === 0
 }
 
 function normalizeCargoItem(item = {}) {
@@ -262,11 +288,12 @@ function buildRouteRow(route, index) {
   const cargoBoxes = normalizeCargoBoxes(route)
   const deliveries = buildDeliveryRows(route, cargoBoxes)
   const cargoSummary = buildCargoSummary(cargoBoxes, deliveries)
-  const capacity = Number(route?.vehicle?.pallet_capacity) || vehicle.pedidos
   const load = round(route?.pallet_load, 3)
-  const loadPct = Math.round((load / Math.max(capacity, 1)) * 100)
-  const alertCount = route?.alerts?.length || 0
   const zce = Math.max(0, Math.round(cargoSummary.zce || load * 60))
+  const capacity = routeZceCapacity(vehicle)
+  const loadPct = Math.round((zce / Math.max(capacity, 1)) * 100)
+  const alerts = sanitizeRouteAlerts(route?.alerts || [], loadPct)
+  const alertCount = alerts.length
   const windows = validStops.length || route?.sequence?.length || 0
   const missedWindows = Math.min(windows, alertCount + (loadPct >= 115 ? 2 : 0))
   const row = {
@@ -300,7 +327,7 @@ function buildRouteRow(route, index) {
     ventanas: windows,
     cumplidas: Math.max(0, windows - missedWindows),
     alertCount,
-    alerts: route?.alerts || [],
+    alerts,
     slotAllocations: route?.slot_allocations || [],
     cargoBoxes,
     deliveries,
@@ -455,7 +482,7 @@ function buildAlerts(routes, bundle) {
     })
   })
 
-  ;(bundle?.actionable_alerts || []).slice(0, 6).forEach(text => {
+  ;(bundle?.actionable_alerts || []).filter(text => !isCapacityOnlyAlert(text)).slice(0, 6).forEach(text => {
     if (alerts.some(alert => alert.desc.includes(text.slice(0, 48)))) return
     const tipo = classifyAlert(text)
     alerts.push({
