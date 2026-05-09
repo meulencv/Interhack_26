@@ -35,3 +35,4 @@ export async function loadStaticBundle() {
   if (!res.ok) throw new Error('Bundle no disponible')
   return res.json()
 }
+
