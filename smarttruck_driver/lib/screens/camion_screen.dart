@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nfc_manager/nfc_manager.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/models.dart';
@@ -596,15 +597,94 @@ class _InteriorTruckPainter extends CustomPainter {
       oldDelegate.selectedPaleId != selectedPaleId;
 }
 
-class _PaleContentPanel extends StatelessWidget {
+class _PaleContentPanel extends StatefulWidget {
   final Pale? pale;
   final List<Pedido> pedidos;
 
   const _PaleContentPanel({required this.pale, required this.pedidos});
 
   @override
+  State<_PaleContentPanel> createState() => _PaleContentPanelState();
+}
+
+class _PaleContentPanelState extends State<_PaleContentPanel> {
+  bool _isScanningNfc = false;
+  String? _certifiedPaleId;
+  String? _nfcStatus;
+
+  @override
+  void didUpdateWidget(covariant _PaleContentPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pale?.id != widget.pale?.id) {
+      _stopNfcSession();
+      setState(() {
+        _certifiedPaleId = null;
+        _nfcStatus = null;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _stopNfcSession();
+    super.dispose();
+  }
+
+  Future<void> _startNfcCertification(Pale pale) async {
+    if (_isScanningNfc) return;
+
+    final isAvailable = await NfcManager.instance.isAvailable();
+    if (!mounted) return;
+    if (!isAvailable) {
+      setState(() {
+        _nfcStatus = 'NFC no disponible en este dispositivo';
+      });
+      return;
+    }
+
+    setState(() {
+      _isScanningNfc = true;
+      _nfcStatus = 'Acerca la tarjeta si quieres comprobar este palet';
+    });
+
+    try {
+      await NfcManager.instance.startSession(
+        onDiscovered: (_) async {
+          if (!mounted) return;
+          setState(() {
+            _isScanningNfc = false;
+            _certifiedPaleId = pale.id;
+            _nfcStatus = 'Comprobación opcional completada';
+          });
+          await _stopNfcSession(force: true);
+        },
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isScanningNfc = false;
+        _nfcStatus = 'No se pudo iniciar la lectura NFC';
+      });
+    }
+  }
+
+  Future<void> _stopNfcSession({bool force = false}) async {
+    if (!_isScanningNfc && !force) return;
+    try {
+      await NfcManager.instance.stopSession();
+    } catch (_) {
+      // The native session may already be closed.
+    }
+    if (mounted) {
+      setState(() => _isScanningNfc = false);
+    } else {
+      _isScanningNfc = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final item = pale;
+    final item = widget.pale;
     if (item == null) {
       return AppWidgets.card(
         child: const Text(
@@ -617,6 +697,7 @@ class _PaleContentPanel extends StatelessWidget {
     final lines = _linesForPale(item.id);
     final pending = lines.where((line) => !line.entregado).toList();
     final delivered = lines.where((line) => line.entregado).toList();
+    final isCertified = _certifiedPaleId == item.id;
 
     return AppWidgets.card(
       padding: const EdgeInsets.all(18),
@@ -668,6 +749,13 @@ class _PaleContentPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+          _NfcCertificationButton(
+            isScanning: _isScanningNfc,
+            isCertified: isCertified,
+            status: _nfcStatus,
+            onTap: () => _startNfcCertification(item),
+          ),
+          const SizedBox(height: 16),
           if (pending.isNotEmpty) ...[
             const _PanelSectionTitle('Pendiente en este palet'),
             const SizedBox(height: 8),
@@ -687,7 +775,7 @@ class _PaleContentPanel extends StatelessWidget {
 
   List<_PaleProductLine> _linesForPale(String paleId) {
     final result = <_PaleProductLine>[];
-    for (final pedido in pedidos) {
+    for (final pedido in widget.pedidos) {
       for (final producto in pedido.productos) {
         if (producto.paleId != paleId) continue;
         result.add(
@@ -728,6 +816,109 @@ class _PaleProductLine {
     required this.referencia,
     required this.entregado,
   });
+}
+
+class _NfcCertificationButton extends StatelessWidget {
+  final bool isScanning;
+  final bool isCertified;
+  final String? status;
+  final VoidCallback onTap;
+
+  const _NfcCertificationButton({
+    required this.isScanning,
+    required this.isCertified,
+    required this.status,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isCertified
+        ? AppColors.green
+        : isScanning
+        ? AppColors.blue
+        : AppColors.orange;
+    final label = isCertified
+        ? 'PALET CORRECTO'
+        : isScanning
+        ? 'LEYENDO NFC'
+        : 'COMPROBAR PALET CON NFC';
+
+    return InkWell(
+      onTap: isScanning ? null : onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.14),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.9), width: 1.2),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                isCertified ? Icons.verified : Icons.nfc,
+                color: color,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (status != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      status!,
+                      style: TextStyle(
+                        color: isCertified
+                            ? AppColors.green
+                            : AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: isCertified
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (isScanning)
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              )
+            else
+              Icon(
+                isCertified ? Icons.check_circle : Icons.chevron_right,
+                color: color,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _PanelSectionTitle extends StatelessWidget {
