@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Polyline, CircleMarker, Marker, Tooltip, useMa
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
+import logoImg from './assets/logo.png'
 import { VoiceAssistant } from './components/VoiceAssistant'
 import { FlotaView } from './components/FlotaView'
 import { EntregasView } from './components/EntregasView'
@@ -380,14 +381,7 @@ export default function App() {
         zIndex: 10,
       }}>
         <div className="logo">
-          <div className="logo-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinejoin="round">
-              <path d="M12 2L3 7v10l9 5 9-5V7l-9-5z"/>
-              <path d="M3 7l9 5 9-5"/>
-              <path d="M12 12v10"/>
-            </svg>
-          </div>
-          <div className="logo-text">LogiOpti AI</div>
+          <img src={logoImg} alt="LogiOpti AI" style={{ height: 93, width: 'auto', objectFit: 'contain' }} />
         </div>
 
         <nav className="nav">

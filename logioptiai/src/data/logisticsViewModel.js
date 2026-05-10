@@ -531,13 +531,14 @@ function buildAlerts(routes, bundle) {
   ;(bundle?.supabaseDemo?.events || []).filter(event => event.status !== 'resolved').forEach(event => {
     const row = routes.find(route => route.rawRoute?.connectedState?.route?.id === event.route_id)
       || routes.find(route => route.id === bundle?.supabaseDemo?.route?.route_code)
+    const rutaCode = bundle?.supabaseDemo?.route?.route_code || row?.id || 'Demo'
     alerts.push({
       id: `SB-${String(event.id).slice(0, 8)}`,
       tipo: event.event_type === 'delivery_delay' ? 'ventana' : event.event_type === 'vehicle_issue' ? 'vehiculo' : 'ruta',
       severidad: event.severity === 'critical' ? 'critica' : event.severity === 'high' ? 'critica' : event.severity === 'medium' ? 'media' : 'baja',
       titulo: event.title,
-      desc: `${row?.id || 'Ruta demo'} · ${event.description || event.title}`,
-      ruta: row?.id || bundle?.supabaseDemo?.route?.route_code || 'Demo',
+      desc: `${rutaCode} · ${event.description || event.title}`,
+      ruta: rutaCode,
       conductor: row?.conductor || 'App camionero',
       zona: row?.zona || 'Supabase',
       hora: new Date(event.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
@@ -836,26 +837,29 @@ function compactStatus(value) {
 }
 
 function summarizeRoutes(routes, limit = 18) {
-  return routes.slice(0, limit).map(route =>
-    `${route.id}|${route.tipo}|${compactStatus(route.estado)}|${shortText(route.conductor, 18)}|${shortText(route.ruta, 24)}|${route.stops}p/${route.clientes}c|${route.loadPct}%|${route.km}km|${route.alertCount}a`
-  )
+  return routes.slice(0, limit).map(route => {
+    const estado = compactStatus(route.estado)
+    const alertInfo = route.alertCount > 0 ? `, ${route.alertCount} alerta${route.alertCount > 1 ? 's' : ''}` : ''
+    const overload = route.loadPct > 100 ? ` (sobrecarga ${route.loadPct}%)` : ''
+    return `${route.id} (${route.tipo}): conductor ${shortText(route.conductor, 18)}, estado ${estado}, ruta ${shortText(route.ruta, 28)}, ${route.stops} paradas, ${route.km} km, ocupacion ${route.loadPct}%${overload}${alertInfo}`
+  })
 }
 
 function summarizeVehicles(vehicles, limit = 18) {
-  return vehicles.slice(0, limit).map(vehicle =>
-    `${vehicle.id}|${vehicle.tipoRuta}|${compactStatus(vehicle.estado)}|${shortText(vehicle.conductor, 22)}|${shortText(vehicle.ruta, 30)}|${vehicle.carga}|${vehicle.km}km|${vehicle.eficiencia}%`
-  )
+  return vehicles.slice(0, limit).map(v => {
+    const estado = compactStatus(v.estado)
+    return `${v.id} (${v.tipoRuta}): ${shortText(v.conductor, 22)}, estado ${estado}, ruta ${shortText(v.ruta, 30)}, carga ${v.carga}, ${v.km} km, eficiencia ${v.eficiencia}%`
+  })
 }
 
 function summarizeRiskRoutes(routes, limit = 8) {
   return routes
     .filter(route => route.alertCount > 0 || route.loadPct > 100 || route.estado === 'alerta')
     .slice(0, limit)
-    .map(route => ({
-      id: route.id,
-      issue: route.loadPct > 100 ? `capacidad ${route.loadPct}%` : `${route.alertCount} alertas`,
-      refs: route.references.slice(0, 2).map(ref => shortText(ref.description, 42)),
-    }))
+    .map(route => {
+      const problem = route.loadPct > 100 ? `sobrecarga al ${route.loadPct}% de capacidad` : `${route.alertCount} alerta${route.alertCount > 1 ? 's' : ''}`
+      return `${route.id} (${route.conductor}): ${problem}`
+    })
 }
 
 function fleetStateCounts(vehicles) {
@@ -925,10 +929,12 @@ function pageGuide(name) {
   }
 }
 
-function alertRows(alerts, limit = 8) {
-  return alerts.slice(0, limit).map(alert =>
-    `${alert.id}|${alert.severidad}|${alert.tipo}|${alert.ruta}|${shortText(alert.titulo, 36)}|${shortText(alert.desc, 82)}`
-  )
+function alertRows(alerts, limit = 10) {
+  return alerts.slice(0, limit).map(alert => {
+    const sev = alert.severidad === 'critica' ? 'CRITICA' : alert.severidad === 'media' ? 'media' : 'baja'
+    const activa = alert.activa ? 'activa' : 'resuelta'
+    return `[${sev}] ${alert.titulo} — Ruta ${alert.ruta}, conductor ${alert.conductor}, ${activa}. ${shortText(alert.desc, 100)}`
+  })
 }
 
 function referenceRows(viewModel, limit = 6) {
@@ -938,81 +944,72 @@ function referenceRows(viewModel, limit = 6) {
 }
 
 function buildCurrentPageContext(activeScreen, { routes, vehicles, alerts, analytics, overview, viewModel }) {
-  const guide = pageGuide(activeScreen)
 
   if (activeScreen === 'Mapa en vivo') {
+    const nRoutes = viewModel?.mapData?.routes?.length || 0
+    const nTrucks = viewModel?.mapData?.trucks?.length || 0
+    const nStops = viewModel?.mapData?.stops?.length || 0
+    const activeAlerts = alerts.filter(a => a.activa)
     return {
-      name: activeScreen,
-      ...guide,
-      overview: compactOverview(overview),
-      mapCounts: `${viewModel?.mapData?.routes?.length || 0} rutas, ${viewModel?.mapData?.stops?.length || 0} paradas, ${viewModel?.mapData?.trucks?.length || 0} vehiculos`,
-      visiblePanels: ['Flota en tiempo real', 'Optimizacion activa', 'Eventos recientes', 'Resumen rendimiento'],
-      mapRoutes: summarizeRoutes(routes, 10),
-      followableTrucks: routes.slice(0, 16).map(route => `${route.id}|${route.conductor}|${route.ruta}|${route.tipo}`),
-      risks: summarizeRiskRoutes(routes, 6),
+      pantallaActual: 'Mapa en vivo',
+      descripcion: `El usuario ve un mapa con ${nRoutes} rutas, ${nTrucks} camiones animados y ${nStops} paradas. Hay 4 paneles: Flota en tiempo real, Optimizacion activa, Eventos recientes y Resumen de rendimiento.`,
+      resumen: `${nRoutes} rutas activas, ${Math.round(overview.distance_km || 0)} km totales, ${overview.pallet_load || 0} pedidos cargados, ${activeAlerts.length} alertas activas.`,
+      camiones: routes.slice(0, 16).map(r => `${r.id}: conductor ${r.conductor}, tipo ${r.tipo}, ruta ${shortText(r.ruta, 28)}`),
+      problemasDetectados: summarizeRiskRoutes(routes, 5),
     }
   }
 
   if (activeScreen === 'Flota') {
+    const byType = fleetCounts(vehicles)
+    const byState = fleetStateCounts(vehicles)
+    const typeStr = Object.entries(byType).map(([t, n]) => `${n} ${t}`).join(', ')
+    const stateStr = Object.entries(byState).map(([s, n]) => `${n} ${compactStatus(s)}`).join(', ')
     return {
-      name: activeScreen,
-      ...guide,
-      stats: { total: vehicles.length, types: fleetCounts(vehicles), states: fleetStateCounts(vehicles) },
-      columns: 'ID|tipo|estado|conductor|ruta|carga|km|eficiencia',
-      rows: summarizeVehicles(vehicles, 18),
+      pantallaActual: 'Flota',
+      descripcion: `El usuario ve una tabla con ${vehicles.length} vehiculos: ${typeStr}. Estados: ${stateStr}.`,
+      vehiculos: summarizeVehicles(vehicles, 18),
+      problemasDetectados: summarizeRiskRoutes(routes, 4),
     }
   }
 
   if (activeScreen === 'Entregas') {
+    const states = statusCounts(routes)
+    const stateStr = Object.entries(states).map(([s, n]) => `${n} ${compactStatus(s)}`).join(', ')
     return {
-      name: activeScreen,
-      ...guide,
-      stats: { total: routes.length, states: statusCounts(routes) },
-      columns: 'ruta|tipo|estado|conductor|area|paradas/clientes|ocupacion|km|alertas',
-      rows: summarizeRoutes(routes, 18),
-      cargo: routes.slice(0, 8).map(route =>
-        `${route.id}|${route.cargoSummary.loadedBoxes}/${route.cargoSummary.boxes} cajas|${route.cargoSummary.references} refs|${route.cargoSummary.deliveries} entregas`
-      ),
-      risks: summarizeRiskRoutes(routes, 8),
-      references: referenceRows(viewModel, 6),
+      pantallaActual: 'Entregas',
+      descripcion: `El usuario ve una tabla con ${routes.length} rutas de reparto. Estados: ${stateStr}.`,
+      rutas: summarizeRoutes(routes, 18),
+      problemasDetectados: summarizeRiskRoutes(routes, 6),
     }
   }
 
   if (activeScreen === 'Optimizacion') {
     return {
-      name: activeScreen,
-      ...guide,
-      model: 'VRP Greedy equilibrado',
-      objective: 'balance tiempo+distancia+carga+ventanas+retornables',
-      latestResult: compactOverview(overview),
-      controls: {
-        objectives: ['balanced recomendado', 'time', 'km', 'unload'],
-        constraints: ['ventanas horarias', 'logistica inversa'],
-        slider: 'prioridad carga: cliente/calle vs referencia/almacen',
-      },
-      assumptions: (viewModel?.assumptions || []).slice(0, 2).map(item => shortText(item, 82)),
-      tradeoffs: (viewModel?.tradeoffs || []).slice(0, 2).map(item => shortText(item, 82)),
-      risks: summarizeRiskRoutes(routes, 6),
+      pantallaActual: 'Optimizacion',
+      descripcion: 'El usuario ve el motor de optimizacion VRP. Puede elegir objetivo (equilibrado, tiempo, km, descarga), activar ventanas horarias y logistica inversa, y lanzar el calculo.',
+      ultimoResultado: `${overview.routes || 0} rutas, ${Math.round(overview.distance_km || 0)} km, ${overview.pallet_load || 0} pedidos, ${overview.parking_stops_saved || 0} paradas ahorradas.`,
+      problemasDetectados: summarizeRiskRoutes(routes, 4),
     }
   }
 
   if (activeScreen === 'Alertas') {
+    const active = alerts.filter(a => a.activa)
+    const critical = alerts.filter(a => a.severidad === 'critica')
     return {
-      name: activeScreen,
-      ...guide,
-      stats: alertStats(alerts),
-      filters: ['Todas', 'Activas', 'Criticas', 'Resueltas'],
-      rows: alertRows(alerts, 10),
+      pantallaActual: 'Alertas',
+      descripcion: `El usuario ve el centro de alertas. Hay ${alerts.length} alertas en total: ${active.length} activas, ${critical.length} criticas.`,
+      instruccion: 'Describe las alertas en lenguaje natural. Di el titulo, la ruta afectada, el conductor y si es critica o no. No inventes datos.',
+      alertas: alertRows(alerts, 12),
     }
   }
 
+  // Analytics
   return {
-    name: activeScreen,
-    ...guide,
+    pantallaActual: 'Analytics',
+    descripcion: 'El usuario ve KPIs, grafico de ZCE por ruta, tendencia de ventanas horarias, mix de producto y rendimiento por zona.',
     kpis: analytics.kpiCards?.map(kpi => `${kpi.label}: ${kpi.value}`) || [],
-    zceByRoute: (analytics.zceByRoute || []).slice(0, 10).map(row => `${row.ruta}:${row.zce}/${row.cap}`),
-    zones: (analytics.zones || []).map(zone => `${zone.zona}: ventanas ${zone.ventanas}%, ${zone.km}km, efic ${zone.efic}%`),
-    productFamilies: (analytics.productFamilies || []).map(family => `${family.label}:${family.pct}%`),
+    zceByRoute: (analytics.zceByRoute || []).slice(0, 10).map(r => `${r.ruta}: ${r.zce} ZCE de ${r.cap} cap (${r.loadPct}%)`),
+    zonas: (analytics.zones || []).map(z => `${z.zona}: ventanas ${z.ventanas}%, ${z.km} km, eficiencia ${z.efic}%`),
   }
 }
 
@@ -1025,25 +1022,23 @@ export function buildAssistantContext({ activeNav, lang, viewModel }) {
   const overview = viewModel?.overview || FALLBACK_OVERVIEW
   const language = LANGUAGE_NAMES[lang] || lang || 'espanol'
 
+  const activeAlerts = alerts.filter(a => a.activa)
+  const criticalAlerts = alerts.filter(a => a.severidad === 'critica')
+  const riskyRoutes = summarizeRiskRoutes(routes, 4)
+
   return {
-    interface: {
-      lang,
-      language,
-      activeScreen,
-      instruction: 'Usa currentPage como fuente principal. Si el usuario pregunta por otro apartado, responde con el global si basta; si no, sugiere cambiar a esa seccion.',
+    idioma: language,
+    pantallaActual: activeScreen,
+    instruccion: `Responde en ${language}. Usa SOLO los datos de "paginaActual" para explicar lo que el usuario ve en pantalla. Si no tienes el dato, dilo claramente. No inventes informacion. Se conciso, 1-3 frases.`,
+    resumenGlobal: {
+      rutas: routes.length,
+      kmTotales: Math.round(overview.distance_km || 0),
+      pedidos: overview.pallet_load || 0,
+      alertasActivas: activeAlerts.length,
+      alertasCriticas: criticalAlerts.length,
+      problemasDetectados: riskyRoutes.length > 0 ? riskyRoutes : 'ninguno',
     },
-    note: 'Resumen acotado para IA. La carga interior del camion ya expone cajas discretas con objetos reales, motivo de asignacion y entrega asociada.',
-    global: {
-      nav: SCREEN_NAMES.map((name, index) => `${index === activeNav ? '*' : ''}${name}`),
-      pageSummaries: SCREEN_NAMES.map(name => `${name}: ${screenVisibleSummary(name)}`),
-      overview: compactOverview(overview),
-      fleet: { total: vehicles.length, types: fleetCounts(vehicles), states: fleetStateCounts(vehicles) },
-      routeStates: statusCounts(routes),
-      alerts: alertStats(alerts),
-      topRisks: summarizeRiskRoutes(routes, 4),
-      topReferences: referenceRows(viewModel, 4),
-    },
-    currentPage: buildCurrentPageContext(activeScreen, { routes, vehicles, alerts, analytics, overview, viewModel }),
+    paginaActual: buildCurrentPageContext(activeScreen, { routes, vehicles, alerts, analytics, overview, viewModel }),
   }
 }
 

@@ -9,13 +9,13 @@ const RUTAS = [
   { id: 'DR0011', conductor: '850009', zona: 'ZM040-BCN-11', clientes: 14, pedidos: 6, zce: 413, retornables: 248, estado: 'completada', horaInicio: '06:15', ventanas: 12, cumplidas: 12, km: 36.1, tipo: '6P' },
   { id: 'DR0016', conductor: '850001', zona: 'ZM040-BCN-16', clientes: 22, pedidos: 6, zce: 444, retornables: 266, estado: 'en-ruta',    horaInicio: '06:30', ventanas: 20, cumplidas: 16, km: 47.3, tipo: '6P' },
   { id: 'DR0017', conductor: '850018', zona: 'ZM040-BCN-17', clientes: 15, pedidos: 6, zce: 517, retornables: 310, estado: 'en-ruta',    horaInicio: '06:45', ventanas: 13, cumplidas: 10, km: 42.6, tipo: '6P' },
-  { id: 'DR0031', conductor: '850021', zona: 'ZM040-BCN-31', clientes:  9, pedidos: 6, zce: 167, retornables: 100, estado: 'pendiente',  horaInicio: '08:30', ventanas:  7, cumplidas:  0, km: 22.4, tipo: '6P' },
+  { id: 'DR0031', conductor: '850013', zona: 'ZM040-BCN-31', clientes: 14, pedidos: 8, zce: 602, retornables: 361, estado: 'en-ruta',    horaInicio: '06:30', ventanas: 12, cumplidas: 10, km: 58.4, tipo: '8P' },
   { id: 'DR0032', conductor: '850014', zona: 'ZM040-BCN-32', clientes: 14, pedidos: 6, zce: 597, retornables: 358, estado: 'alerta',     horaInicio: '06:30', ventanas: 12, cumplidas:  7, km: 48.9, tipo: '6P' },
   { id: 'DR0038', conductor: '850011', zona: 'ZM040-BCN-38', clientes: 23, pedidos: 6, zce: 519, retornables: 311, estado: 'en-ruta',    horaInicio: '06:30', ventanas: 21, cumplidas: 17, km: 51.6, tipo: '6P' },
   { id: 'DR0045', conductor: '850000', zona: 'ZM040-BCN-45', clientes:  6, pedidos: 6, zce: 177, retornables: 106, estado: 'completada', horaInicio: '06:20', ventanas:  5, cumplidas:  5, km: 19.8, tipo: '6P' },
   { id: 'DR0050', conductor: '855189', zona: 'ZM040-BCN-50', clientes: 12, pedidos: 6, zce: 307, retornables: 184, estado: 'en-ruta',    horaInicio: '07:00', ventanas: 10, cumplidas:  8, km: 35.2, tipo: '6P' },
   // 4 camiones 8 palets — rutas de mayor carga
-  { id: 'DR0023', conductor: '850013', zona: 'ZM040-BCN-23', clientes: 14, pedidos: 8, zce: 602, retornables: 361, estado: 'en-ruta',    horaInicio: '06:30', ventanas: 12, cumplidas: 10, km: 58.4, tipo: '8P' },
+
   { id: 'DR0027', conductor: '850004', zona: 'ZM040-BCN-27', clientes: 15, pedidos: 8, zce: 655, retornables: 393, estado: 'en-ruta',    horaInicio: '06:30', ventanas: 13, cumplidas: 11, km: 61.7, tipo: '8P' },
   { id: 'DR0040', conductor: '850084', zona: 'ZM040-BCN-40', clientes: 19, pedidos: 8, zce: 876, retornables: 526, estado: 'alerta',     horaInicio: '06:45', ventanas: 17, cumplidas: 10, km: 72.3, tipo: '8P' },
   { id: 'DR0052', conductor: '855184', zona: 'ZM040-BCN-52', clientes:  3, pedidos: 8, zce: 738, retornables: 443, estado: 'en-ruta',    horaInicio: '06:30', ventanas:  3, cumplidas:  2, km: 55.1, tipo: '8P' },
