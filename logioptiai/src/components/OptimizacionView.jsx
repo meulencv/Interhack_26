@@ -1084,7 +1084,7 @@ export function OptimizacionView({ onGoToMap, onOptimizationResult } = {}) {
             {running ? (
               <>
                 <span style={{ width: 15, height: 15, borderRadius: '50%', border: '2px solid rgba(255,255,255,.28)', borderTopColor: '#fff', display: 'inline-block', animation: 'spin 0.75s linear infinite' }} />
-                Precalculando 4 modos
+                Cargando 4 modos
               </>
             ) : (
               <>
