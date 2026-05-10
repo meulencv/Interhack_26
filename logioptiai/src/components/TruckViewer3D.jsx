@@ -21,35 +21,34 @@ function unitLabel(unit, quantity) {
 function buildPedidos(ruta) {
   const cargoBoxes = ruta.cargoBoxes || ruta.cargo_boxes || []
   if (cargoBoxes.length) {
-    const n = Math.max(Number(ruta.pedidos) || cargoBoxes.length, cargoBoxes.length)
-    return Array.from({ length: n }, (_, i) => {
-      const box = cargoBoxes[i] || {}
+    const pendingBoxes = cargoBoxes
+      .map(box => {
+        const pendingItems = (box.items || []).filter(item => !(item.delivered || item.status === 'delivered'))
+        return { ...box, items: pendingItems }
+      })
+      .filter(box => box.items.length > 0)
+
+    return pendingBoxes.map((box, i) => {
       const items = box.items || []
       const itemLines = items.slice(0, 10).map(item => {
-        const delivered = item.delivered || item.status === 'delivered'
         const qty = Number(item.quantity || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })
         const unit = item.saleUnit || item.sale_unit || ''
         const description = item.description || item.material_description || 'Referencia sin descripcion'
         const zce = Number(item.statisticalBoxes ?? item.statistical_boxes ?? 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })
-        return `${delivered ? 'ENTREGADO' : 'PENDIENTE'} · ${qty} ${unitLabel(unit, item.quantity)} · ${description} · ${zce} ZCE`
+        return `${qty} ${unitLabel(unit, item.quantity)} · ${description} · ${zce} ZCE`
       })
       const clients = box.clientNames || box.client_names || []
       const rationale = box.rationale || []
-      const totalZce = Number(box.totalZce ?? box.total_zce ?? 0)
-      const deliveredItems = Number(box.deliveredItems || items.filter(item => item.delivered || item.status === 'delivered').length)
-      const pendingItems = Number(box.pendingItems || Math.max(0, items.length - deliveredItems))
-      const deliveredZce = Number(box.deliveredZce || 0)
-      const pendingZce = Number(box.pendingZce || Math.max(0, totalZce - deliveredZce))
+      const pendingZce = items.reduce((sum, item) => sum + Number(item.statisticalBoxes ?? item.statistical_boxes ?? 0), 0)
       const header = [
         `Clientes: ${clients.length ? clients.join(', ') : 'sin cliente asignado'}`,
-        `Carga: ${totalZce.toFixed(2)} ZCE · ${items.length} objetos`,
-        `Estado: ${deliveredItems} entregados · ${pendingItems} pendientes · ${deliveredZce.toFixed(2)} ZCE entregadas · ${pendingZce.toFixed(2)} ZCE pendientes`,
+        `Pendiente: ${pendingZce.toFixed(2)} ZCE · ${items.length} objetos`,
       ]
       if (rationale[0]) header.push(`Motivo: ${rationale[0]}`)
       return {
         id: box.boxId || box.box_id || i + 1,
-        content: `${header.join('\n')}\n\nObjetos:\n${itemLines.length ? itemLines.join('\n') : '- Caja libre/reserva operativa'}`,
-        weight: totalZce > 0 ? `${totalZce.toFixed(2)} ZCE` : '—',
+        content: `${header.join('\n')}\n\nObjetos pendientes:\n${itemLines.join('\n')}`,
+        weight: pendingZce > 0 ? `${pendingZce.toFixed(2)} ZCE` : '—',
       }
     })
   }
@@ -104,7 +103,7 @@ const wg=new THREE.CylinderGeometry(.45,.45,.6,16);
 scene.add(new THREE.GridHelper(20,20,0x444444,0x222222));
 const pedidos=[];const bx=new THREE.BoxGeometry(.95,.95,.95);
 const colors=[0xff595e,0xffca3a,0x8ac926,0x1982c4,0x6a4c93,0xe07a5f];
-let id=0;for(let r=0;r<3;r++){for(let c=0;c<2;c++){
+let id=0;for(let r=0;r<3;r++){for(let c=0;c<2;c++){if(!pedidoData[id]){id++;continue;}
   const mat=new THREE.MeshBasicMaterial({color:colors[id],transparent:true,opacity:.9});
   const box=new THREE.Mesh(bx,mat);
   box.add(new THREE.LineSegments(new THREE.EdgesGeometry(bx),new THREE.LineBasicMaterial({color:0xffffff})));
@@ -169,7 +168,7 @@ const wg=new THREE.CylinderGeometry(.45,.45,.6,16);
 scene.add(new THREE.GridHelper(20,20,0x444444,0x222222));
 const pedidos=[];const bx=new THREE.BoxGeometry(.95,.95,.95);
 const colors=[0xff595e,0xffca3a,0x8ac926,0x1982c4,0x6a4c93,0xe07a5f,0x3d405b,0x81b29a];
-let id=0;for(let r=0;r<4;r++){for(let c=0;c<2;c++){
+let id=0;for(let r=0;r<4;r++){for(let c=0;c<2;c++){if(!pedidoData[id]){id++;continue;}
   const mat=new THREE.MeshBasicMaterial({color:colors[id],transparent:true,opacity:.9});
   const box=new THREE.Mesh(bx,mat);
   box.add(new THREE.LineSegments(new THREE.EdgesGeometry(bx),new THREE.LineBasicMaterial({color:0xffffff,linewidth:2})));
@@ -234,7 +233,7 @@ const wg=new THREE.CylinderGeometry(.35,.35,.4,16);
 scene.add(new THREE.GridHelper(20,20,0x444444,0x222222));
 const pedidos=[];const bx=new THREE.BoxGeometry(.95,.95,.95);
 const colors=[0xff595e,0xffca3a,0x1982c4];
-for(let r=0;r<3;r++){
+for(let r=0;r<3;r++){if(!pedidoData[r]) continue;
   const mat=new THREE.MeshBasicMaterial({color:colors[r],transparent:true,opacity:.9});
   const box=new THREE.Mesh(bx,mat);
   box.add(new THREE.LineSegments(new THREE.EdgesGeometry(bx),new THREE.LineBasicMaterial({color:0xffffff})));
@@ -318,7 +317,7 @@ export function TruckViewer3D({ ruta, onClose }) {
               {TIPO_LABEL[ruta.tipo]} · {ruta.id}
             </span>
             <span style={{ fontSize: 12, color: 'rgba(160,170,200,.5)' }}>
-              {ruta.conductor} · {ruta.cargoSummary?.loadedBoxes ?? ruta.pedidos} cajas · {ruta.cargoSummary?.references ?? ruta.zce} refs
+              {ruta.conductor} · {buildPedidos(ruta).length} cajas pendientes · {ruta.cargoSummary?.pendingItems ?? ruta.cargoSummary?.references ?? ruta.zce} objetos pendientes
             </span>
           </div>
           <button onClick={onClose} style={{

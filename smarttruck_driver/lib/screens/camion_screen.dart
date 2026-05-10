@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
-import 'resultado_screen.dart';
 
 class CamionScreen extends StatelessWidget {
   const CamionScreen({super.key});
@@ -288,26 +287,29 @@ class _LegendItem extends StatelessWidget {
 
 // ─── Interior del Camión ─────────────────────────────────────────────────────
 
-class InteriorCamionScreen extends StatelessWidget {
+class InteriorCamionScreen extends StatefulWidget {
   const InteriorCamionScreen({super.key});
+
+  @override
+  State<InteriorCamionScreen> createState() => _InteriorCamionScreenState();
+}
+
+class _InteriorCamionScreenState extends State<InteriorCamionScreen> {
+  String? _selectedPaleId;
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
-    // Build 3x2 grid: [fila][columna]
-    // fila 0=delantera, 1=centro, 2=trasera; columna 0=izq, 1=der
-    final grid = List.generate(
-      3,
-      (f) => List.generate(2, (c) {
-        try {
-          return provider.pales.firstWhere(
-            (i) => i.fila == f && i.columna == c,
-          );
-        } catch (_) {
-          return null;
-        }
-      }),
-    );
+    Pale? selectedPale;
+    for (final pale in provider.pales) {
+      if (pale.id == _selectedPaleId) {
+        selectedPale = pale;
+        break;
+      }
+    }
+    final effectiveSelected =
+        selectedPale ??
+        (provider.pales.isNotEmpty ? provider.pales.first : null);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -325,98 +327,20 @@ class InteriorCamionScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Label top
-            const Center(
-              child: Text(
-                'Parte delantera',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+            _InteriorTruck3D(
+              pales: provider.pales,
+              selectedPaleId: effectiveSelected?.id,
+              onPaleSelected: (pale) {
+                setState(() => _selectedPaleId = pale.id);
+              },
             ),
-            const SizedBox(height: 4),
-            const _DirectionArrow(up: true),
-            const SizedBox(height: 12),
-
-            // Column headers
-            Row(
-              children: const [
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      'Izquierda',
-                      style: TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      'Derecha',
-                      style: TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            const SizedBox(height: 18),
+            _PaleContentPanel(
+              pale: effectiveSelected,
+              pedidos: provider.pedidos,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
 
-            // Grid
-            ...List.generate(
-              3,
-              (fila) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  children: List.generate(2, (col) {
-                    final item = grid[fila][col];
-                    return Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          left: col == 1 ? 5 : 0,
-                          right: col == 0 ? 5 : 0,
-                        ),
-                        child: GestureDetector(
-                          onTap: item != null
-                              ? () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ResultadoScreen(item: item),
-                                  ),
-                                )
-                              : null,
-                          child: _GridCell(item: item),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 4),
-            const _DirectionArrow(up: false),
-            const SizedBox(height: 4),
-            const Center(
-              child: Text(
-                'Parte trasera',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            const SizedBox(height: 28),
-
-            // Color legend
             Container(
               decoration: BoxDecoration(
                 color: AppColors.surface,
@@ -438,12 +362,12 @@ class InteriorCamionScreen extends StatelessWidget {
                   SizedBox(height: 12),
                   _ColorLegendRow(
                     color: AppColors.purple,
-                    label: 'Palé (pendiente)',
+                    label: 'Palé con contenido pendiente',
                   ),
                   SizedBox(height: 8),
                   _ColorLegendRow(
                     color: AppColors.orange,
-                    label: 'Paquete (pendiente)',
+                    label: 'Palé seleccionado',
                   ),
                   SizedBox(height: 8),
                   _ColorLegendRow(color: AppColors.green, label: 'Entregado'),
@@ -459,70 +383,487 @@ class InteriorCamionScreen extends StatelessWidget {
   }
 }
 
-class _GridCell extends StatelessWidget {
-  final Pale? item;
+class _InteriorTruck3D extends StatelessWidget {
+  final List<Pale> pales;
+  final String? selectedPaleId;
+  final ValueChanged<Pale> onPaleSelected;
 
-  const _GridCell({this.item});
-
-  Color get _cellColor {
-    if (item == null) return AppColors.border;
-    if (item!.vacio) return AppColors.green;
-    return AppColors.purple;
-  }
+  const _InteriorTruck3D({
+    required this.pales,
+    required this.selectedPaleId,
+    required this.onPaleSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 100,
-      decoration: BoxDecoration(
-        color: _cellColor.withOpacity(item == null ? 0.1 : 0.2),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _cellColor.withOpacity(item == null ? 0.2 : 0.6),
-          width: 1.5,
-        ),
-      ),
-      child: item == null
-          ? const Center(
-              child: Icon(Icons.remove, color: AppColors.textMuted, size: 20),
-            )
-          : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.grid_view, color: AppColors.purple, size: 28),
-                const SizedBox(height: 6),
-                Text(
-                  item!.id,
-                  style: TextStyle(
-                    color: _cellColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+    return AspectRatio(
+      aspectRatio: 1.18,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = Size(constraints.maxWidth, constraints.maxHeight);
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _InteriorTruckPainter(
+                    pales: pales,
+                    selectedPaleId: selectedPaleId,
                   ),
                 ),
-                if (item!.vacio)
-                  const Text(
-                    'Entregado',
-                    style: TextStyle(color: AppColors.green, fontSize: 10),
+              ),
+              ...pales.map((pale) {
+                final center = _slotCenter(
+                  size,
+                  pale.fila ?? 0,
+                  pale.columna ?? 0,
+                );
+                return Positioned(
+                  left: center.dx - 30,
+                  top: center.dy - 30,
+                  width: 60,
+                  height: 60,
+                  child: Semantics(
+                    button: true,
+                    label: 'Ver contenido del palet ${pale.id}',
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => onPaleSelected(pale),
+                      child: const SizedBox.expand(),
+                    ),
                   ),
-              ],
-            ),
+                );
+              }),
+            ],
+          );
+        },
+      ),
     );
   }
 }
 
-class _DirectionArrow extends StatelessWidget {
-  final bool up;
-  const _DirectionArrow({required this.up});
+class _InteriorTruckPainter extends CustomPainter {
+  final List<Pale> pales;
+  final String? selectedPaleId;
+
+  const _InteriorTruckPainter({
+    required this.pales,
+    required this.selectedPaleId,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final floor = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF101216), Color(0xFF07080A)],
+      ).createShader(Offset.zero & size);
+    final frame = Paint()
+      ..color = Colors.white.withOpacity(0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final glow = Paint()
+      ..color = AppColors.blue.withOpacity(0.16)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18);
+
+    final cargo = _cargoRect(size);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(cargo.inflate(4), const Radius.circular(18)),
+      glow,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(cargo, const Radius.circular(14)),
+      floor,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(cargo, const Radius.circular(14)),
+      frame,
+    );
+
+    final gridPaint = Paint()
+      ..color = Colors.white.withOpacity(0.16)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (var i = 1; i < 3; i++) {
+      final y = cargo.top + cargo.height * i / 3;
+      canvas.drawLine(Offset(cargo.left, y), Offset(cargo.right, y), gridPaint);
+    }
+    canvas.drawLine(
+      Offset(cargo.center.dx, cargo.top),
+      Offset(cargo.center.dx, cargo.bottom),
+      gridPaint,
+    );
+
+    final cab = Path()
+      ..moveTo(cargo.left + cargo.width * 0.2, cargo.top - 14)
+      ..lineTo(cargo.right - cargo.width * 0.2, cargo.top - 14)
+      ..lineTo(cargo.right - cargo.width * 0.08, cargo.top + 30)
+      ..lineTo(cargo.left + cargo.width * 0.08, cargo.top + 30)
+      ..close();
+    canvas.drawPath(cab, Paint()..color = const Color(0xFF151A22));
+    canvas.drawPath(cab, frame);
+
+    for (final pale in pales) {
+      _drawPale(canvas, size, pale);
+    }
+
+    final labelStyle = TextStyle(
+      color: AppColors.textMuted.withOpacity(0.9),
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+    );
+    _drawText(
+      canvas,
+      'CABINA',
+      Offset(cargo.center.dx - 22, cargo.top - 44),
+      labelStyle,
+    );
+    _drawText(
+      canvas,
+      'PUERTAS',
+      Offset(cargo.center.dx - 25, cargo.bottom + 18),
+      labelStyle,
+    );
+  }
+
+  void _drawPale(Canvas canvas, Size size, Pale pale) {
+    final selected = pale.id == selectedPaleId;
+    final center = _slotCenter(size, pale.fila ?? 0, pale.columna ?? 0);
+    final w = size.width * 0.27;
+    final h = size.height * 0.12;
+    final depth = size.height * 0.035;
+    final top = Rect.fromCenter(
+      center: center.translate(0, -depth),
+      width: w,
+      height: h,
+    );
+    final front = Path()
+      ..moveTo(top.left, top.bottom)
+      ..lineTo(top.right, top.bottom)
+      ..lineTo(top.right - depth, top.bottom + depth)
+      ..lineTo(top.left - depth, top.bottom + depth)
+      ..close();
+    final side = Path()
+      ..moveTo(top.left, top.top)
+      ..lineTo(top.left, top.bottom)
+      ..lineTo(top.left - depth, top.bottom + depth)
+      ..lineTo(top.left - depth, top.top + depth)
+      ..close();
+    final color = pale.vacio
+        ? AppColors.green
+        : selected
+        ? AppColors.orange
+        : AppColors.purple;
+
+    canvas.drawPath(front, Paint()..color = color.withOpacity(0.48));
+    canvas.drawPath(side, Paint()..color = color.withOpacity(0.34));
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(top, const Radius.circular(8)),
+      Paint()..color = color.withOpacity(selected ? 0.88 : 0.68),
+    );
+
+    final border = Paint()
+      ..color = selected ? Colors.white : color.withOpacity(0.95)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = selected ? 2.2 : 1.3;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(top, const Radius.circular(8)),
+      border,
+    );
+    if (selected) {
+      canvas.drawCircle(
+        center,
+        5,
+        Paint()..color = Colors.white.withOpacity(0.95),
+      );
+    }
+
+    _drawText(
+      canvas,
+      pale.id,
+      Offset(top.left + 10, top.top + 9),
+      const TextStyle(
+        color: Colors.white,
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _InteriorTruckPainter oldDelegate) =>
+      oldDelegate.pales != pales ||
+      oldDelegate.selectedPaleId != selectedPaleId;
+}
+
+class _PaleContentPanel extends StatelessWidget {
+  final Pale? pale;
+  final List<Pedido> pedidos;
+
+  const _PaleContentPanel({required this.pale, required this.pedidos});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Icon(
-        up ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-        color: AppColors.textMuted,
-        size: 20,
+    final item = pale;
+    if (item == null) {
+      return AppWidgets.card(
+        child: const Text(
+          'No hay palets cargados.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+      );
+    }
+
+    final lines = _linesForPale(item.id);
+    final pending = lines.where((line) => !line.entregado).toList();
+    final delivered = lines.where((line) => line.entregado).toList();
+
+    return AppWidgets.card(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: (item.vacio ? AppColors.green : AppColors.orange)
+                      .withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: item.vacio ? AppColors.green : AppColors.orange,
+                  ),
+                ),
+                child: Icon(
+                  Icons.view_in_ar,
+                  color: item.vacio ? AppColors.green : AppColors.orange,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${item.id} · ${item.contenido}',
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${item.elementosRestantes}/${item.elementosTotales} pendientes · ${item.peso} · ${item.volumen}',
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (pending.isNotEmpty) ...[
+            const _PanelSectionTitle('Pendiente en este palet'),
+            const SizedBox(height: 8),
+            ...pending.map((line) => _ProductLine(line: line)),
+          ] else
+            const _EmptyLine('No queda contenido pendiente en este palet.'),
+          if (delivered.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const _PanelSectionTitle('Ya entregado'),
+            const SizedBox(height: 8),
+            ...delivered.map((line) => _ProductLine(line: line)),
+          ],
+        ],
       ),
     );
+  }
+
+  List<_PaleProductLine> _linesForPale(String paleId) {
+    final result = <_PaleProductLine>[];
+    for (final pedido in pedidos) {
+      for (final producto in pedido.productos) {
+        if (producto.paleId != paleId) continue;
+        result.add(
+          _PaleProductLine(
+            descripcion: producto.descripcion,
+            cantidad: producto.cantidad,
+            unidadVenta: producto.unidadVenta,
+            cajasEstadisticas: producto.cajasEstadisticas,
+            cliente: pedido.cliente,
+            pedidoId: pedido.id,
+            referencia: pedido.referencia,
+            entregado: pedido.entregado,
+          ),
+        );
+      }
+    }
+    return result;
+  }
+}
+
+class _PaleProductLine {
+  final String descripcion;
+  final num cantidad;
+  final String unidadVenta;
+  final double cajasEstadisticas;
+  final String cliente;
+  final String pedidoId;
+  final String referencia;
+  final bool entregado;
+
+  const _PaleProductLine({
+    required this.descripcion,
+    required this.cantidad,
+    required this.unidadVenta,
+    required this.cajasEstadisticas,
+    required this.cliente,
+    required this.pedidoId,
+    required this.referencia,
+    required this.entregado,
+  });
+}
+
+class _PanelSectionTitle extends StatelessWidget {
+  final String label;
+  const _PanelSectionTitle(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+        color: AppColors.textPrimary,
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+}
+
+class _ProductLine extends StatelessWidget {
+  final _PaleProductLine line;
+  const _ProductLine({required this.line});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${_formatNum(line.cantidad)} ${_unitLabel(line.unidadVenta, line.cantidad)}',
+            style: TextStyle(
+              color: line.entregado ? AppColors.green : AppColors.orange,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  line.descripcion,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${_formatNum(line.cajasEstadisticas)} ZCE · ${line.cliente} · ${line.pedidoId} · ${line.referencia}',
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyLine extends StatelessWidget {
+  final String text;
+  const _EmptyLine(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, style: const TextStyle(color: AppColors.textSecondary));
+  }
+}
+
+Rect _cargoRect(Size size) => Rect.fromLTWH(
+  size.width * 0.12,
+  size.height * 0.17,
+  size.width * 0.76,
+  size.height * 0.68,
+);
+
+Offset _slotCenter(Size size, int fila, int columna) {
+  final cargo = _cargoRect(size);
+  final x = cargo.left + cargo.width * (columna == 0 ? 0.3 : 0.7);
+  final y = cargo.top + cargo.height * ((fila.clamp(0, 2) + 0.5) / 3);
+  return Offset(x, y);
+}
+
+void _drawText(Canvas canvas, String text, Offset offset, TextStyle style) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  painter.paint(canvas, offset);
+}
+
+String _formatNum(num value) {
+  final fixed = value.toStringAsFixed(2);
+  return fixed.replaceFirst(RegExp(r',?\.?0+$'), '');
+}
+
+String _unitLabel(String unit, num quantity) {
+  final singular = quantity == 1;
+  switch (unit.toUpperCase()) {
+    case 'CAJ':
+      return singular ? 'caja' : 'cajas';
+    case 'BRL':
+    case 'BID':
+      return singular ? 'bidón' : 'bidones';
+    case 'BOT':
+      return singular ? 'botella' : 'botellas';
+    case 'PAK':
+    case 'ZPR':
+      return singular ? 'pack' : 'packs';
+    case 'PQ':
+      return singular ? 'paquete' : 'paquetes';
+    case 'EST':
+      return singular ? 'estuche' : 'estuches';
+    case 'UN':
+      return singular ? 'unidad' : 'unidades';
+    case 'TB':
+      return singular ? 'bandeja' : 'bandejas';
+    case 'ZCE':
+      return singular ? 'caja estadística' : 'cajas estadísticas';
+    default:
+      return unit.isEmpty ? 'uds.' : unit.toLowerCase();
   }
 }
 

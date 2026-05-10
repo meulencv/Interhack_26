@@ -39,6 +39,7 @@ const DEMO_INCIDENTS = [
     atMs: 20000,
     routeIndex: 5,
     routeOffset: 0.54,
+    lngOffset: -0.0006,
     type: 'warn',
     title: 'Calle cortada en Mollet',
     detail: 'Se evita el tramo central y se publica una alternativa por ronda.',
@@ -148,13 +149,20 @@ function clampIndex(value, length) {
 }
 
 function incidentPoint(path, incident) {
+  if (incident.pos) return incident.pos
   if (!path?.length) return CENTER
-  const idx = clampIndex(Math.floor(path.length * incident.routeOffset), path.length)
-  return path[idx]
+  const offset = incident.routeOffset != null ? incident.routeOffset : 0.1
+  const idx = clampIndex(Math.floor(path.length * offset), path.length)
+  const pos = path[idx]
+  if (incident.lngOffset || incident.latOffset) {
+    return [pos[0] + (incident.latOffset || 0), pos[1] + (incident.lngOffset || 0)]
+  }
+  return pos
 }
 
 function pathWithOsrmVariant(path, incident, step = 1) {
   if (!path || path.length < 12) return path
+  if (incident.routeOffset == null) return path
   const idx = clampIndex(Math.floor(path.length * incident.routeOffset), path.length - 2)
   const span = Math.max(5, Math.min(18 + step * 3, Math.floor(path.length / 8)))
   const start = clampIndex(idx - Math.floor(span / 2), path.length)
@@ -228,7 +236,7 @@ function buildIncidentMapData(baseMapData, activeIncidents) {
   const sproZones = sproZonesForStep(baseMapData, step)
   if (!activeIncidents.length) return { ...baseMapData, incidentMarkers: [], sproZones }
   const routes = baseMapData.routes.map((route, index) => {
-    const incident = activeIncidents.find(item => item.routeIndex % baseMapData.routes.length === index)
+    const incident = activeIncidents.find(item => item.routeIndex % baseMapData.routes.length === index && !item.isSupabase)
     const spro = sproZones.find(zone => zone.available && zone.routeIndex % baseMapData.routes.length === index)
     if (!incident && !spro) return route
     const nextPositions = incident
@@ -243,7 +251,7 @@ function buildIncidentMapData(baseMapData, activeIncidents) {
     }
   })
   const trucks = baseMapData.trucks.map((truck, index) => {
-    const incident = activeIncidents.find(item => item.routeIndex % baseMapData.trucks.length === index)
+    const incident = activeIncidents.find(item => item.routeIndex % baseMapData.trucks.length === index && !item.isSupabase)
     const spro = sproZones.find(zone => zone.available && zone.routeIndex % baseMapData.trucks.length === index)
     if (!incident && !spro) return truck
     const nextPath = incident
@@ -452,6 +460,8 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
 
         // Keep a live reference of current position for zoom/follow
         currentPosRef.current = currentPos
+        window.__liveTruckPositions = window.__liveTruckPositions || {}
+        window.__liveTruckPositions[routeId] = currentPos
 
         // Skip updating DOM position during map animations (flyTo/zoom) to prevent the marker from flying off-screen
         const isMapAnimating = isFlyingRef.current || map._animatingZoom
@@ -530,6 +540,29 @@ const OBJECTIVE_LABELS = {
   unload: 'Minimizar descarga',
 }
 
+const OBJECTIVE_META = {
+  balanced: {
+    short: 'Equilibrado',
+    title: 'Equilibrado',
+    detail: 'Equilibrado (tiempo + distancia + carga)',
+  },
+  time: {
+    short: 'Tiempo',
+    title: 'Minimizar tiempo de ruta',
+    detail: 'Minimizar tiempo de ruta (ventanas + trayecto)',
+  },
+  km: {
+    short: 'Kilómetros',
+    title: 'Minimizar kilómetros',
+    detail: 'Minimizar kilómetros (distancia + combustible)',
+  },
+  unload: {
+    short: 'Descarga',
+    title: 'Minimizar tiempo de descarga',
+    detail: 'Minimizar tiempo de descarga (acceso + secuencia)',
+  },
+}
+
 export default function App() {
   const [activeNav, setActiveNav]     = useState(0)
   const [lang, setLang]               = useState('es-ES')
@@ -539,6 +572,7 @@ export default function App() {
   const [bundle, setBundle]             = useState(null)
   const [supabaseDemo, setSupabaseDemo] = useState(null)
   const [supabaseError, setSupabaseError] = useState('')
+  const [supabaseEventPositions, setSupabaseEventPositions] = useState({})
   const [liveOptData, setLiveOptData] = useState(null)
   const [incidentStep, setIncidentStep] = useState(0)
   const [isRecalculatingRoutes, setIsRecalculatingRoutes] = useState(false)
@@ -550,11 +584,31 @@ export default function App() {
     () => buildAssistantContext({ activeNav, lang, viewModel }),
     [activeNav, lang, viewModel]
   )
+  const supabaseIncidents = useMemo(() => {
+    if (!supabaseDemo?.events) return []
+    return supabaseDemo.events.filter(ev => ev.status !== 'resolved').map(ev => {
+      const routeIndex = staticViewModel.routes.findIndex(r => r.id === supabaseDemo.route.route_code)
+      const routeData = staticViewModel.routes[Math.max(0, routeIndex)]
+      const driverName = routeData?.conductor || 'Conductor'
+      return {
+        id: ev.id,
+        isSupabase: true,
+        routeIndex: Math.max(0, routeIndex),
+        pos: supabaseEventPositions[ev.id],
+        type: ev.severity === 'critical' || ev.severity === 'high' ? 'warn' : 'info',
+        title: ev.title,
+        detail: ev.description || `Incidencia notificada por ${driverName}`,
+      }
+    })
+  }, [supabaseDemo, supabaseEventPositions, staticViewModel.routes])
+
   const mapData = useMemo(
-    () => buildIncidentMapData(staticViewModel.mapData, activeIncidents),
-    [staticViewModel.mapData, activeIncidents]
+    () => buildIncidentMapData(staticViewModel.mapData, [...activeIncidents, ...supabaseIncidents]),
+    [staticViewModel.mapData, activeIncidents, supabaseIncidents]
   )
   const bundleOverview = bundle ? viewModel.overview : null
+  const activeObjectiveId = liveOptData?.objective || bundle?.objective || 'balanced'
+  const activeObjective = OBJECTIVE_META[activeObjectiveId] || OBJECTIVE_META.balanced
   const mapMode = activeNav === 0
   const recentEvents = [
     ...incidentEvents(activeIncidents, isRecalculatingRoutes, staticViewModel.mapData),
@@ -596,12 +650,15 @@ export default function App() {
     const ov = data?.bundle?.overview || data?.overview || {}
     const sc = data?.bundle?.scorecard || {}
     const objId = data?.bundle?.objective || data?.request?.objective || 'balanced'
+    const objective = OBJECTIVE_META[objId] || OBJECTIVE_META.balanced
     if (data?.bundle) {
       setBundle(data.bundle)
     }
     setLiveOptData({
       objective: objId,
-      objectiveLabel: OBJECTIVE_LABELS[objId] || 'Equilibrado',
+      objectiveLabel: objective.short,
+      objectiveTitle: objective.title,
+      objectiveDetail: objective.detail,
       routes: ov.routes ?? sc.vehicle_count,
       distance_km: ov.distance_km,
       pallet_load: ov.pallet_load,
@@ -645,6 +702,22 @@ export default function App() {
           const signature = supabaseStateSignature(state)
           if (signature !== supabaseSignatureRef.current) {
             supabaseSignatureRef.current = signature
+            if (state.events) {
+               setSupabaseEventPositions(prev => {
+                 const next = { ...prev }
+                 let changed = false
+                 state.events.forEach(ev => {
+                   if (!next[ev.id]) {
+                     const truckPos = window.__liveTruckPositions?.[state.route?.route_code]
+                     if (truckPos) {
+                       next[ev.id] = [truckPos.lat, truckPos.lng]
+                       changed = true
+                     }
+                   }
+                 })
+                 return changed ? next : prev
+               })
+            }
             setSupabaseDemo(state)
           }
           setSupabaseError(prev => (prev ? '' : prev))
@@ -874,12 +947,12 @@ export default function App() {
                 </div>
                 <div className="badge">
                   <span className="b-dot"/>
-                  VRP Greedy · {liveOptData?.objectiveLabel || 'Equilibrado'}
-                  {liveOptData && <span style={{ marginLeft: 6, fontSize: 10, color: '#86efac', fontWeight: 700 }}>● actualizado</span>}
+                  {activeObjective.title}
+                  {liveOptData && <span style={{ marginLeft: 6, fontSize: 10, color: '#86efac', fontWeight: 700 }}>actualizado</span>}
                 </div>
                 <div className="obj-block">
                   <div className="obj-label">Objetivo activo</div>
-                  <div className="obj-value">{liveOptData?.objectiveLabel || 'Equilibrado (tiempo + distancia + carga)'}</div>
+                  <div className="obj-value">{liveOptData?.objectiveDetail || activeObjective.detail}</div>
                 </div>
                 <div className="params">
                   <div className="params-title">Resultado del modelo</div>

@@ -66,8 +66,7 @@ function unitLabel(unit, quantity) {
 }
 
 function cargoLine(item) {
-  const state = item.delivered || item.status === 'delivered' ? 'Entregado' : 'Pendiente'
-  return `${state} · ${formatNumber(item.quantity, 2)} ${unitLabel(item.saleUnit, item.quantity)} · ${shortText(item.description, 54)} · ${formatNumber(item.statisticalBoxes, 2)} ZCE`
+  return `${formatNumber(item.quantity, 2)} ${unitLabel(item.saleUnit, item.quantity)} · ${shortText(item.description, 54)} · ${formatNumber(item.statisticalBoxes, 2)} ZCE`
 }
 
 function routeCargoLabel(route) {
@@ -83,7 +82,9 @@ function csvEscape(value) {
 
 function exportCargoCsv(route) {
   const rows = (route.cargoBoxes || []).flatMap(box =>
-    (box.items || []).map(item => ({
+    (box.items || [])
+      .filter(item => !(item.delivered || item.status === 'delivered'))
+      .map(item => ({
       ruta: route.id,
       caja: box.boxId,
       posicion: box.positionLabel,
@@ -97,7 +98,7 @@ function exportCargoCsv(route) {
       unidad: item.saleUnit,
       cajas_estadisticas_zce: item.statisticalBoxes,
       ubicacion_almacen: item.warehouseLocation,
-    }))
+      }))
   )
   const headers = ['ruta', 'caja', 'posicion', 'motivo', 'entrega', 'parada', 'cliente', 'material', 'descripcion', 'cantidad', 'unidad', 'cajas_estadisticas_zce', 'ubicacion_almacen']
   const csv = [
@@ -115,8 +116,10 @@ function exportCargoCsv(route) {
 
 function CargoBoxMini({ box, accent }) {
   const clients = box.clientNames?.length ? box.clientNames.map(name => shortText(name, 24)).join(', ') : 'Sin cliente asignado'
+  const pendingItems = (box.items || []).filter(item => !(item.delivered || item.status === 'delivered'))
+  const pendingZce = pendingItems.reduce((sum, item) => sum + Number(item.statisticalBoxes || 0), 0)
   return (
-    <div style={{ border: `1px solid ${accent}33`, background: 'rgba(255,255,255,.035)', borderRadius: 8, padding: 10, minHeight: 128 }}>
+    <div style={{ border: `1px solid ${accent}33`, background: 'rgba(255,255,255,.035)', borderRadius: 8, padding: 10, minHeight: 0, overflow: 'hidden' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginBottom: 8 }}>
         <div style={{ fontSize: 13, color: accent, fontWeight: 800 }}>{box.boxId}</div>
         <div style={{ fontSize: 10, color: 'rgba(184,194,219,.65)' }}>{box.positionLabel}</div>
@@ -125,49 +128,42 @@ function CargoBoxMini({ box, accent }) {
         {clients}
       </div>
       <div style={{ fontSize: 10, color: 'rgba(184,194,219,.62)', marginBottom: 7 }}>
-        {formatNumber(box.totalZce, 2)} ZCE · {box.items?.length || 0} objetos
-      </div>
-      <div style={{ fontSize: 10, color: 'rgba(184,194,219,.68)', marginBottom: 7 }}>
-        {box.deliveredItems || 0} entregados · {box.pendingItems ?? box.items?.length ?? 0} pendientes · {formatNumber(box.pendingZce || 0, 2)} ZCE por entregar
+        {formatNumber(pendingZce, 2)} ZCE pendientes · {pendingItems.length} objetos
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {(box.topItems || box.items || []).slice(0, 3).map((item, index) => (
+        {pendingItems.slice(0, 3).map((item, index) => (
           <div key={`${box.boxId}-${item.materialId}-${index}`} style={{ fontSize: 10, color: 'rgba(214,222,243,.72)', lineHeight: 1.3 }}>
             {cargoLine(item)}
           </div>
         ))}
-        {(box.items?.length || 0) > 3 && (
-          <div style={{ fontSize: 10, color: accent, fontWeight: 700 }}>+{box.items.length - 3} referencias más</div>
+        {pendingItems.length > 3 && (
+          <div style={{ fontSize: 10, color: accent, fontWeight: 700 }}>+{pendingItems.length - 3} referencias pendientes</div>
         )}
       </div>
-      {box.rationale?.[0] && (
-        <div style={{ marginTop: 8, paddingTop: 7, borderTop: '1px solid rgba(255,255,255,.06)', fontSize: 10, color: 'rgba(184,194,219,.62)', lineHeight: 1.35 }}>
-          {box.rationale[0]}
-        </div>
-      )}
     </div>
   )
 }
 
 function DeliveryMini({ delivery, accent }) {
-  const delivered = delivery.status === 'delivered'
+  const pendingItems = (delivery.references || []).filter(item => !(item.delivered || item.status === 'delivered'))
+  const pendingZce = pendingItems.reduce((sum, item) => sum + Number(item.statisticalBoxes || 0), 0)
   return (
     <div style={{ border: '1px solid rgba(255,255,255,.06)', background: 'rgba(255,255,255,.03)', borderRadius: 8, padding: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
         <div style={{ fontSize: 12, color: '#e8eefc', fontWeight: 700 }}>{delivery.stopIndex}. {shortText(delivery.clientName, 32)}</div>
-        <div style={{ fontSize: 10, color: delivered ? '#22c55e' : accent, fontWeight: 800 }}>{delivered ? 'Entregada' : delivery.boxIds?.join(', ') || 'sin caja'}</div>
+        <div style={{ fontSize: 10, color: accent, fontWeight: 800 }}>{delivery.boxIds?.join(', ') || 'sin caja'}</div>
       </div>
       <div style={{ fontSize: 10, color: 'rgba(184,194,219,.62)', marginBottom: 7 }}>
-        {formatNumber(delivery.totalZce, 2)} ZCE · {delivery.references?.length || 0} objetos · entrega {delivery.deliveryIds?.[0] || '—'}
+        {formatNumber(pendingZce, 2)} ZCE pendientes · {pendingItems.length} objetos · entrega {delivery.deliveryIds?.[0] || '—'}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {(delivery.topItems || []).slice(0, 4).map((item, index) => (
+        {pendingItems.slice(0, 4).map((item, index) => (
           <div key={`${delivery.stopId}-${item.materialId}-${index}`} style={{ fontSize: 10, color: 'rgba(214,222,243,.72)', lineHeight: 1.3 }}>
             {cargoLine(item)}
           </div>
         ))}
-        {(delivery.references?.length || 0) > 4 && (
-          <div style={{ fontSize: 10, color: accent, fontWeight: 700 }}>+{delivery.references.length - 4} objetos en esta entrega</div>
+        {pendingItems.length > 4 && (
+          <div style={{ fontSize: 10, color: accent, fontWeight: 700 }}>+{pendingItems.length - 4} objetos pendientes</div>
         )}
       </div>
     </div>
@@ -195,6 +191,17 @@ export function EntregasView({ routes }) {
   const [selectedRuta, setSelectedRuta] = useState(null)
   const [selectedDetail, setSelectedDetail] = useState(null)
   const activeRuta = selectedDetail || data[0]
+  const pendingBoxes = (activeRuta?.cargoBoxes || []).filter(box =>
+    (box.items || []).some(item => !(item.delivered || item.status === 'delivered'))
+  )
+  const pendingDeliveries = (activeRuta?.deliveries || []).filter(delivery =>
+    (delivery.references || []).some(item => !(item.delivered || item.status === 'delivered'))
+  )
+  const pendingZce = pendingBoxes.reduce((sum, box) =>
+    sum + (box.items || [])
+      .filter(item => !(item.delivered || item.status === 'delivered'))
+      .reduce((itemSum, item) => itemSum + Number(item.statisticalBoxes || 0), 0)
+  , 0)
 
   const total       = data.length
   const enRuta      = data.filter(r => r.estado === 'en-ruta').length
@@ -296,7 +303,7 @@ export function EntregasView({ routes }) {
         <div style={{
           marginTop: 12,
           flexShrink: 0,
-          height: 260,
+          height: 'clamp(340px, 42vh, 470px)',
           display: 'grid',
           gridTemplateRows: 'auto 1fr',
           gap: 10,
@@ -309,7 +316,7 @@ export function EntregasView({ routes }) {
             <div>
               <div style={{ fontSize: 14, fontWeight: 800, color: '#eef2ff' }}>Distribución de objetos · {activeRuta.id}</div>
               <div style={{ fontSize: 11, color: 'rgba(160,170,200,.58)', marginTop: 3 }}>
-                {activeRuta.cargoSummary?.loadedBoxes || 0} cajas cargadas · {formatNumber(activeRuta.cargoSummary?.zce, 2)} ZCE · {activeRuta.cargoSummary?.references || 0} referencias · {activeRuta.deliveries?.length || 0} entregas
+                {pendingBoxes.length} cajas con carga pendiente · {formatNumber(pendingZce, 2)} ZCE pendientes · {pendingDeliveries.length} entregas por servir
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -328,14 +335,19 @@ export function EntregasView({ routes }) {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr .9fr', gap: 12, minHeight: 0 }}>
-            <div style={{ minHeight: 0, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 8, alignContent: 'start', paddingRight: 2 }}>
-              {(activeRuta.cargoBoxes || []).map(box => (
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.15fr) minmax(320px, .85fr)', gap: 12, minHeight: 0 }}>
+            <div style={{ minHeight: 0, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 8, alignContent: 'start', paddingRight: 4 }}>
+              {pendingBoxes.map(box => (
                 <CargoBoxMini key={box.boxId} box={box} accent={TIPO_COLOR[activeRuta.tipo]?.color || '#38bdf8'} />
               ))}
+              {pendingBoxes.length === 0 && (
+                <div style={{ border: '1px solid rgba(34,197,94,.25)', background: 'rgba(34,197,94,.08)', borderRadius: 8, padding: 14, color: '#86efac', fontSize: 12, fontWeight: 700 }}>
+                  Sin carga pendiente en esta ruta.
+                </div>
+              )}
             </div>
             <div style={{ minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 2 }}>
-              {(activeRuta.deliveries || []).slice(0, 10).map(delivery => (
+              {pendingDeliveries.slice(0, 10).map(delivery => (
                 <DeliveryMini key={delivery.stopId} delivery={delivery} accent={TIPO_COLOR[activeRuta.tipo]?.color || '#38bdf8'} />
               ))}
             </div>

@@ -299,9 +299,9 @@ class _RouteMapCardState extends State<_RouteMapCard> {
 
   void _tick(Timer _) {
     if (!mounted) return;
-    
+
     final nextIndex = (_pathIndex + _stepSize) % kDemoRoutePath.length;
-    
+
     final currFloor = _pathIndex.floor() % kDemoRoutePath.length;
     final nextFloor = nextIndex.floor() % kDemoRoutePath.length;
 
@@ -332,10 +332,10 @@ class _RouteMapCardState extends State<_RouteMapCard> {
     int curr = _pathIndex.floor() % kDemoRoutePath.length;
     int next = (curr + 1) % kDemoRoutePath.length;
     double t = _pathIndex - _pathIndex.floor();
-    
+
     final p1 = kDemoRoutePath[curr];
     final p2 = kDemoRoutePath[next];
-    
+
     return LatLng(
       p1.latitude + (p2.latitude - p1.latitude) * t,
       p1.longitude + (p2.longitude - p1.longitude) * t,
@@ -413,13 +413,15 @@ class _RouteMapCardState extends State<_RouteMapCard> {
                       ),
                       CircleLayer(
                         circles: kDemoRouteStops
-                            .map((p) => CircleMarker(
-                                  point: p,
-                                  radius: 5,
-                                  color: const Color(0xFF3B82F6),
-                                  borderColor: Colors.white,
-                                  borderStrokeWidth: 1.5,
-                                ))
+                            .map(
+                              (p) => CircleMarker(
+                                point: p,
+                                radius: 5,
+                                color: const Color(0xFF3B82F6),
+                                borderColor: Colors.white,
+                                borderStrokeWidth: 1.5,
+                              ),
+                            )
                             .toList(),
                       ),
                       MarkerLayer(

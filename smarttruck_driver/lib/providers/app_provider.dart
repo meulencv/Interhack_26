@@ -115,7 +115,7 @@ class AppProvider extends ChangeNotifier {
       for (var prod in _pedidos[idx].productos) {
         final paleIdx = _pales.indexWhere((p) => p.id == prod.paleId);
         if (paleIdx != -1) {
-          _pales[paleIdx].elementosRestantes -= prod.cantidad;
+          _pales[paleIdx].elementosRestantes -= prod.cantidad.round();
           if (_pales[paleIdx].elementosRestantes < 0) {
             _pales[paleIdx].elementosRestantes = 0;
           }

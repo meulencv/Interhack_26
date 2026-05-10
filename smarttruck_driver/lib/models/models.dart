@@ -41,12 +41,17 @@ class Pale {
 class ProductoPedido {
   final String paleId;
   final String descripcion;
-  final int cantidad;
+  final num cantidad;
+  final String unidadVenta;
+  final double cajasEstadisticas;
   final String? remoteId;
+
   ProductoPedido({
     required this.paleId,
     required this.descripcion,
     required this.cantidad,
+    this.unidadVenta = '',
+    this.cajasEstadisticas = 0,
     this.remoteId,
   });
 }

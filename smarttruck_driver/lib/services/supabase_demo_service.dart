@@ -83,6 +83,27 @@ class SupabaseDemoService {
     final deliveriesRaw = await _get(
       'deliveries?route_id=eq.$routeId&select=id,external_delivery_id,stop_id,status,client_name,total_zce&order=created_at.asc',
     );
+    final cargoBoxesRaw = await _get(
+      'cargo_boxes?route_id=eq.$routeId&select=id,box_code,position_label,client_names,total_quantity,total_zce,total_volume_m3,total_weight_kg,accessibility_rank,rationale,status&order=accessibility_rank.asc',
+    );
+    final cargoBoxIds = cargoBoxesRaw
+        .map((raw) => (raw as Map<String, dynamic>)['id'])
+        .whereType<String>()
+        .toList();
+    final cargoBoxItemsRaw = cargoBoxIds.isEmpty
+        ? <dynamic>[]
+        : await _get(
+            'cargo_box_items?cargo_box_id=in.(${cargoBoxIds.join(',')})&select=id,cargo_box_id,delivery_item_id,material_id,material_description,quantity,sale_unit,statistical_boxes,pallet_equivalent,warehouse_location&order=created_at.asc',
+          );
+    final deliveryIds = deliveriesRaw
+        .map((raw) => (raw as Map<String, dynamic>)['id'])
+        .whereType<String>()
+        .toList();
+    final deliveryItemsRaw = deliveryIds.isEmpty
+        ? <dynamic>[]
+        : await _get(
+            'delivery_items?delivery_id=in.(${deliveryIds.join(',')})&select=id,delivery_id,status&order=created_at.asc',
+          );
 
     final paradas = stopsRaw.map((raw) {
       final row = raw as Map<String, dynamic>;
@@ -121,10 +142,59 @@ class SupabaseDemoService {
       for (final p in paradas)
         if (p.remoteId != null) p.remoteId!: p.num,
     };
+    final deliveryStatusByItemId = <String, String>{};
+    final deliveryIdByItemId = <String, String>{};
+    for (final raw in deliveryItemsRaw) {
+      final row = raw as Map<String, dynamic>;
+      final itemId = row['id'] as String?;
+      if (itemId == null) continue;
+      deliveryStatusByItemId[itemId] = '${row['status'] ?? 'pending'}';
+      if (row['delivery_id'] is String) {
+        deliveryIdByItemId[itemId] = row['delivery_id'] as String;
+      }
+    }
+    final productosByDeliveryId = <String, List<ProductoPedido>>{};
+    for (final raw in cargoBoxItemsRaw) {
+      final row = raw as Map<String, dynamic>;
+      final deliveryItemId = row['delivery_item_id'] as String?;
+      final deliveryId = deliveryItemId == null
+          ? null
+          : deliveryIdByItemId[deliveryItemId];
+      if (deliveryId == null) continue;
+      (productosByDeliveryId[deliveryId] ??= []).add(
+        ProductoPedido(
+          paleId: '${row['cargo_box_id']}',
+          descripcion:
+              '${row['material_description'] ?? 'Referencia sin descripcion'}',
+          cantidad: _num(row['quantity']),
+          unidadVenta: '${row['sale_unit'] ?? ''}',
+          cajasEstadisticas: _num(row['statistical_boxes']).toDouble(),
+          remoteId: deliveryItemId,
+        ),
+      );
+    }
+
+    final boxCodeById = {
+      for (final raw in cargoBoxesRaw)
+        (raw as Map<String, dynamic>)['id'] as String:
+            '${raw['box_code'] ?? raw['id']}',
+    };
     final pedidos = deliveriesRaw.map((raw) {
       final row = raw as Map<String, dynamic>;
       final zce = ((row['total_zce'] as num?) ?? 0).round();
       final externalId = '${row['external_delivery_id'] ?? row['id']}';
+      final productos = (productosByDeliveryId[row['id']] ?? const [])
+          .map(
+            (producto) => ProductoPedido(
+              paleId: boxCodeById[producto.paleId] ?? producto.paleId,
+              descripcion: producto.descripcion,
+              cantidad: producto.cantidad,
+              unidadVenta: producto.unidadVenta,
+              cajasEstadisticas: producto.cajasEstadisticas,
+              remoteId: producto.remoteId,
+            ),
+          )
+          .toList();
       return Pedido(
         id: externalId,
         remoteId: row['id'] as String?,
@@ -135,50 +205,109 @@ class SupabaseDemoService {
             : EstadoItem.pendiente,
         referencia: 'ZCE ${zce == 0 ? '-' : zce}',
         cliente: '${row['client_name'] ?? 'Cliente'}',
-        productos: [
-          ProductoPedido(
-            paleId:
-                'BOX-${(stopIndexById[row['stop_id']] ?? 0).toString().padLeft(2, '0')}',
-            descripcion:
-                'Entrega $externalId · ${zce == 0 ? 'contenido mixto' : '$zce ZCE'}',
-            cantidad: zce == 0 ? 1 : zce,
-            remoteId: row['id'] as String?,
-          ),
-        ],
+        productos: productos.isNotEmpty
+            ? productos
+            : [
+                ProductoPedido(
+                  paleId:
+                      'BOX-${(stopIndexById[row['stop_id']] ?? 0).toString().padLeft(2, '0')}',
+                  descripcion:
+                      'Entrega $externalId · ${zce == 0 ? 'contenido mixto' : '$zce ZCE'}',
+                  cantidad: zce == 0 ? 1 : zce,
+                  unidadVenta: 'ZCE',
+                  cajasEstadisticas: zce.toDouble(),
+                  remoteId: row['id'] as String?,
+                ),
+              ],
       );
     }).toList();
 
-    final pales = paradas.map((p) {
-      final total = pedidos
-          .where((pedido) => pedido.paradaNum == p.num)
-          .fold<int>(
-            0,
-            (sum, pedido) =>
-                sum +
-                pedido.productos.fold<int>(0, (s, prod) => s + prod.cantidad),
-          );
-      final delivered = pedidos
-          .where((pedido) => pedido.paradaNum == p.num && pedido.entregado)
-          .fold<int>(
-            0,
-            (sum, pedido) =>
-                sum +
-                pedido.productos.fold<int>(0, (s, prod) => s + prod.cantidad),
-          );
-      return Pale(
-        id: 'BOX-${p.num.toString().padLeft(2, '0')}',
-        contenido: p.nombre,
-        elementosTotales: total == 0 ? 1 : total,
-        elementosRestantes: (total - delivered).clamp(
-          0,
-          total == 0 ? 1 : total,
-        ),
-        peso: '${((total == 0 ? 1 : total) * 2.4).round()} kg',
-        volumen: '${((total == 0 ? 1 : total) * 0.02).toStringAsFixed(1)} m³',
-        fila: (p.num - 1) ~/ 2,
-        columna: (p.num - 1) % 2,
-      );
-    }).toList();
+    final pales = cargoBoxesRaw.isNotEmpty
+        ? cargoBoxesRaw.asMap().entries.map((entry) {
+            final index = entry.key;
+            final row = entry.value as Map<String, dynamic>;
+            final code = '${row['box_code'] ?? 'BOX-${index + 1}'}';
+            final boxItems = cargoBoxItemsRaw
+                .where(
+                  (raw) =>
+                      (raw as Map<String, dynamic>)['cargo_box_id'] ==
+                      row['id'],
+                )
+                .cast<Map<String, dynamic>>()
+                .toList();
+            final total = boxItems.fold<num>(
+              0,
+              (sum, item) => sum + _num(item['quantity']),
+            );
+            final delivered = boxItems.fold<num>(0, (sum, item) {
+              final deliveryItemId = item['delivery_item_id'] as String?;
+              final deliveredItem =
+                  deliveryItemId != null &&
+                  deliveryStatusByItemId[deliveryItemId] == 'delivered';
+              return sum + (deliveredItem ? _num(item['quantity']) : 0);
+            });
+            final clients =
+                (row['client_names'] as List?)
+                    ?.cast<dynamic>()
+                    .map((e) => '$e')
+                    .toList() ??
+                const <String>[];
+            return Pale(
+              id: code,
+              contenido: clients.isNotEmpty
+                  ? clients.join(', ')
+                  : '${row['position_label'] ?? code}',
+              elementosTotales: total.round() == 0 ? 1 : total.round(),
+              elementosRestantes: (total - delivered).round().clamp(
+                0,
+                total.round() == 0 ? 1 : total.round(),
+              ),
+              peso: '${_num(row['total_weight_kg']).toStringAsFixed(1)} kg',
+              volumen: '${_num(row['total_volume_m3']).toStringAsFixed(2)} m³',
+              fila: index ~/ 2,
+              columna: index % 2,
+            );
+          }).toList()
+        : paradas.map((p) {
+            final total = pedidos
+                .where((pedido) => pedido.paradaNum == p.num)
+                .fold<int>(
+                  0,
+                  (sum, pedido) =>
+                      sum +
+                      pedido.productos.fold<int>(
+                        0,
+                        (s, prod) => s + prod.cantidad.round(),
+                      ),
+                );
+            final delivered = pedidos
+                .where(
+                  (pedido) => pedido.paradaNum == p.num && pedido.entregado,
+                )
+                .fold<int>(
+                  0,
+                  (sum, pedido) =>
+                      sum +
+                      pedido.productos.fold<int>(
+                        0,
+                        (s, prod) => s + prod.cantidad.round(),
+                      ),
+                );
+            return Pale(
+              id: 'BOX-${p.num.toString().padLeft(2, '0')}',
+              contenido: p.nombre,
+              elementosTotales: total == 0 ? 1 : total,
+              elementosRestantes: (total - delivered).clamp(
+                0,
+                total == 0 ? 1 : total,
+              ),
+              peso: '${((total == 0 ? 1 : total) * 2.4).round()} kg',
+              volumen:
+                  '${((total == 0 ? 1 : total) * 0.02).toStringAsFixed(1)} m³',
+              fila: (p.num - 1) ~/ 2,
+              columna: (p.num - 1) % 2,
+            );
+          }).toList();
 
     return SupabaseDemoRoute(
       routeId: routeId,
@@ -187,6 +316,11 @@ class SupabaseDemoService {
       pedidos: pedidos,
       pales: pales,
     );
+  }
+
+  num _num(dynamic value) {
+    if (value is num) return value;
+    return num.tryParse('$value') ?? 0;
   }
 
   Future<void> markStopArrived(String routeId, Parada parada) async {
