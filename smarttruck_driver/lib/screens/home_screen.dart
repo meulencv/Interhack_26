@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/app_provider.dart';
+import '../data/demo_route.dart';
 import 'parada_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -269,14 +273,57 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _RouteMapCard extends StatelessWidget {
+class _RouteMapCard extends StatefulWidget {
   final AppProvider provider;
 
   const _RouteMapCard({required this.provider});
 
   @override
+  State<_RouteMapCard> createState() => _RouteMapCardState();
+}
+
+class _RouteMapCardState extends State<_RouteMapCard> {
+  final MapController _mapController = MapController();
+  Timer? _timer;
+  int _pathIndex = 0;
+  bool _flipTruck = false;
+
+  static const _tickMs = 80;
+  static const _stepSize = 2; // path points per tick
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: _tickMs), _tick);
+  }
+
+  void _tick(Timer _) {
+    if (!mounted) return;
+    final next = (_pathIndex + _stepSize) % kDemoRoutePath.length;
+    final curr = kDemoRoutePath[_pathIndex];
+    final nextPt = kDemoRoutePath[next];
+    final flip = nextPt.longitude < curr.longitude;
+    setState(() {
+      _pathIndex = next;
+      _flipTruck = flip;
+    });
+    // Keep map centered on truck
+    try {
+      _mapController.move(kDemoRoutePath[_pathIndex], _mapController.camera.zoom);
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  LatLng get _truckPos => kDemoRoutePath[_pathIndex];
+
+  @override
   Widget build(BuildContext context) {
-    final active = provider.paradaActiva;
+    final active = widget.provider.paradaActiva;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -293,7 +340,7 @@ class _RouteMapCard extends StatelessWidget {
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
-                  'Mapa simulado del camión',
+                  'Mapa de ruta',
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 16,
@@ -302,7 +349,7 @@ class _RouteMapCard extends StatelessWidget {
                 ),
               ),
               Text(
-                provider.connectionLabel,
+                widget.provider.connectionLabel,
                 style: const TextStyle(
                   color: AppColors.textMuted,
                   fontSize: 11,
@@ -313,140 +360,98 @@ class _RouteMapCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 170,
-            width: double.infinity,
-            child: CustomPaint(
-              painter: _RouteMapPainter(provider.paradas),
-              child: Align(
-                alignment: Alignment.bottomLeft,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 7,
+            height: 220,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                children: [
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: kDemoCenter,
+                      initialZoom: 13.5,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.none,
+                      ),
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.smarttruck.driver',
+                        tileDisplay: const TileDisplay.fadeIn(),
+                      ),
+                      PolylineLayer(
+                        polylines: [
+                          Polyline(
+                            points: kDemoRoutePath,
+                            color: const Color(0xFF3B82F6),
+                            strokeWidth: 3.5,
+                          ),
+                        ],
+                      ),
+                      CircleLayer(
+                        circles: kDemoRouteStops
+                            .map((p) => CircleMarker(
+                                  point: p,
+                                  radius: 5,
+                                  color: const Color(0xFF3B82F6),
+                                  borderColor: Colors.white,
+                                  borderStrokeWidth: 1.5,
+                                ))
+                            .toList(),
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _truckPos,
+                            width: 64,
+                            height: 46,
+                            child: Transform.scale(
+                              scaleX: _flipTruck ? -1.0 : 1.0,
+                              child: Image.asset(
+                                'assets/truck.png',
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  decoration: BoxDecoration(
-                    color: AppColors.background.withOpacity(0.78),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Text(
-                    active == null
-                        ? 'Ruta completada'
-                        : 'Ahora: parada ${active.num} · ${active.hora}',
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                  // Info overlay bottom-left
+                  Positioned(
+                    bottom: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.background.withOpacity(0.82),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Text(
+                        active == null
+                            ? 'Ruta completada'
+                            : 'Ahora: parada ${active.num} · ${active.hora}',
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
         ],
       ),
     );
-  }
-}
-
-class _RouteMapPainter extends CustomPainter {
-  final List<dynamic> paradas;
-
-  _RouteMapPainter(this.paradas);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final points = _points(size);
-    if (points.isEmpty) return;
-
-    final gridPaint = Paint()
-      ..color = AppColors.border.withOpacity(0.35)
-      ..strokeWidth = 1;
-    for (var i = 1; i < 4; i++) {
-      final y = size.height * i / 4;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (final point in points.skip(1)) {
-      path.lineTo(point.dx, point.dy);
-    }
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = AppColors.blue
-        ..strokeWidth = 4
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round,
-    );
-
-    for (var i = 0; i < points.length; i++) {
-      final parada = paradas[i];
-      final point = points[i];
-      final color = parada.completada
-          ? AppColors.green
-          : parada.activa
-          ? AppColors.primaryYellow
-          : AppColors.textMuted;
-      canvas.drawCircle(point, parada.activa ? 9 : 6, Paint()..color = color);
-      if (parada.activa) {
-        final truckRect = Rect.fromCenter(
-          center: point.translate(0, -24),
-          width: 32,
-          height: 18,
-        );
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(truckRect, const Radius.circular(5)),
-          Paint()..color = AppColors.primaryYellow,
-        );
-        canvas.drawCircle(
-          truckRect.bottomLeft.translate(7, 1),
-          3,
-          Paint()..color = AppColors.background,
-        );
-        canvas.drawCircle(
-          truckRect.bottomRight.translate(-7, 1),
-          3,
-          Paint()..color = AppColors.background,
-        );
-      }
-    }
-  }
-
-  List<Offset> _points(Size size) {
-    if (paradas.isEmpty) return const [];
-    final coords = paradas
-        .map((p) => (lat: p.latitude as double?, lng: p.longitude as double?))
-        .toList();
-    final hasCoords = coords.every((p) => p.lat != null && p.lng != null);
-    if (!hasCoords) {
-      return List.generate(paradas.length, (index) {
-        final t = paradas.length == 1 ? 0.5 : index / (paradas.length - 1);
-        return Offset(
-          18 + t * (size.width - 36),
-          size.height * (0.65 - 0.28 * (index.isEven ? 1 : -0.2)),
-        );
-      });
-    }
-
-    final lats = coords.map((p) => p.lat!).toList();
-    final lngs = coords.map((p) => p.lng!).toList();
-    final minLat = lats.reduce((a, b) => a < b ? a : b);
-    final maxLat = lats.reduce((a, b) => a > b ? a : b);
-    final minLng = lngs.reduce((a, b) => a < b ? a : b);
-    final maxLng = lngs.reduce((a, b) => a > b ? a : b);
-    final latSpan = (maxLat - minLat).abs() < 0.0001 ? 0.0001 : maxLat - minLat;
-    final lngSpan = (maxLng - minLng).abs() < 0.0001 ? 0.0001 : maxLng - minLng;
-    return coords.map((p) {
-      final x = 18 + ((p.lng! - minLng) / lngSpan) * (size.width - 36);
-      final y = 18 + (1 - ((p.lat! - minLat) / latSpan)) * (size.height - 36);
-      return Offset(x, y);
-    }).toList();
-  }
-
-  @override
-  bool shouldRepaint(covariant _RouteMapPainter oldDelegate) {
-    return oldDelegate.paradas != paradas;
   }
 }
 

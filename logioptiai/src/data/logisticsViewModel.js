@@ -534,6 +534,7 @@ function buildAlerts(routes, bundle) {
     const rutaCode = bundle?.supabaseDemo?.route?.route_code || row?.id || 'Demo'
     alerts.push({
       id: `SB-${String(event.id).slice(0, 8)}`,
+      supabaseEventId: event.id,
       tipo: event.event_type === 'delivery_delay' ? 'ventana' : event.event_type === 'vehicle_issue' ? 'vehiculo' : 'ruta',
       severidad: event.severity === 'critical' ? 'critica' : event.severity === 'high' ? 'critica' : event.severity === 'medium' ? 'media' : 'baja',
       titulo: event.title,

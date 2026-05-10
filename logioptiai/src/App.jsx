@@ -12,7 +12,7 @@ import { AlertasView } from './components/AlertasView'
 import { AnalyticsView } from './components/AnalyticsView'
 import { TruckViewer3D } from './components/TruckViewer3D'
 import { loadStaticBundle } from './services/api'
-import { DEMO_ROUTE_CODE, fetchDemoRouteState, supabaseDemoEnabled } from './services/supabaseDemo'
+import { DEMO_ROUTE_CODE, fetchDemoRouteState, supabaseDemoEnabled, deleteOperationalEvent } from './services/supabaseDemo'
 import { buildAssistantContext, buildDashboardViewModel } from './data/logisticsViewModel'
 
 delete L.Icon.Default.prototype._getIconUrl
@@ -23,6 +23,43 @@ L.Icon.Default.mergeOptions({
 })
 
 const CENTER = [41.5412, 2.2137]
+
+const DEMO_INCIDENTS = [
+  {
+    id: 'pinchazo-dr0023',
+    atMs: 10000,
+    routeIndex: 1,
+    routeOffset: 0.42,
+    type: 'warn',
+    title: 'Pinchazo detectado',
+    detail: 'DR0023 queda asistido y el sistema reequilibra entregas cercanas.',
+  },
+  {
+    id: 'calle-cortada-mollet',
+    atMs: 20000,
+    routeIndex: 5,
+    routeOffset: 0.54,
+    type: 'warn',
+    title: 'Calle cortada en Mollet',
+    detail: 'Se evita el tramo central y se publica una alternativa por ronda.',
+  },
+  {
+    id: 'muelle-saturado',
+    atMs: 30000,
+    routeIndex: 9,
+    routeOffset: 0.33,
+    type: 'info',
+    title: 'Muelle saturado temporalmente',
+    detail: 'Se retrasa una parada y se adelanta descarga con menor bloqueo.',
+  },
+]
+
+const SPRO_TEMPLATES = [
+  { id: 'spro-stop-01', routeIndex: 1, stopIndex: 1, baseAvailable: true, availableInMin: 0, busyInMin: 7 },
+  { id: 'spro-stop-02', routeIndex: 4, stopIndex: 2, baseAvailable: false, availableInMin: 6, busyInMin: 0 },
+  { id: 'spro-stop-03', routeIndex: 5, stopIndex: 1, baseAvailable: true, availableInMin: 0, busyInMin: 11 },
+  { id: 'spro-stop-04', routeIndex: 15, stopIndex: 3, baseAvailable: false, availableInMin: 4, busyInMin: 0 },
+]
 
 const GLASS = {
   background: 'rgba(11,18,38,.82)',
@@ -51,6 +88,35 @@ const TRUCK_ICONS = {
   FURGO: makeTruckIcon('FURGO'),
 }
 
+function makeIncidentIcon(type = 'warn') {
+  const isWarn = type === 'warn'
+  return L.divIcon({
+    className: 'incident-marker',
+    html: `<div class="incident-pulse ${isWarn ? 'warn' : 'info'}"><span>${isWarn ? '!' : 'i'}</span></div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+  })
+}
+
+function makeSproIcon(available) {
+  return L.divIcon({
+    className: 'spro-marker',
+    html: `<div class="spro-pin ${available ? 'available' : 'busy'}"><span>${available ? 'P' : 'P'}</span></div>`,
+    iconSize: [28, 34],
+    iconAnchor: [14, 30],
+  })
+}
+
+const INCIDENT_ICONS = {
+  warn: makeIncidentIcon('warn'),
+  info: makeIncidentIcon('info'),
+}
+
+const SPRO_ICONS = {
+  available: makeSproIcon(true),
+  busy: makeSproIcon(false),
+}
+
 function supabaseStateSignature(state) {
   if (!state?.route) return 'empty'
   return JSON.stringify({
@@ -74,6 +140,167 @@ function supabaseStateSignature(state) {
       job.updated_at,
     ]),
   })
+}
+
+function clampIndex(value, length) {
+  if (!length) return 0
+  return Math.max(0, Math.min(length - 1, value))
+}
+
+function incidentPoint(path, incident) {
+  if (!path?.length) return CENTER
+  const idx = clampIndex(Math.floor(path.length * incident.routeOffset), path.length)
+  return path[idx]
+}
+
+function pathWithOsrmVariant(path, incident, step = 1) {
+  if (!path || path.length < 12) return path
+  const idx = clampIndex(Math.floor(path.length * incident.routeOffset), path.length - 2)
+  const span = Math.max(5, Math.min(18 + step * 3, Math.floor(path.length / 8)))
+  const start = clampIndex(idx - Math.floor(span / 2), path.length)
+  const end = clampIndex(start + span, path.length)
+  const localRoadGeometry = path.slice(start, end)
+  if (localRoadGeometry.length < 4) return path
+  return [
+    ...path.slice(0, start),
+    ...localRoadGeometry,
+    ...localRoadGeometry.slice(1, -1).reverse(),
+    ...localRoadGeometry.slice(1),
+    ...path.slice(end),
+  ]
+}
+
+function pathThroughStopPriority(path, point) {
+  if (!path || path.length < 4 || !point) return path
+  const target = L.latLng(point)
+  let nearestIndex = 1
+  let nearestDistance = Number.POSITIVE_INFINITY
+  path.forEach((candidate, index) => {
+    if (index === 0 || index >= path.length - 1) return
+    const distance = L.latLng(candidate).distanceTo(target)
+    if (distance < nearestDistance) {
+      nearestDistance = distance
+      nearestIndex = index
+    }
+  })
+  if (nearestDistance > 120) return path
+  const start = clampIndex(nearestIndex - 4, path.length)
+  const end = clampIndex(nearestIndex + 5, path.length)
+  const stopApproach = path.slice(start, end)
+  if (stopApproach.length < 4) return path
+  return [
+    ...path.slice(0, start),
+    ...stopApproach,
+    ...stopApproach.slice(1, -1).reverse(),
+    ...stopApproach.slice(1),
+    ...path.slice(end),
+  ]
+}
+
+function sproZonesForStep(baseMapData, step) {
+  const trucks = baseMapData?.trucks || []
+  if (!trucks.length) return []
+  return SPRO_TEMPLATES.map((template, index) => {
+    const truckIndex = template.routeIndex % trucks.length
+    const truck = trucks[truckIndex]
+    const routeStops = truck?.routeStops || []
+    if (!routeStops.length) return null
+    const stopIndex = Math.min(template.stopIndex, routeStops.length - 1)
+    const pos = routeStops[stopIndex]
+    const toggled = step > 0 && ((step + index) % 3 === 0)
+    const available = toggled ? !template.baseAvailable : template.baseAvailable
+    const routeName = truck?.ruta?.routeLabel || truck?.ruta?.id || 'ruta activa'
+    return {
+      ...template,
+      routeIndex: truckIndex,
+      pos,
+      name: `SPRO ${routeName}`,
+      available,
+      etaText: available
+        ? `Libre en la parada ${stopIndex + 1} · se reserva ${Math.max(3, template.busyInMin - step)} min`
+        : `Ocupado en la parada ${stopIndex + 1} · libre en ${Math.max(1, template.availableInMin - step)} min`,
+    }
+  }).filter(Boolean)
+}
+
+function buildIncidentMapData(baseMapData, activeIncidents) {
+  const step = activeIncidents.length
+  const sproZones = sproZonesForStep(baseMapData, step)
+  if (!activeIncidents.length) return { ...baseMapData, incidentMarkers: [], sproZones }
+  const routes = baseMapData.routes.map((route, index) => {
+    const incident = activeIncidents.find(item => item.routeIndex % baseMapData.routes.length === index)
+    const spro = sproZones.find(zone => zone.available && zone.routeIndex % baseMapData.routes.length === index)
+    if (!incident && !spro) return route
+    const nextPositions = incident
+      ? pathWithOsrmVariant(route.positions, incident, step)
+      : pathThroughStopPriority(route.positions, spro.pos)
+    return {
+      ...route,
+      positions: nextPositions,
+      color: incident?.type === 'warn' ? '#f97316' : spro ? '#22c55e' : '#38bdf8',
+      incident,
+      spro,
+    }
+  })
+  const trucks = baseMapData.trucks.map((truck, index) => {
+    const incident = activeIncidents.find(item => item.routeIndex % baseMapData.trucks.length === index)
+    const spro = sproZones.find(zone => zone.available && zone.routeIndex % baseMapData.trucks.length === index)
+    if (!incident && !spro) return truck
+    const nextPath = incident
+      ? pathWithOsrmVariant(truck.path, incident, step)
+      : pathThroughStopPriority(truck.path, spro.pos)
+    return {
+      ...truck,
+      path: nextPath,
+      ruta: {
+        ...truck.ruta,
+        estado: 'recalculando',
+        routeLabel: `${truck.ruta?.routeLabel || 'Ruta'} · ${incident ? 'alternativa activa' : 'SPRO disponible'}`,
+      },
+    }
+  })
+  const incidentMarkers = activeIncidents.map(incident => {
+    const route = routes[incident.routeIndex % routes.length]
+    return {
+      pos: incidentPoint(route?.positions, incident),
+      color: incident.type === 'warn' ? '#f97316' : '#38bdf8',
+      incident,
+    }
+  })
+  return { ...baseMapData, routes, trucks, incidentMarkers, sproZones }
+}
+
+function incidentEvents(activeIncidents, isRecalculating, baseMapData) {
+  const events = []
+  if (isRecalculating) {
+    events.push({
+      tipo: 'info',
+      text: 'Actualizando rutas',
+      sub: 'OSRM local aplica alternativa precalculada en el mapa',
+      time: 'Ahora',
+    })
+  }
+  activeIncidents.slice().reverse().forEach(incident => {
+    events.push({
+      tipo: incident.type,
+      text: incident.title,
+      sub: incident.detail,
+      time: 'Ahora',
+    })
+  })
+  const step = activeIncidents.length
+  sproZonesForStep(baseMapData, step)
+    .filter(zone => zone.available)
+    .slice(0, 2)
+    .forEach(zone => {
+      events.push({
+        tipo: 'ok',
+        text: `${zone.name} disponible`,
+        sub: 'SPRO priorizado como variable de descarga',
+        time: 'Ahora',
+      })
+    })
+  return events
 }
 
 function Clock() {
@@ -115,6 +342,10 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
   const isFollowed = followingTruckId === truck.ruta?.id
   const isFlyingRef = useRef(false)
   const isFollowedRef = useRef(isFollowed)
+  const pathSignature = useMemo(
+    () => (truck.path || []).map(point => `${Number(point[0]).toFixed(5)},${Number(point[1]).toFixed(5)}`).join('|'),
+    [truck.path]
+  )
 
   useEffect(() => {
     isFollowedRef.current = isFollowed
@@ -153,7 +384,19 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
 
     const routeSeed = Array.from(routeId).reduce((sum, char) => sum + char.charCodeAt(0), 0)
     let currentSegment = pathLatLngs.length > 1 ? routeSeed % (pathLatLngs.length - 1) : 0
-    let currentPos = pathLatLngs[currentSegment]
+    let currentPos = currentPosRef.current || pathLatLngs[currentSegment]
+    let nearestDistance = Number.POSITIVE_INFINITY
+    pathLatLngs.forEach((point, index) => {
+      if (index >= pathLatLngs.length - 1) return
+      const distance = point.distanceTo(currentPos)
+      if (distance < nearestDistance) {
+        nearestDistance = distance
+        currentSegment = index
+      }
+    })
+    if (nearestDistance > 450) {
+      currentPos = pathLatLngs[currentSegment]
+    }
     let lastTime = performance.now()
 
     // 60 km/h in m/s
@@ -239,7 +482,7 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
     return () => cancelAnimationFrame(animationFrameId)
   // Polling updates route metadata, but the simulated animation must not restart.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeId, map])
+  }, [routeId, pathSignature, map])
 
   return (
     <Marker
@@ -280,6 +523,13 @@ const LANGS = [
   { code: 'en-US', label: 'EN' },
 ]
 
+const OBJECTIVE_LABELS = {
+  balanced: 'Equilibrado',
+  time: 'Minimizar tiempo',
+  km: 'Minimizar kilómetros',
+  unload: 'Minimizar descarga',
+}
+
 export default function App() {
   const [activeNav, setActiveNav]     = useState(0)
   const [lang, setLang]               = useState('es-ES')
@@ -289,6 +539,9 @@ export default function App() {
   const [bundle, setBundle]             = useState(null)
   const [supabaseDemo, setSupabaseDemo] = useState(null)
   const [supabaseError, setSupabaseError] = useState('')
+  const [liveOptData, setLiveOptData] = useState(null)
+  const [incidentStep, setIncidentStep] = useState(0)
+  const [isRecalculatingRoutes, setIsRecalculatingRoutes] = useState(false)
   const supabaseSignatureRef = useRef('')
   const staticViewModel = useMemo(() => buildDashboardViewModel(bundle, null), [bundle])
   const viewModel = useMemo(() => buildDashboardViewModel(bundle, supabaseDemo), [bundle, supabaseDemo])
@@ -296,10 +549,17 @@ export default function App() {
     () => buildAssistantContext({ activeNav, lang, viewModel }),
     [activeNav, lang, viewModel]
   )
-  const mapData = staticViewModel.mapData
+  const activeIncidents = useMemo(() => DEMO_INCIDENTS.slice(0, incidentStep), [incidentStep])
+  const mapData = useMemo(
+    () => buildIncidentMapData(staticViewModel.mapData, activeIncidents),
+    [staticViewModel.mapData, activeIncidents]
+  )
   const bundleOverview = bundle ? viewModel.overview : null
   const mapMode = activeNav === 0
-  const recentEvents = viewModel.events || []
+  const recentEvents = [
+    ...incidentEvents(activeIncidents, isRecalculatingRoutes, staticViewModel.mapData),
+    ...(viewModel.events || []),
+  ].slice(0, 6)
   const eventClassByType = { ok: 'b', info: 'b', warn: 'y', critical: 'r', error: 'r' }
   const performanceSummary = [
     { label: 'Paradas operativas', value: bundleOverview?.optimized_stop_count ?? viewModel.routes.reduce((sum, route) => sum + route.stops, 0) },
@@ -319,11 +579,61 @@ export default function App() {
     setFollowingTruckId(target?.ruta?.id || requested)
   }
 
+  const handleGoToMap = (routeCode) => {
+    setActiveNav(0)
+    if (routeCode) {
+      const requested = String(routeCode || '').trim().toUpperCase()
+      const target = mapData.trucks.find(truck => {
+        const ruta = truck.ruta || {}
+        return [ruta.id, ruta.vehicleId].filter(Boolean)
+          .some(v => String(v).toUpperCase().includes(requested) || requested.includes(String(v).toUpperCase()))
+      })
+      setFollowingTruckId(target?.ruta?.id || requested)
+    }
+  }
+
+  const handleOptimizationResult = (data) => {
+    const ov = data?.bundle?.overview || data?.overview || {}
+    const sc = data?.bundle?.scorecard || {}
+    const objId = data?.bundle?.objective || data?.request?.objective || 'balanced'
+    if (data?.bundle) {
+      setBundle(data.bundle)
+    }
+    setLiveOptData({
+      objective: objId,
+      objectiveLabel: OBJECTIVE_LABELS[objId] || 'Equilibrado',
+      routes: ov.routes ?? sc.vehicle_count,
+      distance_km: ov.distance_km,
+      pallet_load: ov.pallet_load,
+      return_peak: ov.return_peak,
+      ors_mode: ov.ors_mode,
+    })
+  }
+
+  const handleDeleteAlert = async (eventId) => {
+    await deleteOperationalEvent(eventId)
+    setSupabaseDemo(prev => prev
+      ? { ...prev, events: prev.events.filter(e => e.id !== eventId) }
+      : prev
+    )
+  }
+
   useEffect(() => {
     loadStaticBundle()
       .then(setBundle)
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!bundle) return undefined
+    setIncidentStep(0)
+    const timers = DEMO_INCIDENTS.map((incident, index) => window.setTimeout(() => {
+      setIsRecalculatingRoutes(true)
+      setIncidentStep(index + 1)
+      window.setTimeout(() => setIsRecalculatingRoutes(false), 2200)
+    }, incident.atMs))
+    return () => timers.forEach(timer => window.clearTimeout(timer))
+  }, [bundle?.generated_at, bundle?.objective])
 
   useEffect(() => {
     if (!supabaseDemoEnabled()) return undefined
@@ -472,8 +782,8 @@ export default function App() {
         {/* ── Full-page views (non-map) ── */}
         {activeNav === 1 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><FlotaView vehicles={viewModel.fleetVehicles} /></div>}
         {activeNav === 2 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><EntregasView routes={viewModel.routes} /></div>}
-        {activeNav === 3 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><OptimizacionView /></div>}
-        {activeNav === 4 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><AlertasView alerts={viewModel.alerts} /></div>}
+        {activeNav === 3 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><OptimizacionView onGoToMap={handleGoToMap} onOptimizationResult={handleOptimizationResult} /></div>}
+        {activeNav === 4 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><AlertasView alerts={viewModel.alerts} onDeleteAlert={handleDeleteAlert} /></div>}
         {activeNav === 5 && <div style={{ gridRow: '2 / 4', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><AnalyticsView analytics={viewModel.analytics} /></div>}
 
         {/* ── MAP VIEW (full-screen) ── */}
@@ -562,24 +872,30 @@ export default function App() {
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                   </svg>
                 </div>
-                <div className="badge"><span className="b-dot"/>VRP Greedy · Equilibrado</div>
+                <div className="badge">
+                  <span className="b-dot"/>
+                  VRP Greedy · {liveOptData?.objectiveLabel || 'Equilibrado'}
+                  {liveOptData && <span style={{ marginLeft: 6, fontSize: 10, color: '#86efac', fontWeight: 700 }}>● actualizado</span>}
+                </div>
                 <div className="obj-block">
                   <div className="obj-label">Objetivo activo</div>
-                  <div className="obj-value">Equilibrado (tiempo + distancia + carga)</div>
+                  <div className="obj-value">{liveOptData?.objectiveLabel || 'Equilibrado (tiempo + distancia + carga)'}</div>
                 </div>
                 <div className="params">
                   <div className="params-title">Resultado del modelo</div>
-                  <div className="param-row"><span className="param-name">Rutas planificadas</span><span className="param-val">{bundleOverview?.routes ?? '—'}</span></div>
-                  <div className="param-row"><span className="param-name">Distancia total</span><span className="param-val">{bundleOverview ? `${bundleOverview.distance_km} km` : '—'}</span></div>
-                  <div className="param-row"><span className="param-name">Pedidos cargados</span><span className="param-val">{bundleOverview?.pallet_load ?? '—'}</span></div>
-                  <div className="param-row"><span className="param-name">Retornables pico</span><span className="param-val">{bundleOverview?.return_peak ?? '—'}</span></div>
-                  <div className="param-row"><span className="param-name">Modo geocoding</span><span className="param-val">{bundleOverview?.ors_mode ?? '—'}</span></div>
+                  <div className="param-row"><span className="param-name">Rutas planificadas</span><span className="param-val">{liveOptData?.routes ?? bundleOverview?.routes ?? '—'}</span></div>
+                  <div className="param-row"><span className="param-name">Distancia total</span><span className="param-val">{(liveOptData?.distance_km ?? bundleOverview?.distance_km) != null ? `${liveOptData?.distance_km ?? bundleOverview?.distance_km} km` : '—'}</span></div>
+                  <div className="param-row"><span className="param-name">Pedidos cargados</span><span className="param-val">{liveOptData?.pallet_load ?? bundleOverview?.pallet_load ?? '—'}</span></div>
+                  <div className="param-row"><span className="param-name">Retornables pico</span><span className="param-val">{liveOptData?.return_peak ?? bundleOverview?.return_peak ?? '—'}</span></div>
+                  <div className="param-row"><span className="param-name">Modo geocoding</span><span className="param-val">{liveOptData?.ors_mode ?? bundleOverview?.ors_mode ?? '—'}</span></div>
                 </div>
                 <div className="progress-block">
                   <div className="progress-head"><span>Cobertura de rutas</span><span>100%</span></div>
                   <div className="progress-bar"><div className="progress-fill" style={{ width: '100%' }}/></div>
-                  <div className="iter-text">{bundleOverview ? `${bundleOverview.routes} rutas · ${bundleOverview.distance_km} km` : 'Cargando datos…'}</div>
-                  <div className="best-sol">Solución cargada desde bundle</div>
+                  <div className="iter-text">
+                    {(liveOptData || bundleOverview) ? `${liveOptData?.routes ?? bundleOverview?.routes} rutas · ${liveOptData?.distance_km ?? bundleOverview?.distance_km} km` : 'Cargando datos…'}
+                  </div>
+                  <div className="best-sol">{liveOptData ? 'Optimización activa aplicada' : 'Solución cargada desde bundle'}</div>
                 </div>
               </div>
             </div>
@@ -666,6 +982,43 @@ export default function App() {
                   radius={5}
                   pathOptions={{ color: s.color, fillColor: s.color, fillOpacity: 1, weight: 0 }}
                 />
+              ))}
+
+              {(mapData.sproZones || []).map(zone => (
+                <Marker
+                  key={zone.id}
+                  position={zone.pos}
+                  icon={SPRO_ICONS[zone.available ? 'available' : 'busy']}
+                  zIndexOffset={650}
+                >
+                  <Tooltip direction="top" offset={[0, -28]} opacity={0.98}>
+                    <div style={{ minWidth: 190 }}>
+                      <div style={{ fontWeight: 800, color: zone.available ? '#166534' : '#991b1b', marginBottom: 3 }}>
+                        {zone.available ? 'SPRO libre' : 'SPRO ocupado'}
+                      </div>
+                      <div>{zone.name}</div>
+                      <div style={{ marginTop: 4, color: '#475569' }}>{zone.etaText}</div>
+                    </div>
+                  </Tooltip>
+                </Marker>
+              ))}
+
+              {(mapData.incidentMarkers || []).map(marker => (
+                <Marker
+                  key={marker.incident.id}
+                  position={marker.pos}
+                  icon={INCIDENT_ICONS[marker.incident.type] || INCIDENT_ICONS.warn}
+                  zIndexOffset={900}
+                >
+                  <Tooltip direction="top" offset={[0, -20]} opacity={0.98}>
+                    <div style={{ minWidth: 180 }}>
+                      <div style={{ fontWeight: 800, color: marker.incident.type === 'warn' ? '#9a3412' : '#075985', marginBottom: 3 }}>
+                        {marker.incident.title}
+                      </div>
+                      <div style={{ color: '#475569' }}>{marker.incident.detail}</div>
+                    </div>
+                  </Tooltip>
+                </Marker>
               ))}
 
               {mapData.trucks.map((t, i) => (

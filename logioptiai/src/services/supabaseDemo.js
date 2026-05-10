@@ -59,6 +59,13 @@ export async function fetchDemoRouteState(routeCode = DEMO_ROUTE_CODE) {
   }
 }
 
+export async function deleteOperationalEvent(eventId) {
+  return supabaseFetch(`operational_events?id=eq.${encodeURIComponent(eventId)}`, {
+    method: 'DELETE',
+    prefer: 'return=minimal',
+  })
+}
+
 export function supabaseDemoEnabled() {
   return enabled()
 }

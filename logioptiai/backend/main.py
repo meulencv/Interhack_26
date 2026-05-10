@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import time
 from pathlib import Path
@@ -76,6 +77,8 @@ WEIGHT_PRESETS: dict[str, dict[str, float]] = {
     "balanced": {},
 }
 
+OBJECTIVE_ORDER = ("balanced", "time", "km", "unload")
+
 app = FastAPI(title="Smart Truck API")
 app.add_middleware(
     CORSMiddleware,
@@ -95,50 +98,154 @@ class OptimizeRequest(BaseModel):
     dynamic_mode: bool = True
 
 
+def _config_for_request(req: OptimizeRequest, objective: str) -> AppConfig:
+    config = make_config()
+    config.active_objective = objective
+    config.client_priority_factor = round(req.client_priority / 100.0, 3)
+    config.max_vehicle_fill_ratio = req.max_vehicle_fill_ratio
+    config.enforce_time_windows = req.time_windows
+    config.dynamic_recalculation = req.dynamic_mode
+    for key, val in WEIGHT_PRESETS.get(objective, {}).items():
+        setattr(config.weights, key, val)
+    if not req.time_windows:
+        config.weights.time_window_violation_penalty = 0.0
+        config.weights.late_delivery_penalty = 0.0
+    if not req.reverse_logistics:
+        config.reverse_logistics_ratio = 0.0
+    return config
+
+
+def _request_for_objective(req: OptimizeRequest, objective: str) -> dict[str, object]:
+    payload = req.model_dump()
+    payload["objective"] = objective
+    return payload
+
+
+def _run_matches_request(run: dict[str, object], req: OptimizeRequest, objective: str) -> bool:
+    request = run.get("request") or {}
+    if request.get("objective") != objective:
+        return False
+    checks = {
+        "planning_date": req.planning_date,
+        "time_windows": req.time_windows,
+        "reverse_logistics": req.reverse_logistics,
+        "dynamic_mode": req.dynamic_mode,
+    }
+    for key, expected in checks.items():
+        if request.get(key) != expected:
+            return False
+    if abs(float(request.get("client_priority", -1)) - req.client_priority) > 0.01:
+        return False
+    if abs(float(request.get("max_vehicle_fill_ratio", -1)) - req.max_vehicle_fill_ratio) > 0.001:
+        return False
+    return True
+
+
+def _load_cached_variant(config: AppConfig, req: OptimizeRequest, objective: str) -> dict[str, object] | None:
+    for item in load_optimization_history(config, limit=30):
+        if item.get("objective") != objective:
+            continue
+        run = load_optimization_run(config, str(item.get("id")))
+        if run and _run_matches_request(run, req, objective):
+            return {
+                "status": "success",
+                "bundle": run["bundle"],
+                "execution_time_seconds": run.get("execution_time_seconds"),
+                "request": run.get("request"),
+                "saved_run": {
+                    "id": run.get("id"),
+                    "generated_at": run.get("generated_at"),
+                },
+            }
+    return None
+
+
+def _build_variant(req: OptimizeRequest, objective: str) -> dict[str, object]:
+    config = _config_for_request(req, objective)
+    cached = _load_cached_variant(config, req, objective)
+    if cached:
+        return {**cached, "from_cache": True}
+
+    start = time.time()
+    bundle = build_demo_bundle(config, planning_date=req.planning_date)
+    elapsed = round(time.time() - start, 2)
+    payload = bundle.to_dict()
+    saved_run = save_optimization_run(
+        config=config,
+        bundle_payload=payload,
+        request_payload=_request_for_objective(req, objective),
+        execution_time_seconds=elapsed,
+    )
+    return {
+        "status": "success",
+        "bundle": payload,
+        "execution_time_seconds": elapsed,
+        "request": _request_for_objective(req, objective),
+        "saved_run": saved_run,
+        "from_cache": False,
+    }
+
+
+def _publish_bundle(config: AppConfig, payload: dict[str, object]) -> None:
+    serialized = json.dumps(payload, indent=2, ensure_ascii=False)
+    (config.paths.generated_dir / "demo_bundle.json").write_text(serialized, encoding="utf-8")
+    (config.paths.frontend_public_data_dir / "demo_bundle.json").write_text(serialized, encoding="utf-8")
+
+
+def _with_variants(active: dict[str, object], variants: dict[str, dict[str, object]], config: AppConfig) -> dict[str, object]:
+    compact_variants = {
+        key: {
+            "bundle": value.get("bundle"),
+            "execution_time_seconds": value.get("execution_time_seconds"),
+            "request": value.get("request"),
+            "saved_run": value.get("saved_run"),
+            "from_cache": value.get("from_cache", False),
+        }
+        for key, value in variants.items()
+    }
+    return {
+        **active,
+        "variants": compact_variants,
+        "history": load_optimization_history(config, limit=12),
+    }
+
+
 @app.post("/api/optimize")
 async def optimize(req: OptimizeRequest):
     try:
         config = make_config()
-        config.active_objective = req.objective
-        config.client_priority_factor = round(req.client_priority / 100.0, 3)
-        config.max_vehicle_fill_ratio = req.max_vehicle_fill_ratio
-        config.enforce_time_windows = req.time_windows
-        config.dynamic_recalculation = req.dynamic_mode
-        for key, val in WEIGHT_PRESETS.get(req.objective, {}).items():
-            setattr(config.weights, key, val)
-        if not req.time_windows:
-            config.weights.time_window_violation_penalty = 0.0
-            config.weights.late_delivery_penalty = 0.0
-        if not req.reverse_logistics:
-            config.reverse_logistics_ratio = 0.0
-
-        start = time.time()
-        bundle = build_demo_bundle(config, planning_date=req.planning_date)
-        elapsed = round(time.time() - start, 2)
-
-        payload = bundle.to_dict()
-        (config.paths.generated_dir / "demo_bundle.json").write_text(
-            json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-        (config.paths.frontend_public_data_dir / "demo_bundle.json").write_text(
-            json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-        saved_run = save_optimization_run(
-            config=config,
-            bundle_payload=payload,
-            request_payload=req.model_dump(),
-            execution_time_seconds=elapsed,
-        )
-        history = load_optimization_history(config, limit=12)
-        return {
-            "status": "success",
-            "bundle": payload,
-            "execution_time_seconds": elapsed,
-            "saved_run": saved_run,
-            "history": history,
-        }
+        variants = {objective: _build_variant(req, objective) for objective in OBJECTIVE_ORDER}
+        active = variants.get(req.objective) or variants["balanced"]
+        _publish_bundle(config, copy.deepcopy(active["bundle"]))
+        return _with_variants(active, variants, config)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/optimize/variants")
+async def variants():
+    config = make_config()
+    latest_by_objective: dict[str, dict[str, object]] = {}
+    for item in load_optimization_history(config, limit=30):
+        objective = str(item.get("objective") or "")
+        if objective in OBJECTIVE_ORDER and objective not in latest_by_objective:
+            run = load_optimization_run(config, str(item.get("id")))
+            if run:
+                latest_by_objective[objective] = {
+                    "bundle": run["bundle"],
+                    "execution_time_seconds": run.get("execution_time_seconds"),
+                    "request": run.get("request"),
+                    "saved_run": {
+                        "id": run.get("id"),
+                        "generated_at": run.get("generated_at"),
+                    },
+                    "from_cache": True,
+                }
+    return {
+        "status": "success",
+        "variants": latest_by_objective,
+        "history": load_optimization_history(config, limit=12),
+    }
 
 
 @app.get("/api/optimize/latest")

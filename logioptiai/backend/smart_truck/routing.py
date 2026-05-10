@@ -5,7 +5,7 @@ from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 import os
 from urllib.parse import urlencode
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 import hashlib
 import json
 import re
@@ -146,6 +146,27 @@ class ORSClient:
             ("CTRA. SANT ADRIA A LA ROCA, KM. 15,", "MONTORNÈS DEL VALLÈS"): "Carretera Sant Adria a la Roca kilometro 15",
             ("CTRA. SANT ADRIA A LA ROCA, KM. 15,", "MONTORNES DEL VALLES"): "Carretera Sant Adria a la Roca kilometro 15",
             ("CARRETERA BV-5213 KM 10", "VIC"): "Parador de Vic Sau, Carretera BV-5213 kilometro 10",
+            ("CTRA. SANT HIPÒLIT 61", "VIC"): "Carretera de Sant Hipolit 61",
+            ("CTRA. DE SANT HIPÒLIT, 53 (NAU 4)", "VIC"): "Carretera de Sant Hipolit 53",
+            ("CARRETERA N260 KM.118 KM 118", "RIBES DE FRESER"): "Carretera N-260 kilometro 118",
+            ("CARRETERA N-141 D S/N", "CALLDETENES"): "Carretera N-141d",
+            ("CARRETERA DE PARETS A BIGUES I KM 8", "LLIÇA DE MUNT"): "Carretera de Parets a Bigues kilometro 8",
+            ("CARRETERA DE PARETS A BIGUES I KM 8", "LLIÇÀ DE MUNT"): "Carretera de Parets a Bigues kilometro 8",
+            ("BV-5006 5006", "SANTA MARIA DE MARTORELLES"): "Carretera BV-5006",
+            ("CARRETERA BV-5001 KM 8,8", "MONTCADA I REIXAC"): "Carretera BV-5001 kilometro 8.8",
+            ("BV-5001 32-34", "MONTORNÈS DEL VALLÈS"): "Carretera BV-5001 32",
+            ("BV-5001 32-34", "MONTORNES DEL VALLES"): "Carretera BV-5001 32",
+            ("AUTOVIA C-17 S/N", "SANT QUIRZE DE BESORA"): "Carretera C-17 Sant Quirze de Besora",
+            ("CTRA. PARADOR KM. 7", "TAVÈRNOLES"): "Carretera del Parador kilometro 7",
+            ("BP-4654 KM 1.2", "SORA"): "Carretera BP-4654 kilometro 1.2",
+            ("CARRETERA C-25 EIX TRANSVE KM 174,6", "GURB"): "Carretera C-25 kilometro 174.6",
+            ("CARRETERA B-522 VIC-MANLLEU KM 2", "GURB"): "Carretera B-522 kilometro 2",
+            ("AUTOVIA C-17 KM 762", "ORÍS"): "Carretera C-17 kilometro 76.2",
+            ("AUTOVIA C-17 KM 762", "ORIS"): "Carretera C-17 kilometro 76.2",
+            ("SABADELL A GRANOLLERS KM 10.5", "LLIÇA DE VALL"): "Carretera de Sabadell a Granollers kilometro 10.5",
+            ("CR GRANOLLERS SABADELL KM. 13 -", "LLIÇA DE VALL"): "Carretera de Granollers a Sabadell kilometro 13",
+            ("CARRETERA GIV-5262 S/N", "RIBES DE FRESER"): "Carretera GIV-5262",
+            ("POL. IND. PUIGTIO CARRER RIUDELLOTS", "MAÇANET DE LA SELVA"): "Poligon Industrial Puigtio Carrer Riudellots",
         }
         alias = manual_aliases.get((address_key, town_key))
         if alias:
@@ -180,13 +201,16 @@ class ORSClient:
             r"\bCRTA\b": "Carretera",
             r"\bCR\b": "Carretera",
             r"\bCARRETERA\b": "Carretera",
-            r"\bPOL\.\s*IND\.\b": "Poligon Industrial",
+            r"\bAUTOVIA\b": "Carretera",
+            r"\bPOL\.\s*IND\.?": "Poligon Industrial",
+            r"\bPOL\.?\s*INDUSTRIAL\b": "Poligon Industrial",
             r"\bP\.I\.\b": "Poligon Industrial",
             r"\bPOLIGONO\b": "Poligon Industrial",
-            r"\bPOLIGON\b": "Poligon Industrial",
+            r"\bPOLIGON\b(?!\s+Industrial)": "Poligon Industrial",
             r"\bRBLA\.\b": "Rambla",
             r"\bRONDA\b": "Ronda",
             r"\bCAMINO\b": "Cami",
+            r"\bLUGAR\b": "Paratge",
         }
         for pattern, new in replacements.items():
             result = re.sub(pattern, new, result, flags=re.IGNORECASE)
@@ -194,10 +218,11 @@ class ORSClient:
         result = re.sub(r"\bSN\b", "", result, flags=re.IGNORECASE)
         result = re.sub(r"\bKM\.?\s*", "kilometro ", result, flags=re.IGNORECASE)
         result = re.sub(r"\bNAC\.?\s*", "Nacional ", result, flags=re.IGNORECASE)
-        result = result.replace("(", " ").replace(")", " ").replace("-", " ")
+        result = re.sub(r"\b([A-Z]{1,3})\s*-\s*(\d+)\b", r"\1-\2", result, flags=re.IGNORECASE)
+        result = result.replace("(", " ").replace(")", " ")
+        result = re.sub(r"\s+-\s*$", "", result)
         result = re.sub(r",?\s+LOCAL\b.*", "", result, flags=re.IGNORECASE)
-        # Remove highway km references that confuse geocoders
-        result = re.sub(r"\s+N-\d+\s+\d+.*", "", result, flags=re.IGNORECASE)
+        result = result.replace(",", ".")
         return " ".join(result.split())
 
     def _photon(self, query: str) -> CoordinateResult | None:

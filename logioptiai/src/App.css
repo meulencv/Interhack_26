@@ -323,8 +323,100 @@
 .leaflet-control-attribution { display: none; }
 .leaflet-control-zoom { display: none; }
 
+.incident-marker,
+.spro-marker {
+  background: transparent;
+  border: 0;
+}
+
+.incident-pulse {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+  box-shadow: 0 8px 22px rgba(0,0,0,.35);
+}
+.incident-pulse::before,
+.incident-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  opacity: .38;
+  animation: incidentRing 1.4s ease-out infinite;
+}
+.incident-pulse::after {
+  animation-delay: .55s;
+}
+.incident-pulse.warn {
+  background: linear-gradient(135deg,#ef4444,#f97316);
+  color: #f97316;
+}
+.incident-pulse.info {
+  background: linear-gradient(135deg,#2563eb,#38bdf8);
+  color: #38bdf8;
+}
+.incident-pulse span {
+  position: relative;
+  z-index: 1;
+  color: white;
+  transform: translateY(-1px);
+}
+
+.spro-pin {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50% 50% 50% 6px;
+  transform: rotate(-45deg);
+  display: grid;
+  place-items: center;
+  border: 2px solid rgba(255,255,255,.86);
+  box-shadow: 0 10px 22px rgba(0,0,0,.38);
+}
+.spro-pin span {
+  transform: rotate(45deg);
+  color: white;
+  font-size: 12px;
+  font-weight: 900;
+}
+.spro-pin.available {
+  background: linear-gradient(135deg,#16a34a,#22c55e);
+}
+.spro-pin.busy {
+  background: linear-gradient(135deg,#dc2626,#f97316);
+}
+.spro-pin.available::after,
+.spro-pin.busy::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50% 50% 50% 6px;
+  border: 2px solid currentColor;
+  opacity: .28;
+  animation: sproGlow 2s ease-out infinite;
+}
+.spro-pin.available::after { color: #22c55e; }
+.spro-pin.busy::after { color: #f97316; }
+
 /* Follow-mode badge animation */
 @keyframes fadeInDown {
   from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes incidentRing {
+  from { transform: scale(.68); opacity: .46; }
+  to { transform: scale(1.55); opacity: 0; }
+}
+
+@keyframes sproGlow {
+  from { transform: scale(.88); opacity: .34; }
+  to { transform: scale(1.45); opacity: 0; }
 }

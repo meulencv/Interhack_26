@@ -19,11 +19,23 @@ const TIPO_META = {
 
 const FILTROS = ['Todas', 'Activas', 'Críticas', 'Resueltas']
 
-function AlertCard({ alerta }) {
+function AlertCard({ alerta, onDelete }) {
   const sev = SEV_META[alerta.severidad]
   const tipo = TIPO_META[alerta.tipo]
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDelete = async () => {
+    if (!onDelete || deleting) return
+    setDeleting(true)
+    try {
+      await onDelete(alerta.supabaseEventId)
+    } catch {
+      setDeleting(false)
+    }
+  }
+
   return (
-    <div style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(255,255,255,.02)', border: `1px solid ${sev.border}`, display: 'flex', gap: 14, alignItems: 'flex-start', transition: 'background .15s', cursor: 'default' }}
+    <div style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(255,255,255,.02)', border: `1px solid ${sev.border}`, display: 'flex', gap: 14, alignItems: 'flex-start', transition: 'background .15s', cursor: 'default', opacity: deleting ? 0.4 : 1 }}
       onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.04)'}
       onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,.02)'}
     >
@@ -38,18 +50,30 @@ function AlertCard({ alerta }) {
         </div>
         <div style={{ fontSize: 13.5, fontWeight: 700, color: '#cfd5e6', marginBottom: 5 }}>{alerta.titulo}</div>
         <div style={{ fontSize: 12.5, color: 'rgba(160,170,200,.65)', lineHeight: 1.55 }}>{alerta.desc}</div>
-        <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ fontSize: 11, color: 'rgba(160,170,200,.45)' }}>Ruta <span style={{ color: '#7c6cff', fontWeight: 600 }}>{alerta.ruta}</span></span>
           <span style={{ fontSize: 11, color: 'rgba(160,170,200,.45)' }}>Conductor <span style={{ color: '#cfd5e6', fontWeight: 500 }}>{alerta.conductor}</span></span>
           <span style={{ fontSize: 11, color: 'rgba(160,170,200,.45)' }}>{alerta.zona}</span>
           <span style={{ fontSize: 11, color: 'rgba(160,170,200,.45)', marginLeft: 'auto' }}>{alerta.hora}</span>
+          {alerta.supabaseEventId && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              title="Eliminar alerta"
+              style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid rgba(239,68,68,.3)', background: 'rgba(239,68,68,.08)', color: '#f87171', fontSize: 11, fontWeight: 600, cursor: deleting ? 'not-allowed' : 'pointer', transition: 'all .15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,.18)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,.55)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,.3)' }}
+            >
+              {deleting ? '…' : 'Eliminar'}
+            </button>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-export function AlertasView({ alerts }) {
+export function AlertasView({ alerts, onDeleteAlert }) {
   const data = alerts?.length ? alerts : ALERTAS
   const [filtro, setFiltro] = useState('Todas')
 
@@ -104,7 +128,7 @@ export function AlertasView({ alerts }) {
 
       {/* Alert list */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingRight: 2 }}>
-        {filtered.map(a => <AlertCard key={a.id} alerta={a} />)}
+        {filtered.map(a => <AlertCard key={a.id} alerta={a} onDelete={onDeleteAlert} />)}
         {filtered.length === 0 && (
           <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(160,170,200,.35)', fontSize: 14 }}>No hay alertas en esta categoría</div>
         )}

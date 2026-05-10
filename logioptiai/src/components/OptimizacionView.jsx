@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 const BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000/api'
 const STORAGE_SETTINGS = 'logioptiai.optimization.settings'
 const STORAGE_LAST_RESULT = 'logioptiai.optimization.last-result'
+const STORAGE_VARIANTS = 'logioptiai.optimization.variants'
 
 const OBJETIVOS = [
   {
@@ -156,6 +157,12 @@ async function fetchLatestOptimization(signal) {
 
 async function fetchOptimizationHistory(signal) {
   const res = await fetch(`${BASE}/optimize/history`, { signal })
+  if (!res.ok) throw new Error(`Error ${res.status}`)
+  return res.json()
+}
+
+async function fetchOptimizationVariants(signal) {
+  const res = await fetch(`${BASE}/optimize/variants`, { signal })
   if (!res.ok) throw new Error(`Error ${res.status}`)
   return res.json()
 }
@@ -588,7 +595,112 @@ function RouteCard({ route, fillLimitPct, color }) {
   )
 }
 
-export function OptimizacionView() {
+function VehicleListRow({ route, fillLimitPct, color, expanded, onToggle, onViewMap }) {
+  const fillPct = Math.round((route.projected_peak_fill_ratio || 0) * 100)
+  const volumePct = Math.round((route.projected_peak_volume_ratio || 0) * 100)
+  const compliancePct = Math.round((route.window_compliance_rate || 0) * 100)
+  const isOverFill = fillPct > fillLimitPct
+  const isOverVolume = volumePct > 100
+  const hasAlert = isOverFill || isOverVolume || (route.alerts || []).length > 0
+
+  return (
+    <div style={{
+      background: expanded ? 'rgba(255,255,255,.06)' : 'rgba(255,255,255,.03)',
+      border: `1px solid ${hasAlert ? 'rgba(249,115,22,.24)' : expanded ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.06)'}`,
+      borderLeft: `3px solid ${hasAlert ? '#f97316' : color}`,
+      borderRadius: 14,
+      overflow: 'hidden',
+      transition: 'background .15s ease, border .15s ease',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px' }}>
+        <button
+          onClick={onToggle}
+          style={{
+            flex: 1, display: 'flex', alignItems: 'center', gap: 14,
+            background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', minWidth: 0,
+          }}
+        >
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#eef2ff', minWidth: 88, flexShrink: 0 }}>
+            {route.route_code}
+          </div>
+          <div style={{ fontSize: 11, fontWeight: 700, color, padding: '3px 8px', borderRadius: 999, background: 'rgba(255,255,255,.06)', flexShrink: 0 }}>
+            {route.vehicle?.template || 'veh'}
+          </div>
+          {hasAlert && (
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#f97316', padding: '3px 8px', borderRadius: 999, background: 'rgba(249,115,22,.1)', flexShrink: 0 }}>
+              ⚠ Alerta
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 18, marginLeft: 'auto', flexShrink: 0 }}>
+            {[
+              { label: 'paradas', val: route.stops?.length || 0, tone: '#f8fafc' },
+              { label: 'km', val: route.distance_km, tone: '#4ade80' },
+              { label: 'tiempo', val: formatDuration(route.duration_minutes), tone: '#38bdf8' },
+              { label: 'carga', val: `${fillPct}%`, tone: isOverFill ? '#f97316' : '#34d399' },
+              { label: 'vol', val: `${volumePct}%`, tone: isOverVolume ? '#f97316' : '#38bdf8' },
+              { label: 'ventanas', val: `${compliancePct}%`, tone: compliancePct < 80 ? '#f59e0b' : '#34d399' },
+              { label: 'score', val: Number(route.objective_score || 0).toFixed(1), tone: '#a78bfa' },
+            ].map(({ label, val, tone }) => (
+              <div key={label} style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: 'rgba(182,192,219,.52)', marginBottom: 2 }}>{label}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: tone }}>{val ?? '—'}</div>
+              </div>
+            ))}
+          </div>
+          <svg
+            width="15" height="15" viewBox="0 0 24 24" fill="none"
+            stroke="rgba(182,192,219,.5)" strokeWidth="2" strokeLinecap="round"
+            style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform .2s ease', flexShrink: 0 }}
+          >
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+
+        <button
+          onClick={onViewMap}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 13px', borderRadius: 12,
+            border: '1px solid rgba(56,189,248,.3)', background: 'rgba(56,189,248,.08)',
+            color: '#38bdf8', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap',
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+          </svg>
+          Ver en mapa
+        </button>
+      </div>
+
+      <div style={{ padding: '0 14px 10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'rgba(182,192,219,.5)', marginBottom: 3 }}>
+            <span>palets</span><span>{fillPct}% / {fillLimitPct}%</span>
+          </div>
+          <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,.06)', overflow: 'hidden' }}>
+            <div style={{ width: `${Math.min(fillPct, 100)}%`, height: '100%', borderRadius: 999, background: isOverFill ? '#ef4444' : '#34d399' }} />
+          </div>
+        </div>
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'rgba(182,192,219,.5)', marginBottom: 3 }}>
+            <span>volumen</span><span>{volumePct}%</span>
+          </div>
+          <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,.06)', overflow: 'hidden' }}>
+            <div style={{ width: `${Math.min(volumePct, 100)}%`, height: '100%', borderRadius: 999, background: isOverVolume ? '#ef4444' : '#38bdf8' }} />
+          </div>
+        </div>
+      </div>
+
+      {expanded && (
+        <div style={{ padding: '0 10px 10px' }}>
+          <RouteCard route={route} fillLimitPct={fillLimitPct} color={color} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function OptimizacionView({ onGoToMap, onOptimizationResult } = {}) {
   const [objetivo, setObjetivo] = useState('balanced')
   const [ventanas, setVentanas] = useState(true)
   const [retornables, setRetornables] = useState(true)
@@ -597,17 +709,49 @@ export function OptimizacionView() {
   const [dynamicMode, setDynamicMode] = useState(true)
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState(null)
+  const [variants, setVariants] = useState({})
   const [selectedExecution, setSelectedExecution] = useState(null)
   const [selectedRunId, setSelectedRunId] = useState(null)
   const [loadingRunId, setLoadingRunId] = useState(null)
   const [history, setHistory] = useState([])
   const [error, setError] = useState(null)
   const [dataMode, setDataMode] = useState('boot')
+  const [summaryOpen, setSummaryOpen] = useState(false)
+  const [expandedVehicleCode, setExpandedVehicleCode] = useState(null)
 
   const bootstrapReadyRef = useRef(false)
   const abortRef = useRef(null)
   const autoRunTimerRef = useRef(null)
   const intervalRef = useRef(null)
+
+  function applyExecution(execution, mode = 'variant-cache') {
+    if (!execution) return
+    setResult(execution)
+    setSelectedExecution(execution)
+    setSelectedRunId(execution?.saved_run?.id || null)
+    setDataMode(mode)
+    localStorage.setItem(STORAGE_LAST_RESULT, JSON.stringify(execution))
+    onOptimizationResult?.(execution)
+  }
+
+  function mergeVariants(nextVariants = {}) {
+    setVariants(prev => {
+      const merged = { ...prev, ...nextVariants }
+      localStorage.setItem(STORAGE_VARIANTS, JSON.stringify(merged))
+      return merged
+    })
+  }
+
+  function selectObjective(objectiveId) {
+    setObjetivo(objectiveId)
+    setError(null)
+    const cached = variants[objectiveId]
+    if (cached) {
+      applyExecution(cached, 'precalculado')
+      setSummaryOpen(false)
+      setExpandedVehicleCode(null)
+    }
+  }
 
   useEffect(() => {
     const savedSettingsRaw = localStorage.getItem(STORAGE_SETTINGS)
@@ -638,6 +782,15 @@ export function OptimizacionView() {
       }
     }
 
+    const storedVariantsRaw = localStorage.getItem(STORAGE_VARIANTS)
+    if (storedVariantsRaw) {
+      try {
+        setVariants(JSON.parse(storedVariantsRaw) || {})
+      } catch {
+        localStorage.removeItem(STORAGE_VARIANTS)
+      }
+    }
+
     let active = true
     const controller = new AbortController()
 
@@ -649,8 +802,11 @@ export function OptimizacionView() {
         setSelectedExecution(latest)
         setSelectedRunId(latest?.saved_run?.id || latest?.history?.[0]?.id || null)
         setHistory(latest.history || [])
+        if (latest.variants) mergeVariants(latest.variants)
         setDataMode('live')
         localStorage.setItem(STORAGE_LAST_RESULT, JSON.stringify(latest))
+        const variantsData = await fetchOptimizationVariants(controller.signal).catch(() => null)
+        if (variantsData?.variants) mergeVariants(variantsData.variants)
       } catch {
         try {
           const fallback = await loadStaticFallback()
@@ -703,12 +859,16 @@ export function OptimizacionView() {
 
   useEffect(() => {
     if (!bootstrapReadyRef.current || !dynamicMode) return
+    if (variants[objetivo]) {
+      applyExecution(variants[objetivo], 'precalculado')
+      return
+    }
     window.clearTimeout(autoRunTimerRef.current)
     autoRunTimerRef.current = window.setTimeout(() => {
       handleRun({ auto: true })
     }, 700)
     return () => window.clearTimeout(autoRunTimerRef.current)
-  }, [objetivo, ventanas, retornables, cargaCliente, maxFillRatio, dynamicMode])
+  }, [objetivo, ventanas, retornables, cargaCliente, maxFillRatio, dynamicMode, variants])
 
   async function refreshHistory() {
     try {
@@ -728,6 +888,8 @@ export function OptimizacionView() {
       const data = await fetchOptimizationRun(runId, controller.signal)
       setSelectedExecution(data)
       setSelectedRunId(runId)
+      setSummaryOpen(true)
+      setExpandedVehicleCode(null)
     } catch (e) {
       if (e?.name === 'AbortError') return
       setError(e.message || 'No se pudo cargar la ejecucion seleccionada')
@@ -759,12 +921,10 @@ export function OptimizacionView() {
       const data = await requestOptimization(payload, controller.signal)
       if (abortRef.current !== controller) return
       const enrichedData = { ...data, request: payload }
-      setResult(enrichedData)
-      setSelectedExecution(enrichedData)
-      setSelectedRunId(data?.saved_run?.id || null)
+      if (data.variants) mergeVariants(data.variants)
+      applyExecution(enrichedData, auto ? 'live-auto' : 'live-manual')
       setHistory(data.history || [])
-      setDataMode(auto ? 'live-auto' : 'live-manual')
-      localStorage.setItem(STORAGE_LAST_RESULT, JSON.stringify(enrichedData))
+      if (!auto) { setSummaryOpen(true); setExpandedVehicleCode(null) }
     } catch (e) {
       if (e?.name === 'AbortError') return
       setError(e.message || 'No se pudo completar la optimizacion')
@@ -805,6 +965,7 @@ export function OptimizacionView() {
   }[bundle?.objective || objetivo]
   const activeRequest = activeExecution?.request || {}
   const vehicleMixEntries = Object.entries(scorecard.vehicle_mix || overview.vehicle_mix || {})
+  const precalculatedCount = OBJETIVOS.filter(item => variants[item.id]).length
 
   return (
     <div style={{
@@ -879,7 +1040,7 @@ export function OptimizacionView() {
             {running ? (
               <>
                 <span style={{ width: 15, height: 15, borderRadius: '50%', border: '2px solid rgba(255,255,255,.28)', borderTopColor: '#fff', display: 'inline-block', animation: 'spin 0.75s linear infinite' }} />
-                Recalculando
+                Precalculando 4 modos
               </>
             ) : (
               <>
@@ -912,15 +1073,16 @@ export function OptimizacionView() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
               {OBJETIVOS.map(item => {
                 const active = objetivo === item.id
+                const ready = Boolean(variants[item.id])
                 return (
                   <button
                     key={item.id}
-                    onClick={() => setObjetivo(item.id)}
+                    onClick={() => selectObjective(item.id)}
                     style={{
                       textAlign: 'left',
                       padding: 16,
                       borderRadius: 18,
-                      border: `1px solid ${active ? item.border : 'rgba(255,255,255,.06)'}`,
+                      border: `1px solid ${active ? item.border : ready ? 'rgba(52,211,153,.22)' : 'rgba(255,255,255,.06)'}`,
                       background: active ? item.bg : 'rgba(255,255,255,.03)',
                       cursor: 'pointer',
                       boxShadow: active ? item.shadow : 'none',
@@ -929,16 +1091,16 @@ export function OptimizacionView() {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                       <div style={{ fontSize: 22 }}>{item.icon}</div>
-                      {item.tag && (
+                      {(item.tag || ready) && (
                         <div style={{
                           fontSize: 10,
                           fontWeight: 800,
                           padding: '4px 8px',
                           borderRadius: 999,
-                          color: active ? item.color : 'rgba(182,192,219,.52)',
+                          color: ready ? '#34d399' : active ? item.color : 'rgba(182,192,219,.52)',
                           background: 'rgba(255,255,255,.07)',
                         }}>
-                          {item.tag}
+                          {ready ? 'Precargado' : item.tag}
                         </div>
                       )}
                     </div>
@@ -963,7 +1125,7 @@ export function OptimizacionView() {
           }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: 'rgba(182,192,219,.7)' }}>Restricciones y sesgos</div>
-              <div style={{ fontSize: 14, color: '#eef2ff', fontWeight: 800, marginTop: 7 }}>Estos controles impactan directamente en la heuristica</div>
+              <div style={{ fontSize: 14, color: '#eef2ff', fontWeight: 800, marginTop: 7 }}>{precalculatedCount}/4 variantes ORS listas para cambiar el mapa</div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderTop: '1px solid rgba(255,255,255,.05)' }}>
@@ -1052,6 +1214,261 @@ export function OptimizacionView() {
               <SummaryCard label="Flota activa" value={scorecard.vehicle_count ?? overview.vehicle_count ?? '—'} tone="#22c55e" helper={`${scorecard.merged_routes_saved || 0} rutas consolidadas`} />
               <SummaryCard label="Alertas" value={overview.alerts ?? 0} tone={Number(overview.alerts || 0) > 0 ? '#f97316' : '#34d399'} helper={`${scorecard.routes_over_fill_limit || 0} por palets · ${scorecard.routes_over_volume_limit || 0} por volumen`} />
             </div>
+
+            {/* ═══ HISTORIAL — FULL WIDTH, PROMINENT ═══ */}
+            <div style={{
+              background: 'linear-gradient(180deg, rgba(14,20,42,.96), rgba(9,13,28,.94))',
+              border: '1px solid rgba(124,108,255,.22)',
+              borderRadius: 22,
+              padding: '22px 24px',
+              boxShadow: '0 24px 40px rgba(0,0,0,.24), 0 0 0 1px rgba(124,108,255,.06)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#7c6cff', marginBottom: 8 }}>
+                    Historial guardado
+                  </div>
+                  <div style={{ fontSize: 19, fontWeight: 800, color: '#eef2ff' }}>
+                    Cada ejecución es una versión navegable
+                  </div>
+                  <div style={{ fontSize: 12, color: 'rgba(182,192,219,.58)', marginTop: 6 }}>
+                    Haz clic en una ejecución para desplegar el resumen ejecutivo completo con todos los vehículos
+                  </div>
+                </div>
+                <button
+                  onClick={refreshHistory}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    border: '1px solid rgba(124,108,255,.28)', background: 'rgba(124,108,255,.09)',
+                    color: '#c4b5fd', borderRadius: 14, padding: '11px 18px',
+                    cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                  </svg>
+                  Refrescar
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
+                {(history.length ? history : [{
+                  id: 'current',
+                  generated_at: savedAt,
+                  objective: bundle.objective || objetivo,
+                  distance_km: overview.distance_km,
+                  duration_minutes: overview.duration_minutes,
+                  max_fill_ratio: scorecard.max_fill_ratio,
+                  max_volume_ratio: scorecard.max_volume_ratio,
+                  vehicle_count: scorecard.vehicle_count,
+                  merged_routes_saved: scorecard.merged_routes_saved,
+                  execution_time_seconds: activeExecution?.execution_time_seconds,
+                }]).slice(0, 8).map(run => {
+                  const runObjective = objectiveMeta(run.objective || objetivo)
+                  const isSelected = run.id ? run.id === selectedRunId : !selectedRunId
+                  return (
+                    <button
+                      key={run.id || run.generated_at}
+                      onClick={() => { openHistoryRun(run.id); setSummaryOpen(true); setExpandedVehicleCode(null) }}
+                      disabled={!run.id || loadingRunId === run.id}
+                      style={{
+                        padding: '18px 20px', borderRadius: 18, textAlign: 'left',
+                        cursor: run.id ? 'pointer' : 'default',
+                        opacity: loadingRunId === run.id ? 0.72 : 1,
+                        background: isSelected
+                          ? `linear-gradient(160deg, ${runObjective.bg}, rgba(255,255,255,.03))`
+                          : 'rgba(255,255,255,.04)',
+                        border: `1.5px solid ${isSelected ? runObjective.color + '44' : 'rgba(255,255,255,.07)'}`,
+                        borderLeft: `4px solid ${isSelected ? runObjective.color : 'rgba(255,255,255,.08)'}`,
+                        boxShadow: isSelected ? runObjective.shadow : 'none',
+                        transition: 'all .2s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 14 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 20 }}>{runObjective.icon}</span>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: runObjective.color }}>{runObjective.label}</span>
+                          {isSelected && (
+                            <span style={{ fontSize: 10, fontWeight: 800, color: '#c4b5fd', padding: '4px 9px', borderRadius: 999, background: 'rgba(124,108,255,.18)' }}>
+                              abierto
+                            </span>
+                          )}
+                          {loadingRunId === run.id && (
+                            <span style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid rgba(255,255,255,.2)', borderTopColor: '#fff', display: 'inline-block', animation: 'spin 0.75s linear infinite' }} />
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'rgba(182,192,219,.54)', flexShrink: 0 }}>
+                          {formatDateTime(run.generated_at)}
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
+                        {[
+                          { k: 'km', v: run.distance_km ?? '—', tone: '#4ade80' },
+                          { k: 'tiempo', v: formatDuration(run.duration_minutes), tone: '#38bdf8' },
+                          { k: 'pico', v: formatPct(run.max_fill_ratio, 0), tone: '#fb923c' },
+                          { k: 'flota', v: run.vehicle_count ?? '—', tone: '#a78bfa' },
+                        ].map(({ k, v, tone }) => (
+                          <div key={k}>
+                            <div style={{ fontSize: 10, color: 'rgba(182,192,219,.52)', marginBottom: 4 }}>{k}</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: tone }}>{v}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, borderTop: '1px solid rgba(255,255,255,.06)', fontSize: 11 }}>
+                        <span style={{ color: 'rgba(182,192,219,.5)' }}>
+                          {run.execution_time_seconds != null ? `${run.execution_time_seconds}s de cálculo` : 'registro persistido'}
+                        </span>
+                        <span style={{ color: 'rgba(167,139,250,.72)' }}>
+                          vol {formatPct(run.max_volume_ratio, 0)} · consol. {run.merged_routes_saved ?? 0}
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* ═══ RESUMEN EJECUTIVO — FULL WIDTH, COLAPSABLE ═══ */}
+            {summaryOpen && (
+              <div style={{
+                background: 'linear-gradient(180deg, rgba(14,20,42,.96), rgba(9,13,28,.94))',
+                border: `1.5px solid ${currentObjective.border}`,
+                borderRadius: 22,
+                padding: '22px 24px',
+                boxShadow: `0 24px 40px rgba(0,0,0,.24), ${currentObjective.shadow}`,
+              }}>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: currentObjective.color, marginBottom: 8 }}>
+                      Resumen ejecutivo
+                    </div>
+                    <div style={{ fontSize: 19, fontWeight: 800, color: '#eef2ff' }}>
+                      El motor está priorizando {summaryObjectiveText}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'rgba(182,192,219,.58)', marginTop: 6 }}>
+                      {selectedRunId ? `Ejecución ${selectedRunId}` : 'Vista actual en memoria'} · score {Number(scorecard.objective_score || overview.objective_score || 0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => onGoToMap?.()}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 9,
+                        padding: '12px 22px', borderRadius: 16, border: 'none',
+                        cursor: 'pointer', fontWeight: 800, fontSize: 13,
+                        background: 'linear-gradient(135deg, #22c55e, #38bdf8)',
+                        color: '#0f172a',
+                        boxShadow: '0 12px 26px rgba(34,197,94,.3)',
+                        transition: 'opacity .15s ease',
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                      </svg>
+                      Ver en mapa en vivo
+                    </button>
+                    <button
+                      onClick={() => setSummaryOpen(false)}
+                      style={{
+                        padding: '12px 18px', borderRadius: 16,
+                        border: '1px solid rgba(255,255,255,.1)', background: 'rgba(255,255,255,.05)',
+                        color: '#94a3b8', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                      }}
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Breakdown + Lo más importante */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))', gap: 14, marginBottom: 16 }}>
+                  <div style={{ background: 'rgba(255,255,255,.035)', border: '1px solid rgba(255,255,255,.06)', borderRadius: 16, padding: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(182,192,219,.7)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 10 }}>
+                      Lo más importante
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ fontSize: 12, color: 'rgba(223,230,246,.86)', lineHeight: 1.45 }}>
+                        La ocupación máxima se controla con un límite operativo del {currentFillLimitPct}% para reservar margen de reorganización.
+                      </div>
+                      <div style={{ fontSize: 12, color: 'rgba(223,230,246,.86)', lineHeight: 1.45 }}>
+                        El sesgo actual de cliente es {cargaCliente}% y afecta al bonus por liberar espacio en cada parada.
+                      </div>
+                      <div style={{ fontSize: 12, color: 'rgba(223,230,246,.86)', lineHeight: 1.45 }}>
+                        {dynamicMode ? 'Modo dinámico activo: recalcula automáticamente al cambiar parámetros.' : 'Modo manual: conserva el último cálculo hasta que ejecutes de nuevo.'}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'rgba(223,230,246,.86)', lineHeight: 1.45 }}>
+                        El límite por volumen mezcla el porcentaje manual con la función dinámica de estiba según el tipo de mercancía.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(255,255,255,.035)', border: '1px solid rgba(255,255,255,.06)', borderRadius: 16, padding: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(182,192,219,.7)', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 10 }}>
+                      Drivers del score
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {sortedBreakdown.slice(0, 5).map(([key, value]) => (
+                        <BreakdownRow
+                          key={key}
+                          label={BREAKDOWN_LABELS[key] || key}
+                          value={value}
+                          maxValue={maxBreakdownValue}
+                          color={BREAKDOWN_COLORS[key] || '#93c5fd'}
+                          isBonus={key.includes('bonus')}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {(topAlerts.length > 0 || bundle.assumptions?.length || bundle.tradeoffs?.length) && (
+                    <div style={{ background: 'rgba(249,115,22,.08)', border: '1px solid rgba(249,115,22,.18)', borderRadius: 16, padding: 14 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#fdba74', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 10 }}>
+                        Alertas accionables
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                        {(topAlerts.length ? topAlerts : ['Sin alertas críticas en esta ejecución.']).slice(0, 4).map((text, index) => (
+                          <div key={`alert-top-${index}`} style={{ fontSize: 12, color: 'rgba(255,228,196,.9)', lineHeight: 1.45 }}>{text}</div>
+                        ))}
+                      </div>
+                      {bundle.tradeoffs?.length > 0 && (
+                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,.06)' }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: '#6ee7b7', textTransform: 'uppercase', letterSpacing: .7, marginBottom: 7 }}>Tradeoffs</div>
+                          {bundle.tradeoffs.slice(0, 2).map((text, i) => (
+                            <div key={i} style={{ fontSize: 11, color: 'rgba(223,230,246,.8)', lineHeight: 1.4, marginBottom: 5 }}>{text}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* ═══ LISTA COMPACTA DE VEHÍCULOS ═══ */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(182,192,219,.72)', textTransform: 'uppercase', letterSpacing: .7 }}>
+                      Vehículos y rutas · {routes.length} rutas activas
+                    </div>
+                    <div style={{ fontSize: 11, color: 'rgba(182,192,219,.46)' }}>
+                      Clic para expandir · "Ver en mapa" para seguir en tiempo real
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {routes.map(route => (
+                      <VehicleListRow
+                        key={route.route_code}
+                        route={route}
+                        fillLimitPct={currentFillLimitPct}
+                        color={currentObjective.color}
+                        expanded={expandedVehicleCode === route.route_code}
+                        onToggle={() => setExpandedVehicleCode(expandedVehicleCode === route.route_code ? null : route.route_code)}
+                        onViewMap={() => onGoToMap?.(route.route_code)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
               <div style={{
@@ -1366,37 +1783,6 @@ export function OptimizacionView() {
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <div style={{
-              background: 'linear-gradient(180deg, rgba(16,24,44,.86), rgba(11,16,30,.86))',
-              border: '1px solid rgba(255,255,255,.07)',
-              borderRadius: 22,
-              padding: 18,
-              boxShadow: '0 22px 36px rgba(0,0,0,.18)',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: 'rgba(182,192,219,.7)' }}>Rutas explicadas</div>
-                  <div style={{ fontSize: 17, fontWeight: 800, color: '#eef2ff', marginTop: 7 }}>
-                    Visualizacion interpretable de cada secuencia
-                  </div>
-                </div>
-                <div style={{ fontSize: 12, color: 'rgba(182,192,219,.66)', lineHeight: 1.45, maxWidth: 420 }}>
-                  Cada tarjeta muestra el margen por palets y por volumen dinamico, el desglose del score y la explicacion de por que cada parada aparece en ese punto.
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {routes.map(route => (
-                  <RouteCard
-                    key={route.route_code}
-                    route={route}
-                    fillLimitPct={currentFillLimitPct}
-                    color={currentObjective.color}
-                  />
-                ))}
               </div>
             </div>
           </>
