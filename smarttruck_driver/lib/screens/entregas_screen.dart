@@ -97,7 +97,8 @@ class _EntregasScreenState extends State<EntregasScreen> {
                   : ListView.separated(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       itemCount: list.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 10),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 10),
                       itemBuilder: (context, index) {
                         final parada = list[index];
                         return _ParadaListItem(
@@ -106,8 +107,7 @@ class _EntregasScreenState extends State<EntregasScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    ParadaScreen(parada: parada),
+                                builder: (_) => ParadaScreen(parada: parada),
                               ),
                             );
                           },
@@ -152,8 +152,7 @@ class _Tab extends StatelessWidget {
               style: TextStyle(
                 color: selected ? Colors.black : AppColors.textSecondary,
                 fontSize: 14,
-                fontWeight:
-                    selected ? FontWeight.bold : FontWeight.normal,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ),
@@ -189,7 +188,9 @@ class _ParadaListItem extends StatelessWidget {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: parada.activa ? AppColors.primaryYellow.withOpacity(0.4) : AppColors.border,
+            color: parada.activa
+                ? AppColors.primaryYellow.withOpacity(0.4)
+                : AppColors.border,
           ),
         ),
         padding: const EdgeInsets.all(16),
@@ -239,10 +240,11 @@ class _ParadaListItem extends StatelessWidget {
                       if (parada.activa)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            color:
-                                AppColors.primaryYellow.withOpacity(0.15),
+                            color: AppColors.primaryYellow.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text(

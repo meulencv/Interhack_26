@@ -66,7 +66,8 @@ function unitLabel(unit, quantity) {
 }
 
 function cargoLine(item) {
-  return `${formatNumber(item.quantity, 2)} ${unitLabel(item.saleUnit, item.quantity)} · ${shortText(item.description, 54)} · ${formatNumber(item.statisticalBoxes, 2)} ZCE`
+  const state = item.delivered || item.status === 'delivered' ? 'Entregado' : 'Pendiente'
+  return `${state} · ${formatNumber(item.quantity, 2)} ${unitLabel(item.saleUnit, item.quantity)} · ${shortText(item.description, 54)} · ${formatNumber(item.statisticalBoxes, 2)} ZCE`
 }
 
 function routeCargoLabel(route) {
@@ -126,6 +127,9 @@ function CargoBoxMini({ box, accent }) {
       <div style={{ fontSize: 10, color: 'rgba(184,194,219,.62)', marginBottom: 7 }}>
         {formatNumber(box.totalZce, 2)} ZCE · {box.items?.length || 0} objetos
       </div>
+      <div style={{ fontSize: 10, color: 'rgba(184,194,219,.68)', marginBottom: 7 }}>
+        {box.deliveredItems || 0} entregados · {box.pendingItems ?? box.items?.length ?? 0} pendientes · {formatNumber(box.pendingZce || 0, 2)} ZCE por entregar
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {(box.topItems || box.items || []).slice(0, 3).map((item, index) => (
           <div key={`${box.boxId}-${item.materialId}-${index}`} style={{ fontSize: 10, color: 'rgba(214,222,243,.72)', lineHeight: 1.3 }}>
@@ -146,11 +150,12 @@ function CargoBoxMini({ box, accent }) {
 }
 
 function DeliveryMini({ delivery, accent }) {
+  const delivered = delivery.status === 'delivered'
   return (
     <div style={{ border: '1px solid rgba(255,255,255,.06)', background: 'rgba(255,255,255,.03)', borderRadius: 8, padding: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
         <div style={{ fontSize: 12, color: '#e8eefc', fontWeight: 700 }}>{delivery.stopIndex}. {shortText(delivery.clientName, 32)}</div>
-        <div style={{ fontSize: 10, color: accent, fontWeight: 800 }}>{delivery.boxIds?.join(', ') || 'sin caja'}</div>
+        <div style={{ fontSize: 10, color: delivered ? '#22c55e' : accent, fontWeight: 800 }}>{delivered ? 'Entregada' : delivery.boxIds?.join(', ') || 'sin caja'}</div>
       </div>
       <div style={{ fontSize: 10, color: 'rgba(184,194,219,.62)', marginBottom: 7 }}>
         {formatNumber(delivery.totalZce, 2)} ZCE · {delivery.references?.length || 0} objetos · entrega {delivery.deliveryIds?.[0] || '—'}

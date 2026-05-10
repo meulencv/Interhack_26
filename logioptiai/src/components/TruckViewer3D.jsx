@@ -26,18 +26,24 @@ function buildPedidos(ruta) {
       const box = cargoBoxes[i] || {}
       const items = box.items || []
       const itemLines = items.slice(0, 10).map(item => {
+        const delivered = item.delivered || item.status === 'delivered'
         const qty = Number(item.quantity || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })
         const unit = item.saleUnit || item.sale_unit || ''
         const description = item.description || item.material_description || 'Referencia sin descripcion'
         const zce = Number(item.statisticalBoxes ?? item.statistical_boxes ?? 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })
-        return `- ${qty} ${unitLabel(unit, item.quantity)} · ${description} · ${zce} ZCE`
+        return `${delivered ? 'ENTREGADO' : 'PENDIENTE'} · ${qty} ${unitLabel(unit, item.quantity)} · ${description} · ${zce} ZCE`
       })
       const clients = box.clientNames || box.client_names || []
       const rationale = box.rationale || []
       const totalZce = Number(box.totalZce ?? box.total_zce ?? 0)
+      const deliveredItems = Number(box.deliveredItems || items.filter(item => item.delivered || item.status === 'delivered').length)
+      const pendingItems = Number(box.pendingItems || Math.max(0, items.length - deliveredItems))
+      const deliveredZce = Number(box.deliveredZce || 0)
+      const pendingZce = Number(box.pendingZce || Math.max(0, totalZce - deliveredZce))
       const header = [
         `Clientes: ${clients.length ? clients.join(', ') : 'sin cliente asignado'}`,
         `Carga: ${totalZce.toFixed(2)} ZCE · ${items.length} objetos`,
+        `Estado: ${deliveredItems} entregados · ${pendingItems} pendientes · ${deliveredZce.toFixed(2)} ZCE entregadas · ${pendingZce.toFixed(2)} ZCE pendientes`,
       ]
       if (rationale[0]) header.push(`Motivo: ${rationale[0]}`)
       return {

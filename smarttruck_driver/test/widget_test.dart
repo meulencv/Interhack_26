@@ -6,11 +6,19 @@
 // tree, read text, and verify that the values of widget properties are correct.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:smarttruck_driver/main.dart';
+import 'package:smarttruck_driver/providers/app_provider.dart';
 
 void main() {
   testWidgets('SmartTruck app smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const SmartTruckApp());
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => AppProvider(),
+        child: const SmartTruckApp(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 1600));
     expect(find.byType(SmartTruckApp), findsOneWidget);
   });
 }

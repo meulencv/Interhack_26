@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'theme/app_theme.dart';
 import 'providers/app_provider.dart';
 import 'screens/home_screen.dart';
@@ -7,7 +8,12 @@ import 'screens/entregas_screen.dart';
 import 'screens/paquetes_screen.dart';
 import 'screens/menu_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(
+    url: 'https://xbymkwixdcmwciiepmjx.supabase.co',
+    anonKey: 'sb_publishable_FHvAva9DO-btov_WYvH0_Q_Lh-i-9fb',
+  );
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppProvider(),
@@ -68,7 +74,9 @@ class _SplashScreenState extends State<SplashScreen> {
                 color: AppColors.primaryYellow.withOpacity(0.15),
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: AppColors.primaryYellow.withOpacity(0.4), width: 2),
+                  color: AppColors.primaryYellow.withOpacity(0.4),
+                  width: 2,
+                ),
               ),
               child: const Icon(
                 Icons.local_shipping,
@@ -88,10 +96,7 @@ class _SplashScreenState extends State<SplashScreen> {
             const SizedBox(height: 8),
             const Text(
               'Cargando ruta...',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 15,
-              ),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
             ),
             const SizedBox(height: 40),
             const SizedBox(
@@ -127,15 +132,10 @@ class MainShell extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: IndexedStack(
-        index: provider.activeTab,
-        children: _screens,
-      ),
+      body: IndexedStack(index: provider.activeTab, children: _screens),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          border: Border(
-            top: BorderSide(color: AppColors.border, width: 0.5),
-          ),
+          border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
         ),
         child: BottomNavigationBar(
           currentIndex: provider.activeTab,

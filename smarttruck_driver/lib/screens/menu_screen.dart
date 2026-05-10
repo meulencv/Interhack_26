@@ -29,10 +29,7 @@ class MenuScreen extends StatelessWidget {
               const SizedBox(height: 8),
               const Text(
                 'Pedro García · DDI Driver',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 15,
-                ),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
               ),
               const SizedBox(height: 28),
 
@@ -44,8 +41,7 @@ class MenuScreen extends StatelessWidget {
                     label: 'Buscar paquete o palé',
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                          builder: (_) => const BuscarScreen()),
+                      MaterialPageRoute(builder: (_) => const BuscarScreen()),
                     ),
                   ),
                   _MenuItem(
@@ -53,8 +49,7 @@ class MenuScreen extends StatelessWidget {
                     label: 'Ver camión',
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                          builder: (_) => const CamionScreen()),
+                      MaterialPageRoute(builder: (_) => const CamionScreen()),
                     ),
                   ),
                   _MenuItem(
@@ -63,7 +58,8 @@ class MenuScreen extends StatelessWidget {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const InteriorCamionScreen()),
+                        builder: (_) => const InteriorCamionScreen(),
+                      ),
                     ),
                   ),
                 ],
@@ -108,10 +104,7 @@ class MenuScreen extends StatelessWidget {
               const Center(
                 child: Text(
                   'SmartTruck DDI v1.0.0',
-                  style: TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                 ),
               ),
             ],
@@ -160,7 +153,10 @@ class _MenuSection extends StatelessWidget {
                   _MenuItemTile(item: item),
                   if (i < items.length - 1)
                     const Divider(
-                        height: 1, thickness: 0.5, color: AppColors.border),
+                      height: 1,
+                      thickness: 0.5,
+                      color: AppColors.border,
+                    ),
                 ],
               );
             }).toList(),
@@ -205,10 +201,7 @@ class _MenuItemTile extends StatelessWidget {
             Expanded(
               child: Text(
                 item.label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 15,
-                ),
+                style: TextStyle(color: color, fontSize: 15),
               ),
             ),
             Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),

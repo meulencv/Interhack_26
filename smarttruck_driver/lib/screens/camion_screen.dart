@@ -66,10 +66,11 @@ class CamionScreen extends StatelessWidget {
                         ),
                         Expanded(
                           child: _LegendItem(
-                      color: AppColors.orange,
-                      value: '${provider.totalPedidos}',
-                      label: 'Pedidos',
-                    ),    ),
+                            color: AppColors.orange,
+                            value: '${provider.totalPedidos}',
+                            label: 'Pedidos',
+                          ),
+                        ),
                         Expanded(
                           child: _LegendItem(
                             color: AppColors.green,
@@ -98,7 +99,8 @@ class CamionScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const InteriorCamionScreen()),
+                      builder: (_) => const InteriorCamionScreen(),
+                    ),
                   );
                 },
               ),
@@ -121,9 +123,7 @@ class _TruckSideView extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      child: CustomPaint(
-        painter: _TruckSidePainter(),
-      ),
+      child: CustomPaint(painter: _TruckSidePainter()),
     );
   }
 }
@@ -207,16 +207,28 @@ class _TruckSidePainter extends CustomPainter {
     // Front wheel
     canvas.drawCircle(Offset(startX + 30, wheelY), 16, wheelPaint);
     canvas.drawCircle(Offset(startX + 30, wheelY), 16, wheelBorderPaint);
-    canvas.drawCircle(Offset(startX + 30, wheelY), 6, Paint()..color = const Color(0xFF6B7280));
+    canvas.drawCircle(
+      Offset(startX + 30, wheelY),
+      6,
+      Paint()..color = const Color(0xFF6B7280),
+    );
 
     // Rear wheels
     canvas.drawCircle(Offset(endX - 35, wheelY), 16, wheelPaint);
     canvas.drawCircle(Offset(endX - 35, wheelY), 16, wheelBorderPaint);
-    canvas.drawCircle(Offset(endX - 35, wheelY), 6, Paint()..color = const Color(0xFF6B7280));
+    canvas.drawCircle(
+      Offset(endX - 35, wheelY),
+      6,
+      Paint()..color = const Color(0xFF6B7280),
+    );
 
     canvas.drawCircle(Offset(endX - 65, wheelY), 16, wheelPaint);
     canvas.drawCircle(Offset(endX - 65, wheelY), 16, wheelBorderPaint);
-    canvas.drawCircle(Offset(endX - 65, wheelY), 6, Paint()..color = const Color(0xFF6B7280));
+    canvas.drawCircle(
+      Offset(endX - 65, wheelY),
+      6,
+      Paint()..color = const Color(0xFF6B7280),
+    );
 
     // Ground line
     canvas.drawLine(
@@ -266,10 +278,7 @@ class _LegendItem extends StatelessWidget {
         ),
         Text(
           label,
-          style: const TextStyle(
-            color: AppColors.textMuted,
-            fontSize: 11,
-          ),
+          style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
           textAlign: TextAlign.center,
         ),
       ],
@@ -287,13 +296,18 @@ class InteriorCamionScreen extends StatelessWidget {
     final provider = context.watch<AppProvider>();
     // Build 3x2 grid: [fila][columna]
     // fila 0=delantera, 1=centro, 2=trasera; columna 0=izq, 1=der
-    final grid = List.generate(3, (f) => List.generate(2, (c) {
-      try {
-        return provider.pales.firstWhere((i) => i.fila == f && i.columna == c);
-      } catch (_) {
-        return null;
-      }
-    }));
+    final grid = List.generate(
+      3,
+      (f) => List.generate(2, (c) {
+        try {
+          return provider.pales.firstWhere(
+            (i) => i.fila == f && i.columna == c,
+          );
+        } catch (_) {
+          return null;
+        }
+      }),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -334,7 +348,9 @@ class InteriorCamionScreen extends StatelessWidget {
                     child: Text(
                       'Izquierda',
                       style: TextStyle(
-                          color: AppColors.textMuted, fontSize: 13),
+                        color: AppColors.textMuted,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
@@ -343,7 +359,9 @@ class InteriorCamionScreen extends StatelessWidget {
                     child: Text(
                       'Derecha',
                       style: TextStyle(
-                          color: AppColors.textMuted, fontSize: 13),
+                        color: AppColors.textMuted,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
@@ -352,32 +370,36 @@ class InteriorCamionScreen extends StatelessWidget {
             const SizedBox(height: 12),
 
             // Grid
-            ...List.generate(3, (fila) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: List.generate(2, (col) {
-                  final item = grid[fila][col];
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
+            ...List.generate(
+              3,
+              (fila) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: List.generate(2, (col) {
+                    final item = grid[fila][col];
+                    return Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(
                           left: col == 1 ? 5 : 0,
-                          right: col == 0 ? 5 : 0),
-                      child: GestureDetector(
-                        onTap: item != null
-                            ? () => Navigator.push(
+                          right: col == 0 ? 5 : 0,
+                        ),
+                        child: GestureDetector(
+                          onTap: item != null
+                              ? () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => ResultadoScreen(item: item),
                                   ),
                                 )
-                            : null,
-                        child: _GridCell(item: item),
+                              : null,
+                          child: _GridCell(item: item),
+                        ),
                       ),
-                    ),
-                  );
-                }),
+                    );
+                  }),
+                ),
               ),
-            )),
+            ),
 
             const SizedBox(height: 4),
             const _DirectionArrow(up: false),
@@ -415,16 +437,18 @@ class InteriorCamionScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 12),
                   _ColorLegendRow(
-                      color: AppColors.purple, label: 'Palé (pendiente)'),
+                    color: AppColors.purple,
+                    label: 'Palé (pendiente)',
+                  ),
                   SizedBox(height: 8),
                   _ColorLegendRow(
-                      color: AppColors.orange, label: 'Paquete (pendiente)'),
+                    color: AppColors.orange,
+                    label: 'Paquete (pendiente)',
+                  ),
                   SizedBox(height: 8),
-                  _ColorLegendRow(
-                      color: AppColors.green, label: 'Entregado'),
+                  _ColorLegendRow(color: AppColors.green, label: 'Entregado'),
                   SizedBox(height: 8),
-                  _ColorLegendRow(
-                      color: AppColors.border, label: 'Vacío'),
+                  _ColorLegendRow(color: AppColors.border, label: 'Vacío'),
                 ],
               ),
             ),
@@ -465,11 +489,7 @@ class _GridCell extends StatelessWidget {
           : Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.grid_view,
-                  color: AppColors.purple,
-                  size: 28,
-                ),
+                Icon(Icons.grid_view, color: AppColors.purple, size: 28),
                 const SizedBox(height: 6),
                 Text(
                   item!.id,
@@ -482,10 +502,7 @@ class _GridCell extends StatelessWidget {
                 if (item!.vacio)
                   const Text(
                     'Entregado',
-                    style: TextStyle(
-                      color: AppColors.green,
-                      fontSize: 10,
-                    ),
+                    style: TextStyle(color: AppColors.green, fontSize: 10),
                   ),
               ],
             ),
@@ -531,10 +548,7 @@ class _ColorLegendRow extends StatelessWidget {
         const SizedBox(width: 10),
         Text(
           label,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14,
-          ),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
         ),
       ],
     );

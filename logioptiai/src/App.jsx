@@ -11,6 +11,7 @@ import { AlertasView } from './components/AlertasView'
 import { AnalyticsView } from './components/AnalyticsView'
 import { TruckViewer3D } from './components/TruckViewer3D'
 import { loadStaticBundle } from './services/api'
+import { DEMO_ROUTE_CODE, fetchDemoRouteState, supabaseDemoEnabled } from './services/supabaseDemo'
 import { buildAssistantContext, buildDashboardViewModel } from './data/logisticsViewModel'
 
 delete L.Icon.Default.prototype._getIconUrl
@@ -40,6 +41,37 @@ function makeTruckIcon(tipo) {
     html: `<img src="${cfg.url}" style="width: 100%; height: 100%; display: block; transition: transform 0.3s ease;" />`,
     iconSize: [cfg.w, cfg.h],
     iconAnchor: [cfg.w / 2, cfg.h]
+  })
+}
+
+const TRUCK_ICONS = {
+  '6P': makeTruckIcon('6P'),
+  '8P': makeTruckIcon('8P'),
+  FURGO: makeTruckIcon('FURGO'),
+}
+
+function supabaseStateSignature(state) {
+  if (!state?.route) return 'empty'
+  return JSON.stringify({
+    route: [state.route.route_code, state.route.status, state.route.updated_at],
+    stops: (state.stops || []).map(stop => [stop.stop_code, stop.status, stop.updated_at]),
+    deliveries: (state.deliveries || []).map(delivery => [
+      delivery.external_delivery_id,
+      delivery.status,
+      delivery.updated_at,
+    ]),
+    events: (state.events || []).map(event => [
+      event.id,
+      event.status,
+      event.severity,
+      event.title,
+      event.created_at,
+    ]),
+    recalculations: (state.recalculations || []).map(job => [
+      job.id,
+      job.status,
+      job.updated_at,
+    ]),
   })
 }
 
@@ -76,6 +108,7 @@ function MapInteractionWatcher({ followingTruckId, onCancel }) {
 function MovingTruck({ truck, icon, onClick, followingTruckId }) {
   const markerRef = useRef(null)
   const map = useMap()
+  const routeId = truck.ruta?.id || ''
   const currentPosRef = useRef(truck.pos ? L.latLng(truck.pos) : null)
 
   const isFollowed = followingTruckId === truck.ruta?.id
@@ -117,7 +150,8 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
       return false
     }
 
-    let currentSegment = Math.floor(Math.random() * (pathLatLngs.length - 1))
+    const routeSeed = Array.from(routeId).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+    let currentSegment = pathLatLngs.length > 1 ? routeSeed % (pathLatLngs.length - 1) : 0
     let currentPos = pathLatLngs[currentSegment]
     let lastTime = performance.now()
 
@@ -202,7 +236,9 @@ function MovingTruck({ truck, icon, onClick, followingTruckId }) {
     animationFrameId = requestAnimationFrame(animate)
 
     return () => cancelAnimationFrame(animationFrameId)
-  }, [truck, map])
+  // Polling updates route metadata, but the simulated animation must not restart.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeId, map])
 
   return (
     <Marker
@@ -248,14 +284,18 @@ export default function App() {
   const [lang, setLang]               = useState('es-ES')
   const [selectedRuta, setSelectedRuta] = useState(null)
   const [followingTruckId, setFollowingTruckId] = useState(null)
-  const icons = { '6P': makeTruckIcon('6P'), '8P': makeTruckIcon('8P'), 'FURGO': makeTruckIcon('FURGO') }
+  const [eventsExpanded, setEventsExpanded] = useState(false)
   const [bundle, setBundle]             = useState(null)
-  const viewModel = useMemo(() => buildDashboardViewModel(bundle), [bundle])
+  const [supabaseDemo, setSupabaseDemo] = useState(null)
+  const [supabaseError, setSupabaseError] = useState('')
+  const supabaseSignatureRef = useRef('')
+  const staticViewModel = useMemo(() => buildDashboardViewModel(bundle, null), [bundle])
+  const viewModel = useMemo(() => buildDashboardViewModel(bundle, supabaseDemo), [bundle, supabaseDemo])
   const assistantContext = useMemo(
     () => buildAssistantContext({ activeNav, lang, viewModel }),
     [activeNav, lang, viewModel]
   )
-  const mapData = viewModel.mapData
+  const mapData = staticViewModel.mapData
   const bundleOverview = bundle ? viewModel.overview : null
   const mapMode = activeNav === 0
   const recentEvents = viewModel.events || []
@@ -284,12 +324,45 @@ export default function App() {
       .catch(() => {})
   }, [])
 
+  useEffect(() => {
+    if (!supabaseDemoEnabled()) return undefined
+    let cancelled = false
+    const load = async () => {
+      try {
+        const state = await fetchDemoRouteState(DEMO_ROUTE_CODE)
+        if (!cancelled) {
+          const signature = supabaseStateSignature(state)
+          if (signature !== supabaseSignatureRef.current) {
+            supabaseSignatureRef.current = signature
+            setSupabaseDemo(state)
+          }
+          setSupabaseError(prev => (prev ? '' : prev))
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message = error.message || 'Supabase no disponible'
+          setSupabaseError(prev => (prev === message ? prev : message))
+        }
+      }
+    }
+    load()
+    const id = setInterval(load, 3500)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [])
+
   // Cancel follow when the user navigates away from the map
   useEffect(() => {
     if (activeNav === 0) return undefined
     const frame = requestAnimationFrame(() => setFollowingTruckId(null))
     return () => cancelAnimationFrame(frame)
   }, [activeNav])
+
+  const selectedRutaLive = selectedRuta?.id
+    ? viewModel.routes.find(route => route.id === selectedRuta.id) || selectedRuta
+    : null
 
   return (
     <div className="frame" style={{
@@ -454,6 +527,22 @@ export default function App() {
                 </button>
               </div>
             )}
+            {supabaseDemoEnabled() && (
+              <div style={{
+                position: 'absolute', top: followingTruckId ? 58 : 14, left: '50%', transform: 'translateX(-50%)',
+                zIndex: 1200,
+                background: supabaseError ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.13)',
+                border: `1px solid ${supabaseError ? 'rgba(239,68,68,0.45)' : 'rgba(34,197,94,0.35)'}`,
+                borderRadius: 18,
+                padding: '5px 12px',
+                fontSize: 11,
+                fontWeight: 700,
+                color: supabaseError ? '#fca5a5' : '#86efac',
+                pointerEvents: 'none',
+              }}>
+                {supabaseError ? `Supabase demo: ${supabaseError}` : `Supabase conectado · ${DEMO_ROUTE_CODE}`}
+              </div>
+            )}
 
             {/* Fleet card — top-left overlay */}
             <div className="fleet-card" style={GLASS}>
@@ -506,30 +595,41 @@ export default function App() {
               position: 'absolute', bottom: 18, left: 18, right: 314,
               zIndex: 1000, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14,
             }}>
-              <div className="card events-card" style={GLASS}>
-                <div className="events-title">Eventos recientes <span className="more">⋯</span></div>
-                {recentEvents.map((event, index) => (
-                  <div className="event" key={`${event.text}-${index}`}>
-                    <div className={`ev-icon ${eventClassByType[event.tipo] || 'b'}`}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                        {event.tipo === 'warn'
-                          ? <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>
-                          : <><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></>}
-                      </svg>
+              <div className={`card events-card recent-events-card${eventsExpanded ? ' expanded' : ''}`} style={GLASS}>
+                <div className="events-title">
+                  Eventos recientes
+                  <button
+                    className="events-toggle"
+                    type="button"
+                    onClick={() => setEventsExpanded(value => !value)}
+                  >
+                    {eventsExpanded ? 'Contraer' : 'Expandir'}
+                  </button>
+                </div>
+                <div className="events-list">
+                  {recentEvents.map((event, index) => (
+                    <div className="event" key={`${event.text}-${event.time}-${index}`}>
+                      <div className={`ev-icon ${eventClassByType[event.tipo] || 'b'}`}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                          {event.tipo === 'warn'
+                            ? <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>
+                            : <><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></>}
+                        </svg>
+                      </div>
+                      <div className="ev-name">{event.text}</div>
+                      <div className="ev-detail">{event.sub}</div>
+                      <div className="ev-time">{event.time}</div>
                     </div>
-                    <div className="ev-name">{event.text}</div>
-                    <div className="ev-detail">{event.sub}</div>
-                    <div className="ev-time">{event.time}</div>
-                  </div>
-                ))}
-                {recentEvents.length === 0 && (
-                  <div className="event">
-                    <div className="ev-icon b" />
-                    <div className="ev-name">Cargando eventos operativos</div>
-                    <div className="ev-detail">Esperando bundle</div>
-                    <div className="ev-time">Ahora</div>
-                  </div>
-                )}
+                  ))}
+                  {recentEvents.length === 0 && (
+                    <div className="event">
+                      <div className="ev-icon b" />
+                      <div className="ev-name">Cargando eventos operativos</div>
+                      <div className="ev-detail">Esperando bundle</div>
+                      <div className="ev-time">Ahora</div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="card events-card" style={GLASS}>
@@ -552,6 +652,7 @@ export default function App() {
               scrollWheelZoom={true}
               zoomControl={false}
               attributionControl={false}
+              preferCanvas={true}
               style={{ width: '100%', height: '100%' }}
             >
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -560,7 +661,7 @@ export default function App() {
                 <Polyline
                   key={i}
                   positions={route.positions}
-                  pathOptions={{ className: 'route-fade-in', color: route.color, weight: 3, opacity: 0.85, lineCap: 'round', lineJoin: 'round', noClip: true }}
+                  pathOptions={{ color: route.color, weight: 3, opacity: 0.85, lineCap: 'round', lineJoin: 'round', noClip: true }}
                 />
               ))}
 
@@ -575,9 +676,9 @@ export default function App() {
 
               {mapData.trucks.map((t, i) => (
                 <MovingTruck
-                  key={i}
+                  key={t.ruta?.id || i}
                   truck={t}
-                  icon={icons[t.ruta?.tipo] || icons['6P']}
+                  icon={TRUCK_ICONS[t.ruta?.tipo] || TRUCK_ICONS['6P']}
                   onClick={() => t.ruta && setSelectedRuta(t.ruta)}
                   followingTruckId={followingTruckId}
                 />
@@ -592,8 +693,8 @@ export default function App() {
         </section>
       </main>
 
-      {selectedRuta && (
-        <TruckViewer3D ruta={selectedRuta} onClose={() => setSelectedRuta(null)} />
+      {selectedRutaLive && (
+        <TruckViewer3D ruta={selectedRutaLive} onClose={() => setSelectedRuta(null)} />
       )}
     </div>
   )

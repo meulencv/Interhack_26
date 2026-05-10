@@ -64,14 +64,8 @@ class AppTheme {
           fontSize: 16,
           fontWeight: FontWeight.w500,
         ),
-        bodyMedium: TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 14,
-        ),
-        bodySmall: TextStyle(
-          color: AppColors.textMuted,
-          fontSize: 12,
-        ),
+        bodyMedium: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        bodySmall: TextStyle(color: AppColors.textMuted, fontSize: 12),
       ),
       dividerColor: AppColors.border,
     );

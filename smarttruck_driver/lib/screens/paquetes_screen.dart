@@ -126,8 +126,11 @@ class PaquetesScreen extends StatelessWidget {
                           color: AppColors.primaryYellow.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.local_shipping,
-                            color: AppColors.primaryYellow, size: 26),
+                        child: const Icon(
+                          Icons.local_shipping,
+                          color: AppColors.primaryYellow,
+                          size: 26,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       const Expanded(
@@ -177,85 +180,91 @@ class PaquetesScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              ...provider.pedidos.map((pedido) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: (pedido.entregado
-                                      ? AppColors.green
-                                      : AppColors.blue)
-                                  .withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              pedido.entregado
-                                  ? Icons.check_circle
-                                  : Icons.local_shipping,
+              ...provider.pedidos.map(
+                (pedido) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color:
+                                (pedido.entregado
+                                        ? AppColors.green
+                                        : AppColors.blue)
+                                    .withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            pedido.entregado
+                                ? Icons.check_circle
+                                : Icons.local_shipping,
+                            color: pedido.entregado
+                                ? AppColors.green
+                                : AppColors.blue,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                pedido.id,
+                                style: const TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                pedido.cliente,
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                (pedido.entregado
+                                        ? AppColors.green
+                                        : AppColors.blue)
+                                    .withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            pedido.entregado ? 'Entregado' : 'Pendiente',
+                            style: TextStyle(
                               color: pedido.entregado
                                   ? AppColors.green
                                   : AppColors.blue,
-                              size: 22,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  pedido.id,
-                                  style: const TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Text(
-                                  pedido.cliente,
-                                  style: const TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: (pedido.entregado
-                                      ? AppColors.green
-                                      : AppColors.blue)
-                                  .withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              pedido.entregado ? 'Entregado' : 'Pendiente',
-                              style: TextStyle(
-                                color: pedido.entregado
-                                    ? AppColors.green
-                                    : AppColors.blue,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  )),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -345,10 +354,7 @@ class _ResumenRow extends StatelessWidget {
               Container(
                 width: 10,
                 height: 10,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
               const SizedBox(width: 10),
               Text(

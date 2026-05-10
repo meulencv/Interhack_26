@@ -64,13 +64,20 @@ class _BuscarScreenState extends State<BuscarScreen> {
                 style: const TextStyle(color: AppColors.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'Buscar por ID o referencia',
-                  hintStyle:
-                      const TextStyle(color: AppColors.textMuted, fontSize: 15),
-                  prefixIcon: const Icon(Icons.search,
-                      color: AppColors.textMuted, size: 22),
+                  hintStyle: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 15,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: AppColors.textMuted,
+                    size: 22,
+                  ),
                   suffixIcon: IconButton(
-                    icon: const Icon(Icons.qr_code_scanner,
-                        color: AppColors.textMuted),
+                    icon: const Icon(
+                      Icons.qr_code_scanner,
+                      color: AppColors.textMuted,
+                    ),
                     onPressed: () {
                       // Simulate barcode scan with PAL-001
                       _controller.text = 'PAL-001';
@@ -79,7 +86,9 @@ class _BuscarScreenState extends State<BuscarScreen> {
                   ),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                 ),
                 onChanged: _search,
                 onSubmitted: (val) {
@@ -107,28 +116,28 @@ class _BuscarScreenState extends State<BuscarScreen> {
                   ),
                 ),
               )
-            else if (_searched)
-              ...[
-                const Text(
-                  'Resultados',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+            else if (_searched) ...[
+              const Text(
+                'Resultados',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ..._results.map(
+                (item) => _SuggestionTile(
+                  item: item,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ResultadoScreen(item: item),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 10),
-                ..._results.map((item) => _SuggestionTile(
-                      item: item,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ResultadoScreen(item: item),
-                        ),
-                      ),
-                    )),
-              ]
-            else ...[
+              ),
+            ] else ...[
               const Text(
                 'Sugerencias recientes',
                 style: TextStyle(
@@ -138,15 +147,17 @@ class _BuscarScreenState extends State<BuscarScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              ...provider.sugerenciasRecientes.map((item) => _SuggestionTile(
-                    item: item,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ResultadoScreen(item: item),
-                      ),
+              ...provider.sugerenciasRecientes.map(
+                (item) => _SuggestionTile(
+                  item: item,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ResultadoScreen(item: item),
                     ),
-                  )),
+                  ),
+                ),
+              ),
             ],
             const SizedBox(height: 24),
 
@@ -158,10 +169,7 @@ class _BuscarScreenState extends State<BuscarScreen> {
                   padding: EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
                     'o escanear código',
-                    style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                   ),
                 ),
                 Expanded(child: Divider(color: AppColors.border)),
@@ -216,8 +224,7 @@ class _SuggestionTile extends StatelessWidget {
                 ),
                 child: Icon(
                   item is Pale ? Icons.grid_view : Icons.local_shipping,
-                  color:
-                      item is Pale ? AppColors.purple : AppColors.orange,
+                  color: item is Pale ? AppColors.purple : AppColors.orange,
                   size: 20,
                 ),
               ),

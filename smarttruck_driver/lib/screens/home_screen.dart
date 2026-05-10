@@ -32,13 +32,17 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.green.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                          color: AppColors.green.withOpacity(0.4), width: 1),
+                        color: AppColors.green.withOpacity(0.4),
+                        width: 1,
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -83,7 +87,56 @@ class HomeScreen extends StatelessWidget {
                   fontSize: 16,
                 ),
               ),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: provider.refreshRemoteRoute,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: provider.supabaseEnabled
+                        ? AppColors.blue.withOpacity(0.12)
+                        : AppColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: provider.supabaseEnabled
+                          ? AppColors.blue.withOpacity(0.35)
+                          : AppColors.border,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        provider.supabaseEnabled ? Icons.sync : Icons.route,
+                        size: 16,
+                        color: provider.supabaseEnabled
+                            ? AppColors.blue
+                            : AppColors.textMuted,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        provider.loadingRemote
+                            ? 'Sincronizando ruta...'
+                            : provider.connectionLabel,
+                        style: TextStyle(
+                          color: provider.supabaseEnabled
+                              ? AppColors.blue
+                              : AppColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 28),
+
+              _RouteMapCard(provider: provider),
+              const SizedBox(height: 18),
 
               // Stat cards
               _StatCard(
@@ -157,8 +210,11 @@ class HomeScreen extends StatelessWidget {
                             color: AppColors.primaryYellow.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.local_shipping,
-                              color: AppColors.primaryYellow, size: 26),
+                          child: const Icon(
+                            Icons.local_shipping,
+                            color: AppColors.primaryYellow,
+                            size: 26,
+                          ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -194,8 +250,10 @@ class HomeScreen extends StatelessWidget {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const Icon(Icons.chevron_right,
-                                color: AppColors.textMuted),
+                            const Icon(
+                              Icons.chevron_right,
+                              color: AppColors.textMuted,
+                            ),
                           ],
                         ),
                       ],
@@ -208,6 +266,187 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _RouteMapCard extends StatelessWidget {
+  final AppProvider provider;
+
+  const _RouteMapCard({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final active = provider.paradaActiva;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.map_outlined, color: AppColors.blue, size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Mapa simulado del camión',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                provider.connectionLabel,
+                style: const TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 170,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _RouteMapPainter(provider.paradas),
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.background.withOpacity(0.78),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Text(
+                    active == null
+                        ? 'Ruta completada'
+                        : 'Ahora: parada ${active.num} · ${active.hora}',
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RouteMapPainter extends CustomPainter {
+  final List<dynamic> paradas;
+
+  _RouteMapPainter(this.paradas);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final points = _points(size);
+    if (points.isEmpty) return;
+
+    final gridPaint = Paint()
+      ..color = AppColors.border.withOpacity(0.35)
+      ..strokeWidth = 1;
+    for (var i = 1; i < 4; i++) {
+      final y = size.height * i / 4;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final point in points.skip(1)) {
+      path.lineTo(point.dx, point.dy);
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = AppColors.blue
+        ..strokeWidth = 4
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round,
+    );
+
+    for (var i = 0; i < points.length; i++) {
+      final parada = paradas[i];
+      final point = points[i];
+      final color = parada.completada
+          ? AppColors.green
+          : parada.activa
+          ? AppColors.primaryYellow
+          : AppColors.textMuted;
+      canvas.drawCircle(point, parada.activa ? 9 : 6, Paint()..color = color);
+      if (parada.activa) {
+        final truckRect = Rect.fromCenter(
+          center: point.translate(0, -24),
+          width: 32,
+          height: 18,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(truckRect, const Radius.circular(5)),
+          Paint()..color = AppColors.primaryYellow,
+        );
+        canvas.drawCircle(
+          truckRect.bottomLeft.translate(7, 1),
+          3,
+          Paint()..color = AppColors.background,
+        );
+        canvas.drawCircle(
+          truckRect.bottomRight.translate(-7, 1),
+          3,
+          Paint()..color = AppColors.background,
+        );
+      }
+    }
+  }
+
+  List<Offset> _points(Size size) {
+    if (paradas.isEmpty) return const [];
+    final coords = paradas
+        .map((p) => (lat: p.latitude as double?, lng: p.longitude as double?))
+        .toList();
+    final hasCoords = coords.every((p) => p.lat != null && p.lng != null);
+    if (!hasCoords) {
+      return List.generate(paradas.length, (index) {
+        final t = paradas.length == 1 ? 0.5 : index / (paradas.length - 1);
+        return Offset(
+          18 + t * (size.width - 36),
+          size.height * (0.65 - 0.28 * (index.isEven ? 1 : -0.2)),
+        );
+      });
+    }
+
+    final lats = coords.map((p) => p.lat!).toList();
+    final lngs = coords.map((p) => p.lng!).toList();
+    final minLat = lats.reduce((a, b) => a < b ? a : b);
+    final maxLat = lats.reduce((a, b) => a > b ? a : b);
+    final minLng = lngs.reduce((a, b) => a < b ? a : b);
+    final maxLng = lngs.reduce((a, b) => a > b ? a : b);
+    final latSpan = (maxLat - minLat).abs() < 0.0001 ? 0.0001 : maxLat - minLat;
+    final lngSpan = (maxLng - minLng).abs() < 0.0001 ? 0.0001 : maxLng - minLng;
+    return coords.map((p) {
+      final x = 18 + ((p.lng! - minLng) / lngSpan) * (size.width - 36);
+      final y = 18 + (1 - ((p.lat! - minLat) / latSpan)) * (size.height - 36);
+      return Offset(x, y);
+    }).toList();
+  }
+
+  @override
+  bool shouldRepaint(covariant _RouteMapPainter oldDelegate) {
+    return oldDelegate.paradas != paradas;
   }
 }
 
@@ -284,8 +523,11 @@ class _StatCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right,
-                color: AppColors.textMuted, size: 18),
+            const Icon(
+              Icons.chevron_right,
+              color: AppColors.textMuted,
+              size: 18,
+            ),
           ],
         ),
       ),

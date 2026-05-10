@@ -48,8 +48,11 @@ class ParadaScreen extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.location_pin,
-                            color: AppColors.primaryYellow, size: 40),
+                        Icon(
+                          Icons.location_pin,
+                          color: AppColors.primaryYellow,
+                          size: 40,
+                        ),
                         SizedBox(height: 4),
                         Text(
                           'Ubicación aproximada',
@@ -66,19 +69,25 @@ class ParadaScreen extends StatelessWidget {
                     left: 40,
                     top: 60,
                     child: Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                            color: AppColors.blue, shape: BoxShape.circle)),
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppColors.blue,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
                   ),
                   Positioned(
                     right: 60,
                     bottom: 50,
                     child: Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                            color: AppColors.blue, shape: BoxShape.circle)),
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppColors.blue,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -172,6 +181,22 @@ class ParadaScreen extends StatelessWidget {
                   _showArrivedDialog(context);
                 },
               ),
+            const SizedBox(height: 12),
+            if (!parada.completada)
+              AppWidgets.outlinedButton(
+                label: 'REPORTAR INCIDENCIA',
+                icon: Icons.warning_amber_rounded,
+                onTap: () {
+                  context.read<AppProvider>().notificarIncidencia(
+                    'Incidencia en ${parada.nombre}. Recalcular ruta evitando esta zona.',
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Incidencia enviada al controlador'),
+                    ),
+                  );
+                },
+              ),
 
             if (parada.completada)
               Container(
@@ -181,14 +206,19 @@ class ParadaScreen extends StatelessWidget {
                   color: AppColors.green.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                      color: AppColors.green.withOpacity(0.4), width: 1.5),
+                    color: AppColors.green.withOpacity(0.4),
+                    width: 1.5,
+                  ),
                 ),
                 child: const Center(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.check_circle,
-                          color: AppColors.green, size: 22),
+                      Icon(
+                        Icons.check_circle,
+                        color: AppColors.green,
+                        size: 22,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'LLEGADA CONFIRMADA',
@@ -244,8 +274,10 @@ class ParadaScreen extends StatelessWidget {
               Navigator.pop(context);
               Navigator.pop(context);
             },
-            child: const Text('OK',
-                style: TextStyle(color: AppColors.primaryYellow)),
+            child: const Text(
+              'OK',
+              style: TextStyle(color: AppColors.primaryYellow),
+            ),
           ),
         ],
       ),

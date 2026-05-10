@@ -118,7 +118,10 @@ function routeTownLine(stops) {
   return origin === destination ? origin : `${origin} -> ${destination}`
 }
 
-function routeStatus(route) {
+function routeStatus(route, connectedState) {
+  if (connectedState?.route?.status === 'completed') return 'completada'
+  if (connectedState?.route?.status === 'recalculating') return 'alerta'
+  if ((connectedState?.recalculations || []).some(job => ['queued', 'running'].includes(job.status))) return 'alerta'
   const explicit = route?.estado || route?.status
   if (explicit && STATUS_LABEL[explicit]) return explicit
   return 'en-ruta'
@@ -155,6 +158,7 @@ function isCapacityOnlyAlert(text) {
 }
 
 function normalizeCargoItem(item = {}) {
+  const status = String(item.status || '').trim() || 'pending'
   return {
     materialId: String(item.material_id || item.materialId || '').trim(),
     description: compactName(item.material_description || item.description, 'Referencia sin descripcion'),
@@ -171,7 +175,44 @@ function normalizeCargoItem(item = {}) {
     stackClass: String(item.stack_class || item.stackClass || 'mixed'),
     returnable: Boolean(item.returnable),
     warehouseLocation: String(item.warehouse_location || item.warehouseLocation || '').trim(),
+    status,
+    delivered: status === 'delivered',
   }
+}
+
+function deliveryStatusMap(connectedState) {
+  return new Map(
+    (connectedState?.deliveries || [])
+      .filter(delivery => delivery?.external_delivery_id)
+      .map(delivery => [String(delivery.external_delivery_id), String(delivery.status || 'pending')])
+  )
+}
+
+function applyDeliveryStatusToItem(item, statusByDeliveryId) {
+  const status = statusByDeliveryId.get(String(item.deliveryId)) || item.status || 'pending'
+  return {
+    ...item,
+    status,
+    delivered: status === 'delivered',
+  }
+}
+
+function applyCargoDeliveryStatus(cargoBoxes, connectedState) {
+  const statusByDeliveryId = deliveryStatusMap(connectedState)
+  return cargoBoxes.map(box => {
+    const items = box.items.map(item => applyDeliveryStatusToItem(item, statusByDeliveryId))
+    const deliveredItems = items.filter(item => item.delivered)
+    const pendingItems = items.filter(item => !item.delivered)
+    return {
+      ...box,
+      items,
+      topItems: items.slice(0, 5),
+      deliveredItems: deliveredItems.length,
+      pendingItems: pendingItems.length,
+      deliveredZce: round(deliveredItems.reduce((sum, item) => sum + item.statisticalBoxes, 0), 3),
+      pendingZce: round(pendingItems.reduce((sum, item) => sum + item.statisticalBoxes, 0), 3),
+    }
+  })
 }
 
 function fallbackCargoBoxes(route) {
@@ -238,14 +279,20 @@ function normalizeCargoBoxes(route) {
   })
 }
 
-function buildDeliveryRows(route, cargoBoxes) {
+function buildDeliveryRows(route, cargoBoxes, connectedState) {
+  const statusByDeliveryId = deliveryStatusMap(connectedState)
+  const connectedDeliveries = new Map(
+    (connectedState?.deliveries || []).map(delivery => [String(delivery.external_delivery_id), delivery])
+  )
   return (route?.stops || []).map((stop, index) => {
     const items = (stop.delivery_lines || []).map(line => normalizeCargoItem({
       ...line,
       stop_id: stop.stop_id,
       stop_index: index + 1,
       client_name: stop.client_names?.[0] || line.client_name,
-    }))
+    })).map(item => applyDeliveryStatusToItem(item, statusByDeliveryId))
+    const deliveryIds = Array.from(new Set(items.map(item => item.deliveryId).filter(Boolean)))
+    const delivered = deliveryIds.length > 0 && deliveryIds.every(id => connectedDeliveries.get(String(id))?.status === 'delivered')
     const boxIds = cargoBoxes
       .filter(box => box.stopIds.includes(stop.stop_id) || box.items.some(item => item.stopId === stop.stop_id))
       .map(box => box.boxId)
@@ -254,7 +301,8 @@ function buildDeliveryRows(route, cargoBoxes) {
       stopIndex: index + 1,
       clientName: compactName(stop.client_names?.[0], 'Cliente sin nombre'),
       town: compactName(stop.town, ''),
-      deliveryIds: Array.from(new Set(items.map(item => item.deliveryId).filter(Boolean))),
+      deliveryIds,
+      status: delivered ? 'delivered' : 'pending',
       totalQuantity: round(items.reduce((sum, item) => sum + item.quantity, 0), 3),
       totalPalletEquivalent: round(items.reduce((sum, item) => sum + item.palletEquivalent, 0), 4),
       totalZce: round(items.reduce((sum, item) => sum + item.statisticalBoxes, 0), 3),
@@ -272,6 +320,8 @@ function buildDeliveryRows(route, cargoBoxes) {
 
 function buildCargoSummary(cargoBoxes, deliveries) {
   const items = cargoBoxes.flatMap(box => box.items)
+  const deliveredItems = items.filter(item => item.delivered)
+  const pendingItems = items.filter(item => !item.delivered)
   const references = new Set(items.map(item => `${item.materialId}:${item.description}`))
   return {
     boxes: cargoBoxes.length,
@@ -279,6 +329,10 @@ function buildCargoSummary(cargoBoxes, deliveries) {
     items: items.length,
     references: references.size,
     deliveries: deliveries.length,
+    deliveredItems: deliveredItems.length,
+    pendingItems: pendingItems.length,
+    deliveredZce: round(deliveredItems.reduce((sum, item) => sum + item.statisticalBoxes, 0), 3),
+    pendingZce: round(pendingItems.reduce((sum, item) => sum + item.statisticalBoxes, 0), 3),
     palletEquivalent: round(cargoBoxes.reduce((sum, box) => sum + box.totalPalletEquivalent, 0), 3),
     zce: round(cargoBoxes.reduce((sum, box) => sum + box.totalZce, 0), 3),
     volumeM3: round(cargoBoxes.reduce((sum, box) => sum + box.totalVolumeM3, 0), 3),
@@ -289,8 +343,8 @@ function buildCargoSummary(cargoBoxes, deliveries) {
 function buildRouteRow(route, index) {
   const validStops = (route?.stops || []).filter(isValidStop)
   const vehicle = routeVehicle(route)
-  const cargoBoxes = normalizeCargoBoxes(route)
-  const deliveries = buildDeliveryRows(route, cargoBoxes)
+  const cargoBoxes = applyCargoDeliveryStatus(normalizeCargoBoxes(route), route?.connectedState)
+  const deliveries = buildDeliveryRows(route, cargoBoxes, route?.connectedState)
   const cargoSummary = buildCargoSummary(cargoBoxes, deliveries)
   const originalStopCount = deliveries.reduce((sum, delivery) => sum + Math.max(1, delivery.groupedStopCount), 0)
   const parkingStopsSaved = Math.max(0, originalStopCount - validStops.length)
@@ -351,7 +405,7 @@ function buildRouteRow(route, index) {
 
   return {
     ...row,
-    estado: routeStatus(route),
+    estado: routeStatus(route, route?.connectedState),
     riskLevel: routeRiskLevel(row),
     eficiencia: Math.max(0, loadPct),
     carga: `${zce} ZCE`,
@@ -474,6 +528,23 @@ function severityForAlert(row, text) {
 
 function buildAlerts(routes, bundle) {
   const alerts = []
+  ;(bundle?.supabaseDemo?.events || []).filter(event => event.status !== 'resolved').forEach(event => {
+    const row = routes.find(route => route.rawRoute?.connectedState?.route?.id === event.route_id)
+      || routes.find(route => route.id === bundle?.supabaseDemo?.route?.route_code)
+    alerts.push({
+      id: `SB-${String(event.id).slice(0, 8)}`,
+      tipo: event.event_type === 'delivery_delay' ? 'ventana' : event.event_type === 'vehicle_issue' ? 'vehiculo' : 'ruta',
+      severidad: event.severity === 'critical' ? 'critica' : event.severity === 'high' ? 'critica' : event.severity === 'medium' ? 'media' : 'baja',
+      titulo: event.title,
+      desc: `${row?.id || 'Ruta demo'} · ${event.description || event.title}`,
+      ruta: row?.id || bundle?.supabaseDemo?.route?.route_code || 'Demo',
+      conductor: row?.conductor || 'App camionero',
+      zona: row?.zona || 'Supabase',
+      hora: new Date(event.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+      activa: true,
+    })
+  })
+
   routes.forEach(row => {
     const routeAlerts = row.alerts.length
       ? row.alerts
@@ -520,6 +591,15 @@ function buildAlerts(routes, bundle) {
 
 function buildOperationalEvents(routes, overview) {
   const events = []
+  const supabaseEvents = overview.supabaseEvents || []
+  supabaseEvents.slice(0, 4).forEach(event => {
+    events.push({
+      tipo: event.severity === 'high' || event.severity === 'critical' ? 'warn' : 'info',
+      text: event.title,
+      sub: event.description || 'Evento enviado desde la app del camionero',
+      time: new Date(event.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+    })
+  })
   const savedStops = Number(overview.parking_stops_saved || 0)
   const groupedCount = Number(overview.grouped_stop_count || 0)
   if (savedStops > 0) {
@@ -676,12 +756,42 @@ function collectGlobalReferences(routes, limit = 12) {
     }))
 }
 
-export function buildDashboardViewModel(bundle) {
-  const rawOverview = { ...FALLBACK_OVERVIEW, ...(bundle?.overview || {}) }
-  const routes = (bundle?.routes || []).slice(0, 18).map(buildRouteRow)
-  const alerts = buildAlerts(routes, bundle)
+function applySupabaseDemoState(bundle, supabaseDemo) {
+  if (!bundle || !supabaseDemo?.route?.route_code) return bundle
+  const routeCode = supabaseDemo.route.route_code
+  return {
+    ...bundle,
+    supabaseDemo,
+    routes: (bundle.routes || []).map(route => {
+      if (route.route_code !== routeCode) return route
+      const stopStatusByCode = new Map((supabaseDemo.stops || []).map(stop => [stop.stop_code, stop.status]))
+      const stopStatusByIndex = new Map((supabaseDemo.stops || []).map(stop => [Number(stop.stop_index), stop.status]))
+      const deliveryStatusById = new Map((supabaseDemo.deliveries || []).map(delivery => [String(delivery.external_delivery_id), delivery.status]))
+      return {
+        ...route,
+        status: supabaseDemo.route.status,
+        connectedState: supabaseDemo,
+        stops: (route.stops || []).map((stop, index) => ({
+          ...stop,
+          status: stopStatusByCode.get(stop.stop_id) || stopStatusByIndex.get(index + 1) || stop.status,
+          delivery_lines: (stop.delivery_lines || []).map(line => ({
+            ...line,
+            status: deliveryStatusById.get(String(line.delivery_id)) || line.status,
+          })),
+        })),
+      }
+    }),
+  }
+}
+
+export function buildDashboardViewModel(bundle, supabaseDemo = null) {
+  const effectiveBundle = applySupabaseDemoState(bundle, supabaseDemo)
+  const rawOverview = { ...FALLBACK_OVERVIEW, ...(effectiveBundle?.overview || {}) }
+  const routes = (effectiveBundle?.routes || []).slice(0, 18).map(buildRouteRow)
+  const alerts = buildAlerts(routes, effectiveBundle)
   const overview = {
     ...rawOverview,
+    supabaseEvents: effectiveBundle?.supabaseDemo?.events || [],
     routes: routes.length,
     vehicle_count: routes.length,
     alerts: alerts.length,
@@ -689,15 +799,15 @@ export function buildDashboardViewModel(bundle) {
   const analytics = buildAnalytics(routes, overview)
   return {
     overview,
-    selectedDate: bundle?.selected_date || null,
+    selectedDate: effectiveBundle?.selected_date || null,
     routes,
     mapData: buildMapData(routes),
     fleetVehicles: buildFleetVehicles(routes),
     alerts,
     analytics,
     events: analytics.events,
-    assumptions: bundle?.assumptions || [],
-    tradeoffs: bundle?.tradeoffs || [],
+    assumptions: effectiveBundle?.assumptions || [],
+    tradeoffs: effectiveBundle?.tradeoffs || [],
     references: collectGlobalReferences(routes),
   }
 }

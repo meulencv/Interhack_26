@@ -37,7 +37,9 @@ class _DetalleScreenState extends State<DetalleScreen> {
 
     String destino;
     try {
-      destino = provider.paradas.firstWhere((p) => p.num == pedido.paradaNum).nombre;
+      destino = provider.paradas
+          .firstWhere((p) => p.num == pedido.paradaNum)
+          .nombre;
     } catch (_) {
       destino = 'Desconocido';
     }
@@ -101,15 +103,22 @@ class _DetalleScreenState extends State<DetalleScreen> {
                   ),
                   const SizedBox(height: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      color: (pedido.entregado ? AppColors.green : AppColors.blue).withOpacity(0.15),
+                      color:
+                          (pedido.entregado ? AppColors.green : AppColors.blue)
+                              .withOpacity(0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       pedido.entregado ? 'Entregado' : 'Pendiente',
                       style: TextStyle(
-                        color: pedido.entregado ? AppColors.green : AppColors.blue,
+                        color: pedido.entregado
+                            ? AppColors.green
+                            : AppColors.blue,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -130,7 +139,11 @@ class _DetalleScreenState extends State<DetalleScreen> {
               child: Column(
                 children: [
                   _InfoRow(label: 'Destino', value: destino, isFirst: true),
-                  _InfoRow(label: 'Referencia', value: pedido.referencia, isLast: true),
+                  _InfoRow(
+                    label: 'Referencia',
+                    value: pedido.referencia,
+                    isLast: true,
+                  ),
                 ],
               ),
             ),
@@ -146,49 +159,65 @@ class _DetalleScreenState extends State<DetalleScreen> {
             ),
             const SizedBox(height: 12),
 
-            ...pedido.productos.map((prod) => Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.purple.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.grid_view, color: AppColors.purple),
+            ...pedido.productos.map(
+              (prod) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.purple.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              prod.descripcion,
-                              style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+                      child: const Icon(
+                        Icons.grid_view,
+                        color: AppColors.purple,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            prod.descripcion,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Tomar de: ${prod.paleId}',
-                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Tomar de: ${prod.paleId}',
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        'x${prod.cantidad}',
-                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'x${prod.cantidad}',
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
-                  ),
-                )),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 28),
 
             // Action button
@@ -207,17 +236,28 @@ class _DetalleScreenState extends State<DetalleScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.green.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.green.withOpacity(0.4), width: 1.5),
+                  border: Border.all(
+                    color: AppColors.green.withOpacity(0.4),
+                    width: 1.5,
+                  ),
                 ),
                 child: const Center(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.check_circle, color: AppColors.green, size: 22),
+                      Icon(
+                        Icons.check_circle,
+                        color: AppColors.green,
+                        size: 22,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'YA ENTREGADO',
-                        style: TextStyle(color: AppColors.green, fontSize: 15, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: AppColors.green,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -244,7 +284,10 @@ class _DetalleScreenState extends State<DetalleScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.green.withOpacity(0.15),
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.green.withOpacity(0.4), width: 2),
+                  border: Border.all(
+                    color: AppColors.green.withOpacity(0.4),
+                    width: 2,
+                  ),
                 ),
                 child: const Icon(
                   Icons.check_circle,
@@ -273,10 +316,7 @@ class _DetalleScreenState extends State<DetalleScreen> {
               const SizedBox(height: 6),
               const Text(
                 'El pedido y sus elementos se han descontado del palé.',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 15,
-                ),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 48),
@@ -309,22 +349,42 @@ class _InfoRow extends StatelessWidget {
   final bool isFirst;
   final bool isLast;
 
-  const _InfoRow({required this.label, required this.value, this.isFirst = false, this.isLast = false});
+  const _InfoRow({
+    required this.label,
+    required this.value,
+    this.isFirst = false,
+    this.isLast = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          bottom: isLast ? BorderSide.none : const BorderSide(color: AppColors.border, width: 0.5),
+          bottom: isLast
+              ? BorderSide.none
+              : const BorderSide(color: AppColors.border, width: 0.5),
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 15)),
-          Text(value, style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500)),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 15,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );

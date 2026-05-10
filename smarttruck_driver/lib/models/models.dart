@@ -27,7 +27,11 @@ class Pale {
 
   String get ubicacionLabel {
     if (fila == null || columna == null) return 'Sin ubicación asignada';
-    final filaStr = fila == 0 ? 'delantera' : fila == 1 ? 'central' : 'trasera';
+    final filaStr = fila == 0
+        ? 'delantera'
+        : fila == 1
+        ? 'central'
+        : 'trasera';
     final colStr = columna == 0 ? 'Izquierda' : 'Derecha';
     final nivel = fila! + 1;
     return 'Zona $filaStr - $colStr / Nivel $nivel';
@@ -38,11 +42,19 @@ class ProductoPedido {
   final String paleId;
   final String descripcion;
   final int cantidad;
-  ProductoPedido({required this.paleId, required this.descripcion, required this.cantidad});
+  final String? remoteId;
+  ProductoPedido({
+    required this.paleId,
+    required this.descripcion,
+    required this.cantidad,
+    this.remoteId,
+  });
 }
 
 class Pedido {
   final String id;
+  final String? remoteId;
+  final String? remoteStopId;
   final int paradaNum;
   EstadoItem estado;
   final List<ProductoPedido> productos;
@@ -51,6 +63,8 @@ class Pedido {
 
   Pedido({
     required this.id,
+    this.remoteId,
+    this.remoteStopId,
     required this.paradaNum,
     required this.estado,
     required this.productos,
@@ -63,18 +77,24 @@ class Pedido {
 
 class Parada {
   final int num;
+  final String? remoteId;
   final String nombre;
   final String direccion;
   final String hora;
   final int accesibilidad;
+  final double? latitude;
+  final double? longitude;
   EstadoParada estado;
 
   Parada({
     required this.num,
+    this.remoteId,
     required this.nombre,
     required this.direccion,
     required this.hora,
     required this.accesibilidad,
+    this.latitude,
+    this.longitude,
     required this.estado,
   });
 
