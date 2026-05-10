@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../providers/app_provider.dart';
 import 'buscar_screen.dart';
 import 'camion_screen.dart';
+import 'pallet_construction_screen.dart';
 
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
@@ -59,6 +60,16 @@ class MenuScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => const InteriorCamionScreen(),
+                      ),
+                    ),
+                  ),
+                  _MenuItem(
+                    icon: Icons.layers,
+                    label: 'Construcción del palet',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PalletConstructionScreen(),
                       ),
                     ),
                   ),
