@@ -26,13 +26,13 @@ const CENTER = [41.5412, 2.2137]
 
 const DEMO_INCIDENTS = [
   {
-    id: 'pinchazo-dr0023',
+    id: 'local-cerrado-dr0023',
     atMs: 10000,
     routeIndex: 1,
     routeOffset: 0.42,
     type: 'warn',
-    title: 'Pinchazo detectado',
-    detail: 'DR0023 queda asistido y el sistema reequilibra entregas cercanas.',
+    title: 'Local cerrado por obras',
+    detail: 'El punto de entrega en Carrer Major está inaccesible. Se reprograma la parada al siguiente turno.',
   },
   {
     id: 'calle-cortada-mollet',
@@ -543,13 +543,13 @@ export default function App() {
   const [incidentStep, setIncidentStep] = useState(0)
   const [isRecalculatingRoutes, setIsRecalculatingRoutes] = useState(false)
   const supabaseSignatureRef = useRef('')
+  const activeIncidents = useMemo(() => DEMO_INCIDENTS.slice(0, incidentStep), [incidentStep])
   const staticViewModel = useMemo(() => buildDashboardViewModel(bundle, null), [bundle])
-  const viewModel = useMemo(() => buildDashboardViewModel(bundle, supabaseDemo), [bundle, supabaseDemo])
+  const viewModel = useMemo(() => buildDashboardViewModel(bundle, supabaseDemo, activeIncidents), [bundle, supabaseDemo, activeIncidents])
   const assistantContext = useMemo(
     () => buildAssistantContext({ activeNav, lang, viewModel }),
     [activeNav, lang, viewModel]
   )
-  const activeIncidents = useMemo(() => DEMO_INCIDENTS.slice(0, incidentStep), [incidentStep])
   const mapData = useMemo(
     () => buildIncidentMapData(staticViewModel.mapData, activeIncidents),
     [staticViewModel.mapData, activeIncidents]

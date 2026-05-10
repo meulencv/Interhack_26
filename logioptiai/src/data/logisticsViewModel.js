@@ -526,8 +526,26 @@ function severityForAlert(row, text) {
   return 'baja'
 }
 
-function buildAlerts(routes, bundle) {
+function buildAlerts(routes, bundle, activeIncidents = []) {
   const alerts = []
+
+  activeIncidents.forEach(incident => {
+    const routeIndex = incident.routeIndex % Math.max(1, routes.length)
+    const row = routes[routeIndex]
+    alerts.push({
+      id: incident.id,
+      tipo: 'ruta',
+      severidad: incident.type === 'warn' ? 'media' : 'baja',
+      titulo: incident.title,
+      desc: incident.detail,
+      ruta: row?.id || 'Global',
+      conductor: row?.conductor || 'Sistema',
+      zona: row?.zona || 'General',
+      hora: 'Ahora',
+      activa: true,
+    })
+  })
+
   ;(bundle?.supabaseDemo?.events || []).filter(event => event.status !== 'resolved').forEach(event => {
     const row = routes.find(route => route.rawRoute?.connectedState?.route?.id === event.route_id)
       || routes.find(route => route.id === bundle?.supabaseDemo?.route?.route_code)
@@ -786,11 +804,11 @@ function applySupabaseDemoState(bundle, supabaseDemo) {
   }
 }
 
-export function buildDashboardViewModel(bundle, supabaseDemo = null) {
+export function buildDashboardViewModel(bundle, supabaseDemo = null, activeIncidents = []) {
   const effectiveBundle = applySupabaseDemoState(bundle, supabaseDemo)
   const rawOverview = { ...FALLBACK_OVERVIEW, ...(effectiveBundle?.overview || {}) }
   const routes = (effectiveBundle?.routes || []).slice(0, 18).map(buildRouteRow)
-  const alerts = buildAlerts(routes, effectiveBundle)
+  const alerts = buildAlerts(routes, effectiveBundle, activeIncidents)
   const overview = {
     ...rawOverview,
     supabaseEvents: effectiveBundle?.supabaseDemo?.events || [],

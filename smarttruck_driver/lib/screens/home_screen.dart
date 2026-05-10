@@ -285,11 +285,11 @@ class _RouteMapCard extends StatefulWidget {
 class _RouteMapCardState extends State<_RouteMapCard> {
   final MapController _mapController = MapController();
   Timer? _timer;
-  int _pathIndex = 0;
+  double _pathIndex = 0.0;
   bool _flipTruck = false;
 
-  static const _tickMs = 80;
-  static const _stepSize = 2; // path points per tick
+  static const _tickMs = 33; // ~30 fps for smooth movement
+  static const double _stepSize = 0.002; // Very slow, real-time speed
 
   @override
   void initState() {
@@ -299,17 +299,26 @@ class _RouteMapCardState extends State<_RouteMapCard> {
 
   void _tick(Timer _) {
     if (!mounted) return;
-    final next = (_pathIndex + _stepSize) % kDemoRoutePath.length;
-    final curr = kDemoRoutePath[_pathIndex];
-    final nextPt = kDemoRoutePath[next];
-    final flip = nextPt.longitude < curr.longitude;
+    
+    final nextIndex = (_pathIndex + _stepSize) % kDemoRoutePath.length;
+    
+    final currFloor = _pathIndex.floor() % kDemoRoutePath.length;
+    final nextFloor = nextIndex.floor() % kDemoRoutePath.length;
+
+    bool flip = _flipTruck;
+    if (currFloor != nextFloor) {
+      final currPt = kDemoRoutePath[currFloor];
+      final nextPt = kDemoRoutePath[nextFloor];
+      flip = nextPt.longitude < currPt.longitude;
+    }
+
     setState(() {
-      _pathIndex = next;
+      _pathIndex = nextIndex;
       _flipTruck = flip;
     });
     // Keep map centered on truck
     try {
-      _mapController.move(kDemoRoutePath[_pathIndex], _mapController.camera.zoom);
+      _mapController.move(_truckPos, _mapController.camera.zoom);
     } catch (_) {}
   }
 
@@ -319,7 +328,19 @@ class _RouteMapCardState extends State<_RouteMapCard> {
     super.dispose();
   }
 
-  LatLng get _truckPos => kDemoRoutePath[_pathIndex];
+  LatLng get _truckPos {
+    int curr = _pathIndex.floor() % kDemoRoutePath.length;
+    int next = (curr + 1) % kDemoRoutePath.length;
+    double t = _pathIndex - _pathIndex.floor();
+    
+    final p1 = kDemoRoutePath[curr];
+    final p2 = kDemoRoutePath[next];
+    
+    return LatLng(
+      p1.latitude + (p2.latitude - p1.latitude) * t,
+      p1.longitude + (p2.longitude - p1.longitude) * t,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -369,7 +390,7 @@ class _RouteMapCardState extends State<_RouteMapCard> {
                     mapController: _mapController,
                     options: MapOptions(
                       initialCenter: kDemoCenter,
-                      initialZoom: 13.5,
+                      initialZoom: 16.5,
                       interactionOptions: const InteractionOptions(
                         flags: InteractiveFlag.none,
                       ),
